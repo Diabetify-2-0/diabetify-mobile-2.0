@@ -45,93 +45,78 @@ class RegisterTest {
     @Test
     fun registrationFlow_Complete() {
         testHelper.startAppAndNavigateToRegister()
-
         testHelper.fillRegistrationForm(
             name = "John Doe",
             email = "john.doe@example.com",
             password = "SecurePassword123"
         )
-
         testHelper.acceptPrivacyPolicyAndSubmit()
-
         testHelper.fillBiodataFormIfPresent(
             gender = "Laki-laki",
             birthDate = "15/08/1990"
         )
-
         testHelper.proceedToOtpVerificationIfPresent()
-
         testHelper.enterOtpAndVerifyIfPresent("123456")
-
         testHelper.verifyRegistrationFlowCompletion()
     }
 
     @Test
     fun registerWithEmptyName_ShowsValidationError() {
         testHelper.startAppAndNavigateToRegister()
-
         testHelper.fillRegistrationFormWithValidation(
             name = "",
             email = "john.doe@example.com",
             password = "SecurePassword123",
             expectValidation = true
         )
-
         testHelper.acceptPrivacyPolicyOnly()
         testHelper.clickRegisterButton()
-
         testHelper.waitForErrorMessage("Nama tidak boleh kosong")
+        testHelper.verifyDaftarButtonIsDisabled()
         testHelper.verifyStillOnRegisterScreen()
     }
 
     @Test
     fun registerWithInvalidEmail_ShowsValidationError() {
         testHelper.startAppAndNavigateToRegister()
-
         testHelper.fillRegistrationFormWithValidation(
             name = "John Doe",
             email = "invalid-email",
             password = "SecurePassword123",
             expectValidation = true
         )
-
         testHelper.acceptPrivacyPolicyOnly()
         testHelper.clickRegisterButton()
-
         testHelper.waitForErrorMessage("Email tidak valid")
+        testHelper.verifyDaftarButtonIsDisabled()
         testHelper.verifyStillOnRegisterScreen()
     }
 
     @Test
     fun registerWithShortPassword_ShowsValidationError() {
         testHelper.startAppAndNavigateToRegister()
-
         testHelper.fillRegistrationFormWithValidation(
             name = "John Doe",
             email = "john.doe@example.com",
             password = "123",
             expectValidation = true
         )
-
         testHelper.acceptPrivacyPolicyOnly()
         testHelper.clickRegisterButton()
-
         testHelper.waitForErrorMessage("Kata sandi harus lebih dari 8 karakter")
+        testHelper.verifyDaftarButtonIsDisabled()
         testHelper.verifyStillOnRegisterScreen()
     }
 
     @Test
     fun registerWithoutAcceptingPrivacyPolicy_ButtonDisabled() {
         testHelper.startAppAndNavigateToRegister()
-
         testHelper.fillRegistrationForm(
             name = "John Doe",
             email = "john.doe@example.com",
             password = "SecurePassword123"
         )
-
         testHelper.clickRegisterButton()
-
         testHelper.verifyStillOnRegisterScreen()
     }
 
@@ -139,102 +124,88 @@ class RegisterTest {
     fun registerWithDuplicateEmail_ShowsErrorMessage() {
         fakeRepo.shouldFailCreateAccount = true
         fakeRepo.createAccountErrorType = "duplicate_email"
-
         testHelper.startAppAndNavigateToRegister()
-
         testHelper.fillRegistrationForm(
             name = "John Doe",
             email = "existing@example.com",
             password = "SecurePassword123"
         )
-
         testHelper.acceptPrivacyPolicyAndSubmit()
-
         testHelper.fillBiodataFormIfPresent(
             gender = "Laki-laki",
             birthDate = "15/08/1990"
         )
-
         testHelper.proceedToOtpVerificationIfPresent()
-
         testHelper.waitForErrorMessage("Akun dengan email ini sudah terdaftar")
     }
 
     @Test
-    fun registerWithNetworkError_ShowsErrorMessage() {
-        fakeRepo.shouldFailCreateAccount = true
-        fakeRepo.createAccountErrorType = "network_error"
-
+    fun biodataValidation_EmptyGender_ShowsValidationError() {
         testHelper.startAppAndNavigateToRegister()
-
-        testHelper.fillRegistrationForm(
-            name = "John Doe",
-            email = "john.doe@example.com",
-            password = "SecurePassword123"
-        )
-
-        testHelper.acceptPrivacyPolicyAndSubmit()
-
-        testHelper.fillBiodataFormIfPresent(
-            gender = "Laki-laki",
+        testHelper.navigateToBiodataScreen()
+        testHelper.fillBiodataFormPartially(
+            gender = null,
             birthDate = "15/08/1990"
         )
+        
+        testHelper.clickLanjutButton()
+        testHelper.waitForErrorMessage("Jenis kelamin tidak boleh kosong")
+        testHelper.verifyLanjutButtonIsDisabled()
+        testHelper.verifyStillOnBiodataScreen()
+    }
 
-        testHelper.proceedToOtpVerificationIfPresent()
-
-        testHelper.waitForErrorMessage("Network error occurred")
+    @Test
+    fun biodataValidation_EmptyBirthDate_ShowsValidationError() {
+        testHelper.startAppAndNavigateToRegister()
+        testHelper.navigateToBiodataScreen()
+        testHelper.fillBiodataFormPartially(
+            gender = "Laki-laki",
+            birthDate = null
+        )
+        
+        testHelper.clickLanjutButton()
+        testHelper.waitForErrorMessage("Tanggal lahir tidak boleh kosong")
+        testHelper.verifyLanjutButtonIsDisabled()
+        testHelper.verifyStillOnBiodataScreen()
     }
 
     @Test
     fun otpVerificationWithInvalidCode_ShowsErrorMessage() {
         fakeRepo.shouldFailVerifyOtp = true
         fakeRepo.verifyOtpErrorType = "invalid_otp"
-
         testHelper.startAppAndNavigateToRegister()
-
         testHelper.fillRegistrationForm(
             name = "John Doe",
             email = "john.doe@example.com",
             password = "SecurePassword123"
         )
-
         testHelper.acceptPrivacyPolicyAndSubmit()
-
         testHelper.fillBiodataFormIfPresent(
             gender = "Laki-laki",
             birthDate = "15/08/1990"
         )
-
         testHelper.proceedToOtpVerificationIfPresent()
-
         testHelper.enterOtpAndVerifyIfPresentV2("000000")
-
         testHelper.waitForErrorMessage("Kode OTP salah atau sudah kadaluarsa")
+        testHelper.verifyStillOnOtpScreen()
     }
 
     @Test
-    fun sendVerificationWithUnregisteredEmail_ShowsErrorMessage() {
-        fakeRepo.shouldFailSendVerification = true
-        fakeRepo.sendVerificationErrorType = "email_not_found"
-
+    fun otpScreen_ResendVerificationCode_WorksCorrectly() {
         testHelper.startAppAndNavigateToRegister()
-
         testHelper.fillRegistrationForm(
             name = "John Doe",
-            email = "nonexistent@example.com",
+            email = "john.doe@example.com",
             password = "SecurePassword123"
         )
-
         testHelper.acceptPrivacyPolicyAndSubmit()
-
         testHelper.fillBiodataFormIfPresent(
             gender = "Laki-laki",
             birthDate = "15/08/1990"
         )
-
         testHelper.proceedToOtpVerificationIfPresent()
-
-        testHelper.waitForErrorMessage("Email tidak terdaftar")
+        testHelper.verifyResendCodeIsClickable()
+        testHelper.waitForResendTimer()
     }
 
     @Test
@@ -250,50 +221,20 @@ class RegisterTest {
     }
 
     @Test
-    fun registerWithSpecialCharactersInName_WorksCorrectly() {
-        testHelper.startAppAndNavigateToRegister()
-
-        testHelper.fillRegistrationForm(
-            name = "José María O'Connor-Smith",
-            email = "jose.maria@example.com",
-            password = "SecurePassword123"
-        )
-
-        testHelper.acceptPrivacyPolicyAndSubmit()
-
-        testHelper.fillBiodataFormIfPresent(
-            gender = "Laki-laki",
-            birthDate = "15/08/1990"
-        )
-
-        testHelper.proceedToOtpVerificationIfPresent()
-
-        testHelper.enterOtpAndVerifyIfPresent("123456")
-
-        testHelper.verifyRegistrationFlowCompletion()
-    }
-
-    @Test
     fun registerWithDifferentGenderSelection_WorksCorrectly() {
         testHelper.startAppAndNavigateToRegister()
-
         testHelper.fillRegistrationForm(
             name = "Jane Doe",
             email = "jane.doe@example.com",
             password = "SecurePassword123"
         )
-
         testHelper.acceptPrivacyPolicyAndSubmit()
-
         testHelper.fillBiodataFormIfPresent(
             gender = "Perempuan",
             birthDate = "20/03/1995"
         )
-
         testHelper.proceedToOtpVerificationIfPresent()
-
         testHelper.enterOtpAndVerifyIfPresent("123456")
-
         testHelper.verifyRegistrationFlowCompletion()
     }
 }

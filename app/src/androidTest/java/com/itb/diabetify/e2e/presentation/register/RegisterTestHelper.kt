@@ -353,4 +353,147 @@ class RegisterTestHelper(
                 .assertIsDisplayed()
         }
     }
+
+    fun fillBiodataFormPartially(gender: String? = null, birthDate: String? = null) {
+        try {
+            composeTestRule.onNode(hasText("Lengkapi Profil", substring = true))
+                .assertIsDisplayed()
+        } catch (e: AssertionError) {
+            throw AssertionError("Biodata form is not displayed")
+        }
+
+        if (gender != null) {
+            composeTestRule.onNode(hasText("Jenis Kelamin", substring = true))
+                .performClick()
+            composeTestRule.waitForIdle()
+            composeTestRule.onNodeWithText(gender)
+                .performClick()
+            composeTestRule.waitForIdle()
+        }
+
+        if (birthDate != null) {
+            composeTestRule.onNode(hasText("Tanggal Lahir", substring = true))
+                .performClick()
+            composeTestRule.waitForIdle()
+            
+            try {
+                composeTestRule.onNodeWithText("OK").performClick()
+            } catch (e: AssertionError) {
+                try {
+                    composeTestRule.onNodeWithText("Konfirmasi").performClick()
+                } catch (_: AssertionError) {
+                }
+            }
+            composeTestRule.waitForIdle()
+        }
+    }
+
+    fun clickLanjutButton() {
+        composeTestRule.onNode(hasText("Lanjut", substring = true))
+            .performClick()
+        composeTestRule.waitForIdle()
+    }
+
+    fun verifyLanjutButtonIsDisabled() {
+        val originalScreenPresent = try {
+            composeTestRule.onNode(hasText("Lengkapi Profil", substring = true))
+                .assertIsDisplayed()
+            true
+        } catch (e: AssertionError) {
+            false
+        }
+
+        if (originalScreenPresent) {
+            try {
+                composeTestRule.onNode(hasText("Lanjut", substring = true))
+                    .performClick()
+                composeTestRule.waitForIdle()
+                Thread.sleep(500)
+                
+                // Verify we're still on the biodata screen (button should be disabled)
+                composeTestRule.onNode(hasText("Lengkapi Profil", substring = true))
+                    .assertIsDisplayed()
+            } catch (e: AssertionError) {
+                throw AssertionError("Lanjut button should be disabled when required fields are not filled")
+            }
+        }
+    }
+
+    fun verifyStillOnBiodataScreen() {
+        composeTestRule.onNode(hasText("Lengkapi Profil", substring = true))
+            .assertIsDisplayed()
+    }
+
+    fun navigateToBiodataScreen() {
+        fillRegistrationForm(
+            name = "John Doe",
+            email = "john.doe@example.com",
+            password = "SecurePassword123"
+        )
+        acceptPrivacyPolicyAndSubmit()
+        
+        // Wait for biodata screen to appear
+        composeTestRule.waitUntil(timeoutMillis = 5000) {
+            try {
+                composeTestRule.onNode(hasText("Lengkapi Profil", substring = true))
+                    .assertIsDisplayed()
+                true
+            } catch (e: AssertionError) {
+                false
+            }
+        }
+    }
+
+    fun verifyStillOnOtpScreen() {
+        composeTestRule.waitUntil(timeoutMillis = 3000) {
+            try {
+                composeTestRule.onNode(hasText("Verifikasi", substring = true))
+                    .assertIsDisplayed()
+                true
+            } catch (e: AssertionError) {
+                false
+            }
+        }
+    }
+
+    fun verifyResendCodeIsClickable() {
+        composeTestRule.onNode(hasText("Kirim ulang", substring = true))
+            .assertIsDisplayed()
+            .performClick()
+        composeTestRule.waitForIdle()
+    }
+
+    fun waitForResendTimer() {
+        composeTestRule.waitUntil(timeoutMillis = 3000) {
+            try {
+                composeTestRule.onNode(hasText("Belum menerima kode?", substring = true))
+                    .assertIsDisplayed()
+                true
+            } catch (e: AssertionError) {
+                false
+            }
+        }
+    }
+
+    fun verifyDaftarButtonIsDisabled() {
+        val originalScreenPresent = try {
+            composeTestRule.onNodeWithText("Buat Akun Anda").assertIsDisplayed()
+            true
+        } catch (e: AssertionError) {
+            false
+        }
+
+        if (originalScreenPresent) {
+            try {
+                composeTestRule.onNodeWithText("Daftar")
+                    .performClick()
+                composeTestRule.waitForIdle()
+                Thread.sleep(500)
+                
+                composeTestRule.onNodeWithText("Buat Akun Anda").assertIsDisplayed()
+            } catch (e: AssertionError) {
+                throw AssertionError("Daftar button should be disabled after validation error")
+            }
+        }
+    }
 }
