@@ -144,7 +144,7 @@ class LoginTestHelper(
         try {
             composeTestRule.waitUntil(timeoutMillis = 10000) {
                 try {
-                    composeTestRule.onNode(hasText("Pengguna", substring = true))
+                    composeTestRule.onNode(hasText("Persentase Risiko", substring = true))
                         .assertIsDisplayed()
                     true
                 } catch (e: AssertionError) {

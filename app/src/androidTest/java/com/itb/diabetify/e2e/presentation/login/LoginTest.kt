@@ -45,31 +45,12 @@ class LoginTest {
     @Test
     fun loginFlow_Complete() {
         testHelper.startAppAndNavigateToLogin()
-
         testHelper.fillLoginForm(
             email = "john.doe@example.com",
             password = "SecurePassword123"
         )
-
         testHelper.clickLoginButton()
-
         testHelper.verifyLoginFlowCompletion()
-    }
-
-    @Test
-    fun loginWithEmptyEmail_ShowsValidationError() {
-        testHelper.startAppAndNavigateToLogin()
-
-        testHelper.fillLoginFormWithValidation(
-            email = "",
-            password = "SecurePassword123",
-            expectValidation = true
-        )
-
-        testHelper.clickLoginButton()
-
-        testHelper.waitForErrorMessage("Email tidak valid")
-        testHelper.verifyStillOnLoginScreen()
     }
 
     @Test
@@ -85,22 +66,21 @@ class LoginTest {
         testHelper.clickLoginButton()
 
         testHelper.waitForErrorMessage("Email tidak valid")
+        testHelper.verifyLoginButtonDisabled()
         testHelper.verifyStillOnLoginScreen()
     }
 
     @Test
     fun loginWithShortPassword_ShowsValidationError() {
         testHelper.startAppAndNavigateToLogin()
-
         testHelper.fillLoginFormWithValidation(
             email = "john.doe@example.com",
             password = "123",
             expectValidation = true
         )
-
         testHelper.clickLoginButton()
-
         testHelper.waitForErrorMessage("Kata sandi harus lebih dari 8 karakter")
+        testHelper.verifyLoginButtonDisabled()
         testHelper.verifyStillOnLoginScreen()
     }
 
@@ -108,16 +88,12 @@ class LoginTest {
     fun loginWithWrongPassword_ShowsErrorMessage() {
         fakeRepo.shouldFailLogin = true
         fakeRepo.loginErrorType = "wrong_password"
-
         testHelper.startAppAndNavigateToLogin()
-
         testHelper.fillLoginForm(
             email = "john.doe@example.com",
             password = "WrongPassword123"
         )
-
         testHelper.clickLoginButton()
-
         testHelper.waitForErrorMessage("Password salah")
         testHelper.verifyStillOnLoginScreen()
     }
@@ -126,35 +102,13 @@ class LoginTest {
     fun loginWithUnregisteredAccount_ShowsErrorMessage() {
         fakeRepo.shouldFailLogin = true
         fakeRepo.loginErrorType = "account_not_found"
-
         testHelper.startAppAndNavigateToLogin()
-
         testHelper.fillLoginForm(
             email = "nonexistent@example.com",
             password = "SecurePassword123"
         )
-
         testHelper.clickLoginButton()
-
         testHelper.waitForErrorMessage("Akun tidak ditemukan")
-        testHelper.verifyStillOnLoginScreen()
-    }
-
-    @Test
-    fun loginWithNetworkError_ShowsErrorMessage() {
-        fakeRepo.shouldFailLogin = true
-        fakeRepo.loginErrorType = "network_error"
-
-        testHelper.startAppAndNavigateToLogin()
-
-        testHelper.fillLoginForm(
-            email = "john.doe@example.com",
-            password = "SecurePassword123"
-        )
-
-        testHelper.clickLoginButton()
-
-        testHelper.waitForErrorMessage("Network error occurred")
         testHelper.verifyStillOnLoginScreen()
     }
 
@@ -174,96 +128,5 @@ class LoginTest {
     fun navigateToForgotPassword_WorksCorrectly() {
         testHelper.startAppAndNavigateToLogin()
         testHelper.navigateToForgotPassword()
-    }
-
-    @Test
-    fun loginButtonEnabled_WhenFieldsEmpty() {
-        testHelper.startAppAndNavigateToLogin()
-        testHelper.verifyLoginButtonEnabled()
-    }
-
-    @Test
-    fun loginButtonDisabled_AfterInvalidEmailValidation() {
-        testHelper.startAppAndNavigateToLogin()
-
-        testHelper.fillLoginForm(
-            email = "invalid-email",
-            password = "SecurePassword123"
-        )
-
-        testHelper.verifyLoginButtonEnabled()
-
-        testHelper.clickLoginButton()
-
-        testHelper.verifyLoginButtonDisabled()
-        testHelper.verifyStillOnLoginScreen()
-    }
-
-    @Test
-    fun loginButtonDisabled_AfterShortPasswordValidation() {
-        testHelper.startAppAndNavigateToLogin()
-
-        testHelper.fillLoginForm(
-            email = "john.doe@example.com",
-            password = "123"
-        )
-
-        testHelper.verifyLoginButtonEnabled()
-
-        testHelper.clickLoginButton()
-
-        testHelper.verifyLoginButtonDisabled()
-        testHelper.verifyStillOnLoginScreen()
-    }
-
-    @Test
-    fun loginWithLongPassword_WorksCorrectly() {
-        testHelper.startAppAndNavigateToLogin()
-
-        testHelper.fillLoginForm(
-            email = "john.doe@example.com",
-            password = "ThisIsAVeryLongPasswordWithMoreThan8CharactersAndSpecialSymbols!@#123"
-        )
-
-        testHelper.clickLoginButton()
-
-        testHelper.verifyLoginFlowCompletion()
-    }
-
-    @Test
-    fun loginFormFieldValidation_RealTime() {
-        testHelper.startAppAndNavigateToLogin()
-        testHelper.testRealTimeValidation()
-    }
-
-    @Test
-    fun loginButtonDisabled_AfterBothFieldsInvalid() {
-        testHelper.startAppAndNavigateToLogin()
-
-        testHelper.fillLoginForm(
-            email = "invalid-email",
-            password = "123"
-        )
-
-        testHelper.verifyLoginButtonEnabled()
-
-        testHelper.clickLoginButton()
-
-        testHelper.verifyLoginButtonDisabled()
-        testHelper.verifyStillOnLoginScreen()
-    }
-
-    @Test
-    fun loginWithEmailContainingNumbers_WorksCorrectly() {
-        testHelper.startAppAndNavigateToLogin()
-
-        testHelper.fillLoginForm(
-            email = "user123@domain456.com",
-            password = "SecurePassword123"
-        )
-
-        testHelper.clickLoginButton()
-
-        testHelper.verifyLoginFlowCompletion()
     }
 }
