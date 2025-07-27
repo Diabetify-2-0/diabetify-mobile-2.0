@@ -305,7 +305,8 @@ fun PieChart(
                         color = colorResource(id = R.color.primary),
                         modifier = Modifier.padding(top = 8.dp, bottom = 2.dp)
                     )
-                    minorPositive.forEach { riskFactor ->
+                    // Sort minorPositive by descending percentage before displaying
+                    minorPositive.sortedByDescending { abs(it.percentage) }.forEach { riskFactor ->
                         if (colorIndex >= 0) {
                             Row(
                                 modifier = Modifier
@@ -370,7 +371,8 @@ fun PieChart(
                         color = colorResource(id = R.color.primary),
                         modifier = Modifier.padding(top = 8.dp, bottom = 2.dp)
                     )
-                    minorNegative.forEach { riskFactor ->
+                    // Sort minorNegative by descending absolute percentage before displaying
+                    minorNegative.sortedByDescending { abs(it.percentage) }.forEach { riskFactor ->
                         if (colorIndex >= 0) {
                             Row(
                                 modifier = Modifier

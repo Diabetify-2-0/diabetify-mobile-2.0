@@ -1,22 +1,15 @@
 package com.itb.diabetify.e2e.presentation.onboarding
 
-import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.junit4.ComposeTestRule
 import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performTouchInput
-import androidx.compose.ui.test.swipeLeft
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.itb.diabetify.presentation.onboarding.OnBoardingEvent
 import com.itb.diabetify.presentation.onboarding.OnBoardingScreen
-import com.itb.diabetify.presentation.onboarding.pages
 import com.itb.diabetify.ui.theme.DiabetifyTheme
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import io.mockk.mockk
-import io.mockk.verify
 
 @RunWith(AndroidJUnit4::class)
 class OnBoardingTest {
@@ -24,7 +17,14 @@ class OnBoardingTest {
     @get:Rule
     val composeTestRule = createComposeRule()
 
+    private lateinit var testHelper: OnBoardingTestHelper
+
     private val mockEvent: (OnBoardingEvent) -> Unit = mockk(relaxed = true)
+
+    @Before
+    fun setUp() {
+        testHelper = OnBoardingTestHelper(composeTestRule)
+    }
 
     @Test
     fun onboardingFlow_SwipeNavigation_Complete() {
@@ -34,28 +34,10 @@ class OnBoardingTest {
             }
         }
 
-        verifyOnboardingScreen(composeTestRule)
-
-        composeTestRule.onNodeWithText("Mulai").performClick()
-
-
-        for (i in 0 until pages.size - 1) {
-            verifyOnboardingPage(
-                composeTestRule,
-                pages[i].title,
-                pages[i].description
-            )
-
-            composeTestRule.onNodeWithText(pages[i].title).performTouchInput {
-                swipeLeft()
-            }
-            composeTestRule.waitForIdle()
-            composeTestRule.onNodeWithText(pages[i + 1].title).assertIsDisplayed()
-        }
-
-        composeTestRule.onNodeWithText(">").performClick()
-
-        verify { mockEvent(OnBoardingEvent.SaveAppEntry) }
+        testHelper.verifyOnboardingScreen()
+        testHelper.startOnboarding()
+        testHelper.navigateForwardWithSwipe()
+        testHelper.completeOnboardingFlow(mockEvent)
     }
 
     @Test 
@@ -66,34 +48,22 @@ class OnBoardingTest {
             }
         }
 
-        verifyOnboardingScreen(composeTestRule)
+        testHelper.verifyOnboardingScreen()
+        testHelper.startOnboarding()
+        testHelper.navigateForwardWithButton()
+    }
 
-        composeTestRule.onNodeWithText("Mulai").performClick()
-
-        for (i in 0 until pages.size - 1) {
-            verifyOnboardingPage(
-                composeTestRule,
-                pages[i].title,
-                pages[i].description
-            )
-
-            composeTestRule.onNodeWithText(">").performClick()
-            composeTestRule.waitForIdle()
-            verifyOnboardingPage(
-                composeTestRule,
-                pages[i + 1].title,
-                pages[i + 1].description
-            )
+    @Test
+    fun canGoBackToPreviousPage_WorksCorrectly() {
+        composeTestRule.setContent {
+            DiabetifyTheme {
+                OnBoardingScreen(event = mockEvent)
+            }
         }
-    }
 
-    private fun verifyOnboardingScreen(composeTestRule: ComposeTestRule) {
-        composeTestRule.onNodeWithText("Kenali Risiko", substring = true).assertIsDisplayed()
-        composeTestRule.onNodeWithText("Mulai").assertIsDisplayed()
-    }
-
-    private fun verifyOnboardingPage(composeTestRule: ComposeTestRule, title: String, description: String) {
-        composeTestRule.onNodeWithText(title).assertIsDisplayed()
-        composeTestRule.onNodeWithText(description).assertIsDisplayed()
+        testHelper.verifyOnboardingScreen()
+        testHelper.startOnboarding()
+        testHelper.navigateForwardWithSwipe()
+        testHelper.navigateBackWithSwipe()
     }
 }
