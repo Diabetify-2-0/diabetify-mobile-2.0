@@ -11,7 +11,6 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
-import androidx.compose.ui.test.printToLog
 import androidx.compose.ui.test.swipeDown
 import androidx.compose.ui.test.swipeUp
 import androidx.test.espresso.action.ViewActions.swipeLeft
