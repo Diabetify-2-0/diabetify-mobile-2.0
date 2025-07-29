@@ -59,4 +59,96 @@ class AddDailyDataTest {
         testHelper.verifyAktivitasDataMatches(expectedAktivitasValue)
         testHelper.closeDialogByClickingOutside()
     }
+
+    @Test
+    fun addRokokData_MultipleUpdates_DataPersistsCorrectly() {
+        testHelper.startAppAndNavigateToHome()
+        testHelper.clickAddButton()
+
+        testHelper.clickRokokButton()
+        val firstValue = testHelper.getCurrentRokokValue()
+        testHelper.clearAndFillRokokForm(firstValue)
+        testHelper.clickSimpanButton()
+        testHelper.verifySuccessMessage()
+        val expectedFirstValue = if (firstValue == "0") "5" else "0"
+        testHelper.verifyRokokDataMatches(expectedFirstValue)
+        testHelper.closeDialogByClickingOutside()
+
+        testHelper.clickRokokButton()
+        val secondValue = testHelper.getCurrentRokokValue()
+        testHelper.clearAndFillRokokForm(secondValue)
+        testHelper.clickSimpanButton()
+        testHelper.verifySuccessMessage()
+        val expectedSecondValue = if (secondValue == "0") "5" else "0"
+        testHelper.verifyRokokDataMatches(expectedSecondValue)
+        testHelper.closeDialogByClickingOutside()
+    }
+
+    @Test
+    fun addAktivitasData_MultipleUpdates_DataPersistsCorrectly() {
+        testHelper.startAppAndNavigateToHome()
+        testHelper.clickAddButton()
+
+        testHelper.clickAktivitasButton()
+        val firstValue = testHelper.getCurrentAktivitasValue()
+        testHelper.clearAndFillAktivitasForm(firstValue)
+        testHelper.clickSimpanButton()
+        testHelper.verifySuccessMessage()
+        val expectedFirstValue = if (firstValue == "Tidak") "Ya" else "Tidak"
+        testHelper.verifyAktivitasDataMatches(expectedFirstValue)
+        testHelper.closeDialogByClickingOutside()
+
+        testHelper.clickAktivitasButton()
+        val secondValue = testHelper.getCurrentAktivitasValue()
+        testHelper.clearAndFillAktivitasForm(secondValue)
+        testHelper.clickSimpanButton()
+        testHelper.verifySuccessMessage()
+        val expectedSecondValue = if (secondValue == "Tidak") "Ya" else "Tidak"
+        testHelper.verifyAktivitasDataMatches(expectedSecondValue)
+        testHelper.closeDialogByClickingOutside()
+    }
+
+    @Test
+    fun addRokokData_WithValueAboveLimit_ShowsValidationError() {
+        testHelper.startAppAndNavigateToHome()
+        testHelper.clickAddButton()
+
+        testHelper.clickRokokButton()
+        testHelper.fillRokokFormWithInvalidValue("100")
+        testHelper.clickSimpanButton()
+        testHelper.waitForErrorMessage("Jumlah rokok harus antara 0-60 batang")
+        testHelper.verifyNoSuccessMessage()
+        testHelper.closeDialogByClickingOutside()
+    }
+
+    @Test
+    fun addRokokData_WithEmptyValue_ShowsValidationError() {
+        testHelper.startAppAndNavigateToHome()
+        testHelper.clickAddButton()
+
+        testHelper.clickRokokButton()
+        testHelper.fillRokokFormWithInvalidValue("")
+        testHelper.clickSimpanButton()
+        testHelper.waitForErrorMessage("Mohon isi field ini")
+        testHelper.verifyNoSuccessMessage()
+        testHelper.closeDialogByClickingOutside()
+    }
+
+    @Test
+    fun addRokokData_ValidAfterInvalidInput_SucceedsCorrectly() {
+        testHelper.startAppAndNavigateToHome()
+        testHelper.clickAddButton()
+
+        testHelper.clickRokokButton()
+        
+        testHelper.fillRokokFormWithInvalidValue("100")
+        testHelper.clickSimpanButton()
+        testHelper.waitForErrorMessage("Jumlah rokok harus antara 0-60 batang")
+        testHelper.verifyNoSuccessMessage()
+        
+        testHelper.fillRokokFormWithInvalidValue("10")
+        testHelper.clickSimpanButton()
+        testHelper.verifySuccessMessage()
+        testHelper.closeDialogByClickingOutside()
+    }
 }

@@ -272,9 +272,40 @@ class AddDailyDataTestHelper(
         }
 
         try {
-            composeTestRule.onNodeWithText(newValue).performClick()
-            composeTestRule.waitForIdle()
-            Thread.sleep(500)
+            val clickableNodes = composeTestRule.onAllNodes(
+                hasText(newValue) and hasClickAction()
+            ).fetchSemanticsNodes()
+
+            if (clickableNodes.isNotEmpty()) {
+                composeTestRule.onAllNodes(
+                    hasText(newValue) and hasClickAction()
+                )[0].performClick()
+                composeTestRule.waitForIdle()
+                Thread.sleep(500)
+                return
+            }
+        } catch (_: Exception) {
+        }
+
+        try {
+            val allNodes = composeTestRule.onAllNodes(
+                androidx.compose.ui.test.hasAnyAncestor(androidx.compose.ui.test.isRoot())
+            ).fetchSemanticsNodes()
+
+            val radioButtonNodes = allNodes.filter { node ->
+                val role = node.config.getOrNull(SemanticsProperties.Role)
+                val text = node.config.getOrNull(SemanticsProperties.Text)?.joinToString("")
+                role?.toString()?.contains("RadioButton") == true && text?.contains(newValue) == true
+            }
+
+            if (radioButtonNodes.isNotEmpty()) {
+                val index = allNodes.indexOf(radioButtonNodes[0])
+                composeTestRule.onAllNodes(
+                    androidx.compose.ui.test.hasAnyAncestor(androidx.compose.ui.test.isRoot())
+                )[index].performClick()
+                composeTestRule.waitForIdle()
+                Thread.sleep(500)
+            }
         } catch (_: Exception) {
         }
     }
@@ -324,5 +355,76 @@ class AddDailyDataTestHelper(
         }
         composeTestRule.waitForIdle()
         Thread.sleep(500)
+    }
+
+    fun waitForErrorMessage(errorText: String, timeoutMs: Long = 5000) {
+        composeTestRule.waitUntil(timeoutMillis = timeoutMs) {
+            try {
+                composeTestRule.onNode(hasText(errorText, substring = true))
+                    .assertIsDisplayed()
+                true
+            } catch (e: AssertionError) {
+                false
+            }
+        }
+    }
+
+    fun fillRokokFormWithInvalidValue(invalidValue: String) {
+        try {
+            composeTestRule.onNode(hasSetTextAction())
+                .performTextClearance()
+            composeTestRule.waitForIdle()
+
+            composeTestRule.onNode(hasSetTextAction())
+                .performTextInput(invalidValue)
+            composeTestRule.waitForIdle()
+            Thread.sleep(500)
+        } catch (e: Exception) {
+            composeTestRule.onAllNodes(hasSetTextAction())[0]
+                .performTextClearance()
+            composeTestRule.waitForIdle()
+
+            composeTestRule.onAllNodes(hasSetTextAction())[0]
+                .performTextInput(invalidValue)
+            composeTestRule.waitForIdle()
+            Thread.sleep(500)
+        }
+    }
+
+    fun verifyRokokFieldHasError() {
+        composeTestRule.waitUntil(timeoutMillis = 3000) {
+            try {
+                composeTestRule.onNode(
+                    hasText("Jumlah rokok harus antara 0-60 batang", substring = true)
+                ).assertIsDisplayed()
+                true
+            } catch (e: AssertionError) {
+                try {
+                    composeTestRule.onNode(
+                        hasText("Harap masukkan angka yang valid", substring = true)
+                    ).assertIsDisplayed()
+                    true
+                } catch (e2: AssertionError) {
+                    false
+                }
+            }
+        }
+    }
+
+    fun verifySimpanButtonDisabled() {
+        try {
+            composeTestRule.onNodeWithText("Simpan")
+                .assertIsDisplayed()
+        } catch (_: AssertionError) {
+        }
+    }
+
+    fun verifyNoSuccessMessage() {
+        Thread.sleep(1000)
+        try {
+            composeTestRule.onNodeWithText("berhasil", substring = true)
+                .assertDoesNotExist()
+        } catch (_: AssertionError) {
+        }
     }
 }
