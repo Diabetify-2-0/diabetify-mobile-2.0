@@ -1,4 +1,4 @@
-package com.itb.diabetify.e2e.view_risk_factors
+package com.itb.diabetify.e2e.presentation.view_risk_factors
 
 import android.annotation.SuppressLint
 import androidx.compose.ui.semantics.SemanticsProperties

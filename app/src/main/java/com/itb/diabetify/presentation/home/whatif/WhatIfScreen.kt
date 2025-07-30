@@ -277,25 +277,28 @@ fun WhatIfScreen(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 // Years of Smoking
-                Text(
-                    text = "Berapa lama merokok (tahun)",
-                    fontFamily = poppinsFontFamily,
-                    fontWeight = FontWeight.Medium,
-                    fontSize = 14.sp,
-                    color = colorResource(id = R.color.primary),
-                )
-                InputField(
-                    value = yearsOfSmokingFieldState.text,
-                    onValueChange = { viewModel.setWhatIfYearsOfSmoking(it) },
-                    placeholderText = "Berapa lama merokok (tahun)",
-                    iconResId = R.drawable.ic_calendar,
-                    keyboardType = KeyboardType.Number,
-                    modifier = Modifier.fillMaxWidth(),
-                    isError = yearsOfSmokingFieldState.error != null,
-                    errorMessage = yearsOfSmokingFieldState.error ?: ""
-                )
+                if (smokingStatusFieldState.text.toInt() > 0) {
+                    Text(
+                        text = "Berapa lama merokok (tahun)",
+                        fontFamily = poppinsFontFamily,
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 14.sp,
+                        color = colorResource(id = R.color.primary),
+                    )
+                    InputField(
+                        value = yearsOfSmokingFieldState.text,
+                        onValueChange = { viewModel.setWhatIfYearsOfSmoking(it) },
+                        placeholderText = "Berapa lama merokok (tahun)",
+                        iconResId = R.drawable.ic_calendar,
+                        keyboardType = KeyboardType.Number,
+                        modifier = Modifier.fillMaxWidth(),
+                        isError = yearsOfSmokingFieldState.error != null,
+                        errorMessage = yearsOfSmokingFieldState.error ?: "",
+                        testTag = "SmokingDurationTextField"
+                    )
 
-                Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
 
                 // Average cigarettes
                 if (smokingStatusFieldState.text.toInt() > 0) {
@@ -314,7 +317,8 @@ fun WhatIfScreen(
                         keyboardType = KeyboardType.Number,
                         modifier = Modifier.fillMaxWidth(),
                         isError = averageCigarettesFieldState.error != null,
-                        errorMessage = averageCigarettesFieldState.error ?: ""
+                        errorMessage = averageCigarettesFieldState.error ?: "",
+                        testTag = "CigarettesPerDayTextField"
                     )
 
                     Spacer(modifier = Modifier.height(12.dp))
@@ -336,7 +340,8 @@ fun WhatIfScreen(
                     keyboardType = KeyboardType.Decimal,
                     modifier = Modifier.fillMaxWidth(),
                     isError = weightFieldState.error != null,
-                    errorMessage = weightFieldState.error ?: ""
+                    errorMessage = weightFieldState.error ?: "",
+                    testTag = "WeightTextField"
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -380,7 +385,8 @@ fun WhatIfScreen(
                     keyboardType = KeyboardType.Number,
                     modifier = Modifier.fillMaxWidth(),
                     isError = physicalActivityFrequencyFieldState.error != null,
-                    errorMessage = physicalActivityFrequencyFieldState.error ?: ""
+                    errorMessage = physicalActivityFrequencyFieldState.error ?: "",
+                    testTag = "PhysicalActivityTextField"
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))

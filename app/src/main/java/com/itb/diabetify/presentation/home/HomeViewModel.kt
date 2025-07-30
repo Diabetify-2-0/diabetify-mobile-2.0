@@ -808,12 +808,18 @@ class HomeViewModel @Inject constructor(
             isValid = false
         }
 
-        if (whatIfAverageCigarettesFieldState.value.text.toInt() < 0 || whatIfAverageCigarettesFieldState.value.text.toInt() > 60) {
+        if (whatIfAverageCigarettesFieldState.value.text.isBlank()) {
+            _whatIfAverageCigarettesFieldState.value = whatIfAverageCigarettesFieldState.value.copy(error = "Jumlah rokok tidak boleh kosong")
+            isValid = false
+        } else if (whatIfAverageCigarettesFieldState.value.text.toInt() < 0 || whatIfAverageCigarettesFieldState.value.text.toInt() > 60) {
             _whatIfAverageCigarettesFieldState.value = whatIfAverageCigarettesFieldState.value.copy(error = "Jumlah rokok harus antara 0-60 batang")
             isValid = false
         }
 
-        if (whatIfWeightFieldState.value.text.toInt() < 30 || whatIfWeightFieldState.value.text.toInt() > 300) {
+        if (whatIfWeightFieldState.value.text.isBlank()) {
+            _whatIfWeightFieldState.value = whatIfWeightFieldState.value.copy(error = "Berat badan tidak boleh kosong")
+            isValid = false
+        } else if (whatIfWeightFieldState.value.text.toInt() < 30 || whatIfWeightFieldState.value.text.toInt() > 300) {
             _whatIfWeightFieldState.value = whatIfWeightFieldState.value.copy(error = "Berat badan harus antara 30-300 kg")
             isValid = false
         }
@@ -823,7 +829,10 @@ class HomeViewModel @Inject constructor(
             isValid = false
         }
 
-        if (whatIfPhysicalActivityFieldState.value.text.toInt() < 0 || whatIfPhysicalActivityFieldState.value.text.toInt() > 7) {
+        if (whatIfPhysicalActivityFieldState.value.text.isBlank()) {
+            _whatIfPhysicalActivityFieldState.value = whatIfPhysicalActivityFieldState.value.copy(error = "Aktivitas fisik tidak boleh kosong")
+            isValid = false
+        } else if (whatIfPhysicalActivityFieldState.value.text.toInt() < 0 || whatIfPhysicalActivityFieldState.value.text.toInt() > 7) {
             _whatIfPhysicalActivityFieldState.value = whatIfPhysicalActivityFieldState.value.copy(error = "Aktivitas fisik harus antara 0-7 hari")
             isValid = false
         }

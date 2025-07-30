@@ -1,4 +1,4 @@
-package com.itb.diabetify.e2e.view_risk_factors
+package com.itb.diabetify.e2e.presentation.view_risk_factors
 
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -37,7 +37,7 @@ class ViewRiskFactorsTest {
     }
 
     @Test
-    fun viewRiskEstimationFlow_Complete() {
+    fun viewRiskFactorsFlow_Complete() {
         testHelper.startAppAndNavigateToHome()
         testHelper.verifyRiskFactorDetailCardDisplayed()
         testHelper.verifyChartTabSwitching()

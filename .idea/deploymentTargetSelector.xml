@@ -5,19 +5,19 @@
       <SelectionState runConfigName="App">
         <option name="selectionMode" value="DROPDOWN" />
       </SelectionState>
-      <SelectionState runConfigName="viewRiskEstimationFlow_Complete()">
+      <SelectionState runConfigName="simulateRiskScenario_NavigationBackToHome()">
         <option name="selectionMode" value="DROPDOWN" />
       </SelectionState>
-      <SelectionState runConfigName="viewRiskFactorDetail_NavigationBackToHome()">
+      <SelectionState runConfigName="changeCigarettesPerDay_WithEmpty_ShowsValidationError()">
         <option name="selectionMode" value="DROPDOWN" />
       </SelectionState>
-      <SelectionState runConfigName="viewRiskFactorDetail_ChartTabSwitchingAndDisplay()">
+      <SelectionState runConfigName="changeWeight_WithEmpty_ShowsValidationError()">
         <option name="selectionMode" value="DROPDOWN" />
       </SelectionState>
-      <SelectionState runConfigName="viewRiskFactorDetail_ConsistencyBetweenSummaryAndDetail()">
+      <SelectionState runConfigName="changeWeight_WithValueBelowLimit_ShowsValidationError()">
         <option name="selectionMode" value="DROPDOWN" />
       </SelectionState>
-      <SelectionState runConfigName="ViewRiskFactorsTest">
+      <SelectionState runConfigName="SimulateRiskScenarioTest">
         <option name="selectionMode" value="DROPDOWN" />
       </SelectionState>
     </selectionStates>
