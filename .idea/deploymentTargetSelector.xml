@@ -11,13 +11,13 @@
       <SelectionState runConfigName="changeCigarettesPerDay_WithEmpty_ShowsValidationError()">
         <option name="selectionMode" value="DROPDOWN" />
       </SelectionState>
-      <SelectionState runConfigName="changeWeight_WithEmpty_ShowsValidationError()">
-        <option name="selectionMode" value="DROPDOWN" />
-      </SelectionState>
       <SelectionState runConfigName="changeWeight_WithValueBelowLimit_ShowsValidationError()">
         <option name="selectionMode" value="DROPDOWN" />
       </SelectionState>
       <SelectionState runConfigName="SimulateRiskScenarioTest">
+        <option name="selectionMode" value="DROPDOWN" />
+      </SelectionState>
+      <SelectionState runConfigName="viewTodaysData_Complete()">
         <option name="selectionMode" value="DROPDOWN" />
       </SelectionState>
     </selectionStates>
