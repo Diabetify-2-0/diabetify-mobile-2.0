@@ -4,13 +4,10 @@ import android.annotation.SuppressLint
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.assertIsSelected
-import androidx.compose.ui.test.click
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.AndroidComposeTestRule
-import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -334,7 +331,6 @@ class AddDailyDataTestHelper(
 
     fun verifyRokokDataMatches(expectedValue: String) {
         clickRokokButton()
-
         val actualValue = getCurrentRokokValue()
         assert(actualValue == expectedValue) {
             "Expected rokok value: $expectedValue, but got: $actualValue"
@@ -388,34 +384,6 @@ class AddDailyDataTestHelper(
                 .performTextInput(invalidValue)
             composeTestRule.waitForIdle()
             Thread.sleep(500)
-        }
-    }
-
-    fun verifyRokokFieldHasError() {
-        composeTestRule.waitUntil(timeoutMillis = 3000) {
-            try {
-                composeTestRule.onNode(
-                    hasText("Jumlah rokok harus antara 0-60 batang", substring = true)
-                ).assertIsDisplayed()
-                true
-            } catch (e: AssertionError) {
-                try {
-                    composeTestRule.onNode(
-                        hasText("Harap masukkan angka yang valid", substring = true)
-                    ).assertIsDisplayed()
-                    true
-                } catch (e2: AssertionError) {
-                    false
-                }
-            }
-        }
-    }
-
-    fun verifySimpanButtonDisabled() {
-        try {
-            composeTestRule.onNodeWithText("Simpan")
-                .assertIsDisplayed()
-        } catch (_: AssertionError) {
         }
     }
 
