@@ -5,19 +5,19 @@
       <SelectionState runConfigName="App">
         <option name="selectionMode" value="DROPDOWN" />
       </SelectionState>
-      <SelectionState runConfigName="changeProfileDataFlow_Complete()">
+      <SelectionState runConfigName="viewRiskEstimationFlow_Complete()">
         <option name="selectionMode" value="DROPDOWN" />
       </SelectionState>
-      <SelectionState runConfigName="ChangeNonDailyDataTest">
+      <SelectionState runConfigName="viewRiskFactorDetail_NavigationBackToHome()">
         <option name="selectionMode" value="DROPDOWN" />
       </SelectionState>
-      <SelectionState runConfigName="ViewRiskEstimationTest">
+      <SelectionState runConfigName="viewRiskFactorDetail_ChartTabSwitchingAndDisplay()">
         <option name="selectionMode" value="DROPDOWN" />
       </SelectionState>
-      <SelectionState runConfigName="viewRiskDetail_DynamicRiskScoreDisplayed()">
+      <SelectionState runConfigName="viewRiskFactorDetail_ConsistencyBetweenSummaryAndDetail()">
         <option name="selectionMode" value="DROPDOWN" />
       </SelectionState>
-      <SelectionState runConfigName="viewRiskDetail_VerifyConsistencyBetweenHomeAndDetailScreen()">
+      <SelectionState runConfigName="ViewRiskFactorsTest">
         <option name="selectionMode" value="DROPDOWN" />
       </SelectionState>
     </selectionStates>

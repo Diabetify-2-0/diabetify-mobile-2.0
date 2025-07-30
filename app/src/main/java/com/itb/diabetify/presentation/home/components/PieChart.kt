@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -128,7 +129,7 @@ fun PieChart(
         }
     }
 
-    Column(modifier = modifier.wrapContentHeight()) {
+    Column(modifier = modifier.wrapContentHeight().testTag("PieChart")) {
         AndroidView(
             factory = { context ->
                 PieChart(context).apply {
