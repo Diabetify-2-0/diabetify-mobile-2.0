@@ -7,12 +7,12 @@ data class FAQCardData(
 
 val faqCards = listOf(
     FAQCardData(
-        question = "Seberapa akurat prediksi risiko diabetes dari aplikasi ini?",
-        answer = "Prediksi dalam aplikasi ini dibuat menggunakan model AI berbasis XGBoost yang telah dilatih dengan data survei IFLS5 dan divalidasi oleh tenaga ahli. Model ini memiliki tingkat akurasi yang cukup baik, dengan skor evaluasi ROC AUC sebesar 0,71–0,72. Artinya, model cukup andal dalam membedakan siapa yang memiliki risiko diabetes dan siapa yang tidak, terutama dalam konteks populasi umum di Indonesia."
+        question = "Seberapa akurat estimasi risiko diabetes dari aplikasi ini?",
+        answer = "Estimasi risiko dalam aplikasi ini dibuat menggunakan model AI berbasis XGBoost yang telah dilatih dengan data survei IFLS5 dan divalidasi oleh tenaga ahli. Model ini memiliki tingkat akurasi yang cukup baik, dengan skor evaluasi ROC AUC sebesar 0,71–0,72. Artinya, model cukup andal dalam membedakan siapa yang memiliki risiko diabetes dan siapa yang tidak, terutama dalam konteks populasi umum di Indonesia."
     ),
     FAQCardData(
-        question = "Apakah hasil prediksi bisa menggantikan konsultasi dokter?",
-        answer = "Tidak. Hasil prediksi Diabetify adalah alat bantu untuk mengetahui risiko diabetes, bukan pengganti konsultasi medis profesional. Aplikasi ini membantu Anda memahami faktor risiko dan memberikan rekomendasi gaya hidup sehat. Jika hasil menunjukkan risiko tinggi atau Anda memiliki gejala diabetes, sangat disarankan untuk segera berkonsultasi dengan dokter untuk pemeriksaan dan diagnosis yang tepat."
+        question = "Apakah hasil estimasi risiko bisa menggantikan konsultasi dokter?",
+        answer = "Tidak. Hasil estimasi risiko Diabetify adalah alat bantu untuk mengetahui risiko diabetes, bukan pengganti konsultasi medis profesional. Aplikasi ini membantu Anda memahami faktor risiko dan memberikan rekomendasi gaya hidup sehat. Jika hasil menunjukkan risiko tinggi atau Anda memiliki gejala diabetes, sangat disarankan untuk segera berkonsultasi dengan dokter untuk pemeriksaan dan diagnosis yang tepat."
     ),
     FAQCardData(
         question = "Apakah data pribadi saya aman di aplikasi ini?",

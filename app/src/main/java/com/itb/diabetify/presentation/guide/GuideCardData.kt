@@ -35,7 +35,7 @@ val guideCards = listOf(
     ),
     GuideCardData(
         icon = R.drawable.ic_brain,
-        title = "Prediksi AI",
+        title = "Perhitungan AI",
         backgroundColor = Color(0xFFF8F0FF),
         iconColor = Color(0xFFAB68FF),
         guideId = "ai_prediction"

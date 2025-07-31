@@ -26,7 +26,7 @@ val items = listOf(
         route = Route.GuideScreen.route,
         title = "Recommendation",
         icon = R.drawable.ic_thumbs,
-        contentDescription = "Navigate to recommendation screen"
+        contentDescription = "Navigate to guide screen"
     ),
     NavigationItem(
         route = Route.SettingsScreen.route,

@@ -136,7 +136,7 @@ Dalam konteks Diabetify, XAI membantu menjelaskan bagaimana berbagai faktor berk
         )
     ),
     "ai_prediction" to GuideDetailData(
-        title = "Prediksi AI",
+        title = "Perhitungan AI",
         content = listOf(
             GuideSection(
                 title = "Bagaimana AI dan XAI Bekerja di Diabetify",

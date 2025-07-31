@@ -1,7 +1,6 @@
-package com.itb.diabetify.e2e.presentation.view_history
+package com.itb.diabetify.e2e.presentation.view_guide
 
 import android.annotation.SuppressLint
-import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -15,13 +14,12 @@ import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.swipeUp
 import androidx.test.ext.junit.rules.ActivityScenarioRule
 import com.itb.diabetify.MainActivity
-import java.time.LocalDate
 
-class ViewHistoryTestHelper(
+class ViewGuideTestHelper(
     private val composeTestRule: AndroidComposeTestRule<ActivityScenarioRule<MainActivity>, MainActivity>
 ) {
     @SuppressLint("CheckResult")
-    fun startAppAndNavigateToHistory() {
+    fun startAppAndNavigateToGuide() {
         composeTestRule.waitForIdle()
         Thread.sleep(1000)
 
@@ -31,11 +29,11 @@ class ViewHistoryTestHelper(
             waitForHomeContentToLoad()
 
             composeTestRule.onNodeWithContentDescription(
-                "Navigate to history screen"
+                "Navigate to guide screen"
             ).performClick()
             composeTestRule.waitForIdle()
 
-            composeTestRule.onNodeWithText("Riwayat")
+            composeTestRule.onNodeWithText("Panduan")
                 .assertIsDisplayed()
 
             composeTestRule.waitForIdle()
@@ -105,11 +103,11 @@ class ViewHistoryTestHelper(
         waitForHomeContentToLoad()
 
         composeTestRule.onNodeWithContentDescription(
-            "Navigate to history screen"
+            "Navigate to guide screen"
         ).performClick()
         composeTestRule.waitForIdle()
 
-        composeTestRule.onNodeWithText("Riwayat")
+        composeTestRule.onNodeWithText("Panduan")
             .assertIsDisplayed()
 
         composeTestRule.waitForIdle()
@@ -172,91 +170,165 @@ class ViewHistoryTestHelper(
     fun scrollDown() {
         composeTestRule.onRoot().performTouchInput {
             swipeUp(
-                startY = centerY + 400f,
-                endY = centerY - 400f
+                startY = centerY + 200f,
+                endY = centerY - 200f
             )
         }
         composeTestRule.waitForIdle()
     }
 
-    fun verifyHorizontalCalendarIsDisplayed() {
-        composeTestRule.onNodeWithTag("HorizontalCalendar")
+    fun verifyDiabetesAndXAISection() {
+        composeTestRule.onNodeWithText("Diabetes dan XAI")
             .assertIsDisplayed()
-    }
-
-    fun verifyLineChartIsDisplayed() {
-        composeTestRule.onNodeWithTag("LineGraph")
-            .assertIsDisplayed()
-    }
-
-    fun verifyRiskPercentageCardIsDisplayed() {
-        composeTestRule.onNodeWithText("Persentase Risiko")
-            .assertIsDisplayed()
-    }
-
-    fun verifyRiskFactorContributionsAreDisplayed() {
-        composeTestRule.onNodeWithText("Kontribusi Faktor Risiko")
-            .assertIsDisplayed()
-    }
-
-    fun verifyDailyInputsAreDisplayed() {
-        composeTestRule.onNodeWithText("Data Prediksi")
-            .assertIsDisplayed()
-    }
-
-    fun clickPreviousDateButton() {
-        val yesterday = LocalDate.now().minusDays(1)
-        val dayOfMonth = yesterday.dayOfMonth
         
-        composeTestRule.onNodeWithTag("DateItem_$dayOfMonth")
+        composeTestRule.onNodeWithText("Tentang Diabetes")
+            .assertIsDisplayed()
+        composeTestRule.onNodeWithText("Faktor Risiko")
+            .assertIsDisplayed()
+        composeTestRule.onNodeWithText("Tentang XAI")
+            .assertIsDisplayed()
+        composeTestRule.onNodeWithText("Perhitungan AI")
+            .assertIsDisplayed()
+    }
+
+    fun clickOnAboutDiabetesCard() {
+        composeTestRule.onNodeWithText("Tentang Diabetes")
             .performClick()
         composeTestRule.waitForIdle()
         Thread.sleep(1000)
     }
 
-    fun clickNextDateButton() {
-        val today = LocalDate.now()
-        val dayOfMonth = today.dayOfMonth
+    fun verifyGuideDetailScreen() {
+        composeTestRule.waitForIdle()
+        Thread.sleep(2000)
+    }
+
+    fun navigateBackToGuide() {
+        composeTestRule.onNodeWithContentDescription("Back")
+            .performClick()
+        composeTestRule.waitForIdle()
+        Thread.sleep(1000)
+
+        composeTestRule.onNodeWithText("Panduan")
+            .assertIsDisplayed()
+    }
+
+    fun verifyTipsKesehatanSection() {
+        composeTestRule.onNodeWithText("Tips Kesehatan")
+            .assertIsDisplayed()
         
-        composeTestRule.onNodeWithTag("DateItem_$dayOfMonth")
-            .performClick()
-        composeTestRule.waitForIdle()
-        Thread.sleep(1000)
-    }
-
-    fun clickPreviousMonthButton() {
-        composeTestRule.onNodeWithContentDescription("Previous month")
-            .performClick()
-        composeTestRule.waitForIdle()
-        Thread.sleep(1000)
-    }
-
-    fun clickNextMonthButton() {
-        composeTestRule.onNodeWithContentDescription("Next month")
-            .performClick()
-        composeTestRule.waitForIdle()
-        Thread.sleep(1000)
-    }
-
-    fun verifyNextDateButtonIsNotClickable() {
-        val tomorrow = LocalDate.now().plusDays(1)
-        val dayOfMonth = tomorrow.dayOfMonth
+        var tipsFound = false
+        val tipsTitles = listOf(
+            "Rekomendasi Nutrisi Sehat",
+            "Rekomendasi Olahraga", 
+            "Tips Berhenti Merokok",
+            "Mengelola Hipertensi",
+            "Mengelola Kolesterol"
+        )
         
-        composeTestRule.onNodeWithTag("DateItem_$dayOfMonth")
-            .assertIsDisplayed()
-            .assertHasNoClickAction()
+        for (title in tipsTitles) {
+            try {
+                composeTestRule.onNodeWithText(title)
+                    .assertIsDisplayed()
+                tipsFound = true
+                break
+            } catch (_: AssertionError) {
+            }
+        }
+        
+        if (!tipsFound) {
+            throw AssertionError("No tips cards found in Tips Kesehatan section")
+        }
     }
 
-    fun verifyNoDataMessageIsDisplayed() {
-        composeTestRule.onNodeWithText("Tidak ada data skor risiko dalam rentang 15 hari")
-            .assertIsDisplayed()
-        composeTestRule.onNodeWithText("Tidak Ada Data")
-            .assertIsDisplayed()
+    fun clickOnFirstTipsCard() {
+        val tipsTitles = listOf(
+            "Rekomendasi Nutrisi Sehat",
+            "Rekomendasi Olahraga", 
+            "Tips Berhenti Merokok",
+            "Mengelola Hipertensi",
+            "Mengelola Kolesterol"
+        )
+        
+        for (title in tipsTitles) {
+            try {
+                composeTestRule.onNodeWithText(title)
+                    .assertIsDisplayed()
+                composeTestRule.onNodeWithText(title)
+                    .performClick()
+                composeTestRule.waitForIdle()
+                Thread.sleep(1000)
+                return
+            } catch (_: AssertionError) {
+            }
+        }
+        
+        throw AssertionError("Could not find and click any tips card")
     }
 
-    fun verifyEmptyHistoryState() {
-        verifyNoDataMessageIsDisplayed()
-        composeTestRule.onNodeWithText("Data prediksi untuk tanggal yang dipilih tidak tersedia. Silakan pilih tanggal lain atau lakukan prediksi terlebih dahulu.")
+    fun verifyTipsDetailScreen() {
+        composeTestRule.onNodeWithText("Tips")
+            .assertIsDisplayed()
+        composeTestRule.waitForIdle()
+        Thread.sleep(2000)
+    }
+
+    fun verifyFAQSection() {
+        composeTestRule.onNodeWithText("FAQ")
+            .assertIsDisplayed()
+        
+        val faqQuestions = listOf(
+            "Seberapa akurat prediksi risiko diabetes dari aplikasi ini?",
+            "Apakah hasil prediksi bisa menggantikan konsultasi dokter?",
+            "Apakah data pribadi saya aman di aplikasi ini?",
+            "Seberapa sering saya harus memperbarui data kesehatan?",
+            "Apa yang harus dilakukan jika hasil prediksi menunjukkan risiko tinggi?",
+            "Apakah aplikasi ini cocok untuk semua usia?"
+        )
+        
+        var faqFound = false
+        for (question in faqQuestions) {
+            try {
+                composeTestRule.onNodeWithText(question, substring = true)
+                    .assertIsDisplayed()
+                faqFound = true
+                println("FAQ found: $question")
+                break
+            } catch (_: AssertionError) {
+            }
+        }
+        
+        if (!faqFound) {
+            throw AssertionError("No FAQ cards found in FAQ section")
+        }
+    }
+
+    fun clickOnFirstFAQCard() {
+        val faqQuestion = "Seberapa akurat estimasi risiko diabetes dari aplikasi ini?"
+
+        composeTestRule.onNodeWithText(faqQuestion, substring = true)
+            .assertIsDisplayed()
+        composeTestRule.onNodeWithText(faqQuestion, substring = true)
+            .performClick()
+        composeTestRule.waitForIdle()
+        Thread.sleep(1000)
+    }
+
+    fun clickOnSecondFAQCard() {
+        val faqQuestion = "Apakah hasil estimasi risiko bisa menggantikan konsultasi dokter?"
+
+        composeTestRule.onNodeWithText(faqQuestion, substring = true)
+            .assertIsDisplayed()
+        composeTestRule.onNodeWithText(faqQuestion, substring = true)
+            .performClick()
+        composeTestRule.waitForIdle()
+        Thread.sleep(1000)
+    }
+
+    fun verifyFAQAnswerDisplayed() {
+        val answerKeyword = "Tidak. Hasil estimasi risiko Diabetify adalah alat bantu untuk mengetahui risiko diabetes, bukan pengganti konsultasi medis profesional."
+
+        composeTestRule.onNodeWithText(answerKeyword, substring = true)
             .assertIsDisplayed()
     }
 }
