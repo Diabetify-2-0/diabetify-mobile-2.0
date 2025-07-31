@@ -28,6 +28,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -138,7 +139,8 @@ fun ProfileCard(
                 fontFamily = poppinsFontFamily,
                 fontWeight = FontWeight.Bold,
                 fontSize = 20.sp,
-                color = colorResource(id = R.color.primary)
+                color = colorResource(id = R.color.primary),
+                modifier = Modifier.testTag("ProfileCardName")
             )
 
             Text(
@@ -146,16 +148,19 @@ fun ProfileCard(
                 fontFamily = poppinsFontFamily,
                 fontWeight = FontWeight.Medium,
                 fontSize = 14.sp,
-                color = colorResource(id = R.color.gray)
+                color = colorResource(id = R.color.gray),
+                modifier = Modifier.testTag("ProfileCardEmail")
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
             // Edit button
             SecondaryButton(
-                text = "Edit Profile",
+                text = "Edit Profil",
                 onClick = onEditClick,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("EditProfilButton")
             )
         }
     }

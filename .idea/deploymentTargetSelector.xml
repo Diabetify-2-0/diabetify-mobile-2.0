@@ -5,19 +5,19 @@
       <SelectionState runConfigName="App">
         <option name="selectionMode" value="DROPDOWN" />
       </SelectionState>
-      <SelectionState runConfigName="viewHistory_EmptyHistory()">
+      <SelectionState runConfigName="changeName_WithEmptyField_ShouldShowError()">
         <option name="selectionMode" value="DROPDOWN" />
       </SelectionState>
-      <SelectionState runConfigName="verifyNextDateAfterToday_NotClickable()">
+      <SelectionState runConfigName="changeGender_WithEmptyField_ShouldShowError()">
         <option name="selectionMode" value="DROPDOWN" />
       </SelectionState>
-      <SelectionState runConfigName="ViewHistoryTest">
+      <SelectionState runConfigName="changeDateOfBirth_WithEmptyField_ShouldShowError()">
         <option name="selectionMode" value="DROPDOWN" />
       </SelectionState>
-      <SelectionState runConfigName="viewHistory_Complete()">
+      <SelectionState runConfigName="verifyCancelButton_WorksCorrectly()">
         <option name="selectionMode" value="DROPDOWN" />
       </SelectionState>
-      <SelectionState runConfigName="viewGuide_Complete()">
+      <SelectionState runConfigName="EditUserTest">
         <option name="selectionMode" value="DROPDOWN" />
       </SelectionState>
     </selectionStates>

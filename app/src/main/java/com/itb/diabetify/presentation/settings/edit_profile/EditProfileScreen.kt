@@ -30,6 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -162,7 +163,8 @@ fun EditProfileScreen(
                         modifier = Modifier.fillMaxWidth(),
                         keyboardType = KeyboardType.Text,
                         isError = nameFieldState.error != null,
-                        errorMessage = nameFieldState.error ?: ""
+                        errorMessage = nameFieldState.error ?: "",
+                        testTag = "EditProfileNameField"
                     )
 
                     Spacer(modifier = Modifier.height(6.dp))
@@ -208,7 +210,7 @@ fun EditProfileScreen(
                         iconResId = R.drawable.ic_users,
                         modifier = Modifier.fillMaxWidth(),
                         isError = genderFieldState.error != null,
-                        errorMessage = genderFieldState.error ?: ""
+                        errorMessage = genderFieldState.error ?: "",
                     )
 
                     Spacer(modifier = Modifier.height(6.dp))
@@ -227,12 +229,15 @@ fun EditProfileScreen(
                         onValueChange = { },
                         placeholderText = "Tanggal Lahir",
                         iconResId = R.drawable.ic_calendar,
-                        modifier = Modifier.clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null
-                        ) {
-                            viewModel.setShowDatePicker(true)
-                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("EditProfileDateField")
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null
+                            ) {
+                                viewModel.setShowDatePicker(true)
+                            },
                         enabled = false,
                         trailingIcon = {
                             if (birthDateFieldState.text.isNotEmpty()) {
@@ -282,7 +287,8 @@ fun EditProfileScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp)
-                    .padding(bottom = 16.dp),
+                    .padding(bottom = 16.dp)
+                    .testTag("SimpanPerubahanButton"),
                 enabled = nameFieldState.error == null && emailFieldState.error == null && genderFieldState.error == null && birthDateFieldState.error == null,
                 isLoading = isLoading
             )
