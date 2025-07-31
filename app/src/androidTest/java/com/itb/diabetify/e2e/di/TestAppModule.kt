@@ -80,6 +80,7 @@ import com.itb.diabetify.domain.usecases.user.EditUserUseCase
 import com.itb.diabetify.domain.usecases.user.GetUserRepositoryUseCase
 import com.itb.diabetify.domain.usecases.user.GetUserUseCase
 import com.itb.diabetify.domain.usecases.user.UserUseCases
+import com.itb.diabetify.e2e.manager.FakeConnectivityManager
 import com.itb.diabetify.e2e.repository.FakeAuthRepository
 import com.itb.diabetify.e2e.repository.FakeProfileRepository
 import com.itb.diabetify.e2e.repository.FakeUserRepository
@@ -338,9 +339,9 @@ object TestAppModule {
     @Provides
     @Singleton
     fun providesConnectivityManager(
-        @ApplicationContext context: Context
+        fakeConnectivityManager: FakeConnectivityManager
     ): ConnectivityManager {
-        return ConnectivityManagerImpl(context)
+        return fakeConnectivityManager
     }
 
     @Provides
