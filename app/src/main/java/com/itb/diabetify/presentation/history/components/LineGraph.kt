@@ -52,7 +52,7 @@ fun LineGraph(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "Tidak ada data skor prediksi dalam rentang 15 hari",
+                    text = "Tidak ada data skor risiko dalam rentang 15 hari",
                     fontFamily = poppinsFontFamily,
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp,

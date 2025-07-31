@@ -42,6 +42,7 @@ import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.font.FontWeight
@@ -303,6 +304,7 @@ fun ContentItem(
     Box(
         modifier = Modifier
             .fillMaxWidth()
+            .testTag("DateItem_${date.date.dayOfMonth}")
             .shadow(
                 elevation = 40.dp,
                 shape = RoundedCornerShape(15.dp),

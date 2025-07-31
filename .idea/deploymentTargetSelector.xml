@@ -5,19 +5,19 @@
       <SelectionState runConfigName="App">
         <option name="selectionMode" value="DROPDOWN" />
       </SelectionState>
-      <SelectionState runConfigName="simulateRiskScenario_NavigationBackToHome()">
+      <SelectionState runConfigName="verifyArrowButton_WorksCorrectly()">
         <option name="selectionMode" value="DROPDOWN" />
       </SelectionState>
-      <SelectionState runConfigName="changeCigarettesPerDay_WithEmpty_ShowsValidationError()">
+      <SelectionState runConfigName="viewHistory_EmptyHistory()">
         <option name="selectionMode" value="DROPDOWN" />
       </SelectionState>
-      <SelectionState runConfigName="changeWeight_WithValueBelowLimit_ShowsValidationError()">
+      <SelectionState runConfigName="verifyNextDateAfterToday_NotClickable()">
         <option name="selectionMode" value="DROPDOWN" />
       </SelectionState>
-      <SelectionState runConfigName="SimulateRiskScenarioTest">
+      <SelectionState runConfigName="ViewHistoryTest">
         <option name="selectionMode" value="DROPDOWN" />
       </SelectionState>
-      <SelectionState runConfigName="viewTodaysData_Complete()">
+      <SelectionState runConfigName="viewHistory_Complete()">
         <option name="selectionMode" value="DROPDOWN" />
       </SelectionState>
     </selectionStates>

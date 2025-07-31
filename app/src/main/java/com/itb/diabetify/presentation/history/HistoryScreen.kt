@@ -21,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -90,7 +91,7 @@ fun HistoryScreen(
             Spacer(modifier = Modifier.height(15.dp))
 
             HorizontalCalendar(
-                modifier = Modifier,
+                modifier = Modifier.testTag("HorizontalCalendar"),
                 onDateClickListener = { date ->
                     val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
                     viewModel.setDate(date.format(formatter))
@@ -125,7 +126,8 @@ fun HistoryScreen(
             } else if (currentPrediction == null) {
                 LineGraph(
                     predictionScores = predictionScores,
-                    selectedDate = viewModel.date.value
+                    selectedDate = viewModel.date.value,
+                    modifier = Modifier.testTag("LineGraph")
                 )
 
                 // No data available
@@ -145,7 +147,7 @@ fun HistoryScreen(
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            text = "Tidak Ada Data Prediksi",
+                            text = "Tidak Ada Data",
                             fontFamily = poppinsFontFamily,
                             fontWeight = FontWeight.Bold,
                             fontSize = 18.sp,
@@ -166,7 +168,8 @@ fun HistoryScreen(
             } else {
                 LineGraph(
                     predictionScores = predictionScores,
-                    selectedDate = viewModel.date.value
+                    selectedDate = viewModel.date.value,
+                    modifier = Modifier.testTag("LineGraph")
                 )
 
                 // Daily Summary
