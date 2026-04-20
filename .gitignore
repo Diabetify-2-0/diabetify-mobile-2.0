@@ -1,5 +1,7 @@
 *.iml
-.gradle
+.gradle/
+.gradle-user-home*/
+.android-user-home/
 /local.properties
 /.idea/caches
 /.idea/libraries
@@ -9,7 +11,17 @@
 /.idea/assetWizardSettings.xml
 .DS_Store
 /build
+build/
+app/build/
 /captures
 .externalNativeBuild
 .cxx
+.kotlin/
+.ksp/
 local.properties
+
+# Release/signing artifacts
+*.apk
+*.aab
+*.jks
+*.keystore

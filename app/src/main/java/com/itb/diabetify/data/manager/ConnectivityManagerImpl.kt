@@ -46,9 +46,13 @@ class ConnectivityManagerImpl @Inject constructor(
                 network: Network,
                 networkCapabilities: NetworkCapabilities
             ) {
-                val hasInternet = networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
-                        networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
-                trySend(hasInternet)
+                val hasInternet = networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                val isValidated = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+                } else {
+                    true
+                }
+                trySend(hasInternet && isValidated)
             }
         }
 
@@ -64,4 +68,4 @@ class ConnectivityManagerImpl @Inject constructor(
             connectivityManager.unregisterNetworkCallback(networkCallback)
         }
     }
-} 
+}

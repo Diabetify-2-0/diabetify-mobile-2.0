@@ -18,6 +18,7 @@ import com.itb.diabetify.domain.model.Prediction
 import com.itb.diabetify.domain.repository.PredictionRepository
 import com.itb.diabetify.util.Resource
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import okio.IOException
 import retrofit2.HttpException
 
@@ -37,24 +38,13 @@ class PredictionRepositoryImpl (
             val jobResponse = predictionApiService.predict()
             
             val jobStatusFlow = predictionJobManager.pollJobStatus(jobResponse.data.jobId)
-            
-            var result: Resource<Unit> = Resource.Error("Unknown error")
-            
-            jobStatusFlow.collect { status ->
-                when (status) {
-                    is PredictionJobStatus.Completed -> {
-                        fetchLatestPrediction()
-                        result = Resource.Success(Unit)
-                        return@collect
-                    }
-                    is PredictionJobStatus.Failed -> {
-                        result = Resource.Error(status.error)
-                        return@collect
-                    }
-                    else -> {
-                        // Continue polling
-                    }
+            when (val status = jobStatusFlow.first { it is PredictionJobStatus.Completed || it is PredictionJobStatus.Failed }) {
+                is PredictionJobStatus.Completed -> {
+                    fetchLatestPrediction()
+                    Resource.Success(Unit)
                 }
+                is PredictionJobStatus.Failed -> Resource.Error(status.error)
+                else -> Resource.Error("Unknown prediction job status")
             }
         } catch (e: IOException) {
             Resource.Error("${e.message}")
@@ -80,7 +70,7 @@ class PredictionRepositoryImpl (
 
     override suspend fun explainPrediction(): Resource<Unit> {
         return try {
-            val response = predictionApiService.explainPrediction()
+            predictionApiService.explainPrediction()
             fetchLatestPrediction()
             Resource.Success(Unit)
         } catch (e: IOException) {

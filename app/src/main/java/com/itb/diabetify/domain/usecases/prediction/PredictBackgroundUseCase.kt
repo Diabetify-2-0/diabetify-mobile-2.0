@@ -4,6 +4,7 @@ import com.itb.diabetify.domain.manager.PredictionJobStatus
 import com.itb.diabetify.domain.repository.PredictionRepository
 import com.itb.diabetify.util.Resource
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 class PredictBackgroundUseCase(
@@ -18,19 +19,10 @@ class PredictBackgroundUseCase(
                     val jobId = jobResult.data?.data?.jobId
                     if (jobId != null) {
                         val jobStatusFlow = repository.pollPredictionJob(jobId, pollingIntervalMs)
-                        jobStatusFlow.collect { status ->
-                            when (status) {
-                                is PredictionJobStatus.Completed -> {
-                                    repository.fetchLatestPrediction()
-                                    return@collect
-                                }
-                                is PredictionJobStatus.Failed -> {
-                                    return@collect
-                                }
-                                else -> {
-                                    // Continue polling
-                                }
-                            }
+                        when (jobStatusFlow.first { it is PredictionJobStatus.Completed || it is PredictionJobStatus.Failed }) {
+                            is PredictionJobStatus.Completed -> repository.fetchLatestPrediction()
+                            is PredictionJobStatus.Failed -> Unit
+                            else -> Unit
                         }
                     }
                 }

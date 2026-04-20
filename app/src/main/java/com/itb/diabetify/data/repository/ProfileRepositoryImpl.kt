@@ -11,7 +11,6 @@ import com.itb.diabetify.util.Resource
 import kotlinx.coroutines.flow.Flow
 import okio.IOException
 import retrofit2.HttpException
-import android.util.Log
 
 class ProfileRepositoryImpl(
     private val profileApiService: ProfileApiService,
@@ -26,7 +25,7 @@ class ProfileRepositoryImpl(
         addProfileRequest: AddProfileRequest
     ): Resource<Unit> {
         return try {
-            val response = profileApiService.addProfile(addProfileRequest)
+            profileApiService.addProfile(addProfileRequest)
             fetchProfile()
             Resource.Success(Unit)
         } catch (e: IOException) {
@@ -40,7 +39,7 @@ class ProfileRepositoryImpl(
         updateProfileRequest: UpdateProfileRequest
     ): Resource<Unit> {
         return try {
-            val response = profileApiService.updateProfile(updateProfileRequest)
+            profileApiService.updateProfile(updateProfileRequest)
             fetchProfile()
             Resource.Success(Unit)
         } catch (e: IOException) {

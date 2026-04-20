@@ -4,9 +4,8 @@ import com.itb.diabetify.data.remote.prediction.PredictionApiService
 import com.itb.diabetify.domain.manager.PredictionJobManager
 import com.itb.diabetify.domain.manager.PredictionJobStatus
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -14,53 +13,55 @@ import javax.inject.Singleton
 class PredictionJobManagerImpl @Inject constructor(
     private val predictionApiService: PredictionApiService
 ) : PredictionJobManager {
-    
-    private val _jobStatus = MutableStateFlow<PredictionJobStatus>(PredictionJobStatus.Pending)
+
     private var currentJobId: String? = null
     private var isCancelled = false
 
-    override suspend fun pollJobStatus(jobId: String, pollingIntervalMs: Long): StateFlow<PredictionJobStatus> {
+    override suspend fun pollJobStatus(jobId: String, pollingIntervalMs: Long): Flow<PredictionJobStatus> = flow {
         currentJobId = jobId
         isCancelled = false
-        _jobStatus.value = PredictionJobStatus.Pending
-        
+        emit(PredictionJobStatus.Pending)
+
         try {
-            while (!isCancelled) {
+            while (true) {
+                if (isCancelled) {
+                    emit(PredictionJobStatus.Failed("Prediction job was cancelled"))
+                    break
+                }
+
                 val response = predictionApiService.getPredictionJobStatus(jobId)
-                
-                when (response.data.status.lowercase()) {
-                    "pending", "submitted" -> {
-                        _jobStatus.value = PredictionJobStatus.Pending
-                    }
-                    "processing" -> {
-                        _jobStatus.value = PredictionJobStatus.InProgress(response.data.progress)
-                    }
+                val data = response.data
+                val progress = data.progress ?: 50
+
+                when (data.status.orEmpty().lowercase()) {
+                    "pending", "submitted" -> emit(PredictionJobStatus.Pending)
+                    "processing" -> emit(PredictionJobStatus.InProgress(progress))
                     "completed" -> {
-                        _jobStatus.value = PredictionJobStatus.Completed
+                        emit(PredictionJobStatus.Completed)
                         break
                     }
                     "failed" -> {
-                        _jobStatus.value = PredictionJobStatus.Failed("Prediction job failed")
+                        emit(PredictionJobStatus.Failed(data.error ?: data.message ?: "Prediction job failed"))
                         break
                     }
                     "cancelled" -> {
-                        _jobStatus.value = PredictionJobStatus.Failed("Prediction job was cancelled")
+                        emit(PredictionJobStatus.Failed("Prediction job was cancelled"))
                         break
                     }
-                    else -> {
-                        _jobStatus.value = PredictionJobStatus.InProgress(response.data.progress)
+                    "" -> {
+                        emit(PredictionJobStatus.Failed("Invalid prediction job status response"))
+                        break
                     }
+                    else -> emit(PredictionJobStatus.InProgress(progress))
                 }
-                
+
                 delay(pollingIntervalMs)
             }
         } catch (e: Exception) {
             if (!isCancelled) {
-                _jobStatus.value = PredictionJobStatus.Failed(e.message ?: "Unknown error occurred")
+                emit(PredictionJobStatus.Failed(e.message ?: "Unknown error occurred"))
             }
         }
-        
-        return _jobStatus.asStateFlow()
     }
 
     override suspend fun cancelJob(jobId: String) {

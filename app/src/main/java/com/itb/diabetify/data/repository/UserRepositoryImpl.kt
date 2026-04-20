@@ -27,7 +27,7 @@ class UserRepositoryImpl(
         editUserRequest: EditUserRequest
     ): Resource<Unit> {
         return try {
-            val response = userApiService.editUser(editUserRequest)
+            userApiService.editUser(editUserRequest)
             fetchUser()
             Resource.Success(Unit)
         } catch (e: IOException) {

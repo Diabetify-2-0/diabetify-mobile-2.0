@@ -7,6 +7,25 @@ plugins {
     id("com.google.dagger.hilt.android")
 }
 
+val localProperties = Properties()
+val localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.inputStream().use(localProperties::load)
+}
+
+fun localProperty(name: String, defaultValue: String = ""): String {
+    return localProperties.getProperty(name, defaultValue).trim()
+}
+
+fun buildConfigString(value: String): String {
+    return "\"${value.replace("\\", "\\\\").replace("\"", "\\\"")}\""
+}
+
+fun normalizedBaseUrl(): String {
+    val rawUrl = localProperty("API_BASE_URL", "http://10.0.2.2:8080/")
+    return if (rawUrl.endsWith("/")) rawUrl else "$rawUrl/"
+}
+
 android {
     namespace = "com.itb.diabetify"
     compileSdk = 35
@@ -22,16 +41,18 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
-
-        val properties = Properties()
-        properties.load(rootProject.file("local.properties").inputStream())
-
-        buildConfigField("String", "WEB_CLIENT_ID", "\"${properties.getProperty("WEB_CLIENT_ID")}\"")
+        manifestPlaceholders["usesCleartextTraffic"] = "false"
+        buildConfigField("String", "API_BASE_URL", buildConfigString(normalizedBaseUrl()))
+        buildConfigField("String", "WEB_CLIENT_ID", buildConfigString(localProperty("WEB_CLIENT_ID")))
     }
 
     buildTypes {
+        debug {
+            manifestPlaceholders["usesCleartextTraffic"] = "true"
+        }
         release {
             isMinifyEnabled = false
+            manifestPlaceholders["usesCleartextTraffic"] = "false"
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -39,11 +60,11 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions {
-        jvmTarget = "1.8"
+        jvmTarget = "17"
     }
     buildFeatures {
         compose = true
@@ -70,19 +91,15 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.core:core-splashscreen:1.0.1")
-    implementation("androidx.appcompat:appcompat:1.7.0")
-    implementation("com.google.android.material:material:1.12.0")
-    implementation("androidx.activity:activity-ktx:1.10.1")
     implementation("androidx.navigation:navigation-compose:2.8.8")
-    implementation("androidx.datastore:datastore-preferences-core:1.1.3")
     implementation("androidx.datastore:datastore-preferences:1.1.3")
     implementation("com.google.dagger:hilt-android:2.51.1")
     implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
     implementation("com.airbnb.android:lottie-compose:4.0.0")
-    implementation("com.squareup.retrofit2:retrofit:2.9.0")
-    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
-    implementation("com.squareup.okhttp3:okhttp:5.0.0-alpha.3")
-    implementation("com.squareup.okhttp3:logging-interceptor:5.0.0-alpha.3")
+    implementation("com.squareup.retrofit2:retrofit:2.11.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.11.0")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
     implementation("com.google.android.gms:play-services-auth:20.2.0")
     implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
@@ -100,8 +117,3 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
-
-//kapt {
-//    correctErrorTypes = true
-//    keepJavacAnnotationProcessors = true
-//}

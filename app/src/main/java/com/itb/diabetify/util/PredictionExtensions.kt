@@ -1,14 +1,16 @@
 package com.itb.diabetify.util
 
+import com.itb.diabetify.data.remote.prediction.request.WhatIfPredictionRequest
 import com.itb.diabetify.domain.manager.PredictionJobStatus
 import com.itb.diabetify.domain.manager.WhatIfJobStatus
 import com.itb.diabetify.domain.usecases.prediction.PredictionUseCases
-import com.itb.diabetify.data.remote.prediction.request.WhatIfPredictionRequest
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.first
 
 private var isWhatIfPredictionInProgress = false
 
 suspend fun PredictionUseCases.handleAsyncPrediction(
+    @Suppress("UNUSED_PARAMETER")
     scope: CoroutineScope,
     pollingIntervalMs: Long = 2000L,
     onPending: () -> Unit = {},
@@ -16,33 +18,46 @@ suspend fun PredictionUseCases.handleAsyncPrediction(
     onCompleted: suspend () -> Unit = {},
     onFailed: (error: String) -> Unit = {}
 ) {
-    val asyncResult = this.predictAsync(pollingIntervalMs)
-    
+    val asyncResult = predictAsync(pollingIntervalMs)
+
     if (asyncResult.error != null) {
         onFailed(asyncResult.error)
         return
     }
-    
-    asyncResult.jobStatusFlow?.let { statusFlow ->
-        statusFlow.collect { status ->
-            when (status) {
-                is PredictionJobStatus.Pending -> onPending()
-                is PredictionJobStatus.InProgress -> onProgress(status.progress)
-                is PredictionJobStatus.Completed -> {
-                    this@handleAsyncPrediction.getLatestPrediction()
-                    onCompleted()
-                    return@collect
-                }
-                is PredictionJobStatus.Failed -> {
-                    onFailed(status.error)
-                    return@collect
-                }
+
+    val statusFlow = asyncResult.jobStatusFlow
+    if (statusFlow == null) {
+        onFailed("Gagal memulai polling prediksi")
+        return
+    }
+
+    val terminalStatus = statusFlow.first { status ->
+        when (status) {
+            is PredictionJobStatus.Pending -> {
+                onPending()
+                false
             }
+            is PredictionJobStatus.InProgress -> {
+                onProgress(status.progress)
+                false
+            }
+            is PredictionJobStatus.Completed,
+            is PredictionJobStatus.Failed -> true
         }
+    }
+
+    when (terminalStatus) {
+        is PredictionJobStatus.Completed -> {
+            getLatestPrediction()
+            onCompleted()
+        }
+        is PredictionJobStatus.Failed -> onFailed(terminalStatus.error)
+        else -> Unit
     }
 }
 
 suspend fun PredictionUseCases.handleAsyncWhatIfPrediction(
+    @Suppress("UNUSED_PARAMETER")
     scope: CoroutineScope,
     whatIfRequest: WhatIfPredictionRequest,
     pollingIntervalMs: Long = 2000L,
@@ -55,37 +70,53 @@ suspend fun PredictionUseCases.handleAsyncWhatIfPrediction(
         onFailed("Sudah ada prediksi what-if yang sedang berjalan")
         return
     }
-    
+
     isWhatIfPredictionInProgress = true
-    
-    val asyncResult = this.whatIfPredictionAsync(whatIfRequest, pollingIntervalMs)
-    
+
+    val asyncResult = whatIfPredictionAsync(whatIfRequest, pollingIntervalMs)
+
     if (asyncResult.error != null) {
         isWhatIfPredictionInProgress = false
         onFailed(asyncResult.error)
         return
     }
-    
-    asyncResult.jobStatusFlow?.let { statusFlow ->
-        statusFlow.collect { status ->
-            when (status) {
-                is WhatIfJobStatus.Pending -> onPending()
-                is WhatIfJobStatus.InProgress -> onProgress(status.progress)
-                is WhatIfJobStatus.Completed -> {
-                        asyncResult.jobId?.let { jobId ->
-                            onCompleted(jobId)
-                        }
-                        asyncResult.onComplete?.invoke()
-                        isWhatIfPredictionInProgress = false
-                        return@collect
-                    }
-                    is WhatIfJobStatus.Failed -> {
-                        onFailed(status.error)
-                        asyncResult.onComplete?.invoke()
-                        isWhatIfPredictionInProgress = false
-                        return@collect
-                    }
+
+    val statusFlow = asyncResult.jobStatusFlow
+    if (statusFlow == null) {
+        isWhatIfPredictionInProgress = false
+        asyncResult.onComplete?.invoke()
+        onFailed("Gagal memulai polling what-if")
+        return
+    }
+
+    val terminalStatus = statusFlow.first { status ->
+        when (status) {
+            is WhatIfJobStatus.Pending -> {
+                onPending()
+                false
             }
+            is WhatIfJobStatus.InProgress -> {
+                onProgress(status.progress)
+                false
+            }
+            is WhatIfJobStatus.Completed,
+            is WhatIfJobStatus.Failed -> true
         }
+    }
+
+    when (terminalStatus) {
+        is WhatIfJobStatus.Completed -> {
+            asyncResult.jobId?.let { jobId ->
+                onCompleted(jobId)
+            }
+            asyncResult.onComplete?.invoke()
+            isWhatIfPredictionInProgress = false
+        }
+        is WhatIfJobStatus.Failed -> {
+            onFailed(terminalStatus.error)
+            asyncResult.onComplete?.invoke()
+            isWhatIfPredictionInProgress = false
+        }
+        else -> Unit
     }
 }

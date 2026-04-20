@@ -1,9 +1,9 @@
 package com.itb.diabetify.domain.manager
 
-import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.Flow
 
 interface PredictionJobManager {
-    suspend fun pollJobStatus(jobId: String, pollingIntervalMs: Long = 2000L): StateFlow<PredictionJobStatus>
+    suspend fun pollJobStatus(jobId: String, pollingIntervalMs: Long = 2000L): Flow<PredictionJobStatus>
     suspend fun cancelJob(jobId: String)
 }
 

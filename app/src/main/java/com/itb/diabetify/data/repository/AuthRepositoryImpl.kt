@@ -1,6 +1,5 @@
 package com.itb.diabetify.data.repository
 
-import android.util.Log
 import com.itb.diabetify.data.remote.auth.AuthApiService
 import com.itb.diabetify.data.remote.auth.request.ChangePasswordRequest
 import com.itb.diabetify.data.remote.auth.request.CreateAccountRequest
@@ -21,7 +20,7 @@ class AuthRepositoryImpl(
         createAccountRequest: CreateAccountRequest
     ): Resource<Unit> {
         return try {
-            val response = authApiService.createAccount(createAccountRequest)
+            authApiService.createAccount(createAccountRequest)
             Resource.Success(Unit)
         } catch (e: IOException) {
             Resource.Error("${e.message}")
@@ -41,10 +40,10 @@ class AuthRepositoryImpl(
         return try {
             when (type) {
                 "register" -> {
-                    val response = authApiService.sendVerification(sendVerificationRequest)
+                    authApiService.sendVerification(sendVerificationRequest)
                 }
                 "reset-password" -> {
-                    val response = authApiService.sendResetPasswordVerification(sendVerificationRequest)
+                    authApiService.sendResetPasswordVerification(sendVerificationRequest)
                 }
                 else -> {
                     return Resource.Error("Invalid type")
@@ -66,7 +65,7 @@ class AuthRepositoryImpl(
         verifyOtpRequest: VerifyOtpRequest
     ): Resource<Unit> {
         return try {
-            val response = authApiService.verifyOtp(verifyOtpRequest)
+            authApiService.verifyOtp(verifyOtpRequest)
             Resource.Success(Unit)
         } catch (e: IOException) {
             Resource.Error("${e.message}")
@@ -103,7 +102,7 @@ class AuthRepositoryImpl(
         changePasswordRequest: ChangePasswordRequest
     ): Resource<Unit> {
         return try {
-            val response = authApiService.changePassword(changePasswordRequest)
+            authApiService.changePassword(changePasswordRequest)
             Resource.Success(Unit)
         } catch (e: IOException) {
             Resource.Error("${e.message}")

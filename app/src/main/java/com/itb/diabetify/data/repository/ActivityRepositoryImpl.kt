@@ -26,7 +26,7 @@ class ActivityRepositoryImpl(
         addActivityRequest: AddActivityRequest
     ): Resource<Unit> {
         return try {
-            val response = activityApiService.addActivity(addActivityRequest)
+            activityApiService.addActivity(addActivityRequest)
             fetchActivityToday()
             Resource.Success(Unit)
         } catch (e: IOException) {
@@ -41,7 +41,7 @@ class ActivityRepositoryImpl(
         updateActivityRequest: UpdateActivityRequest
     ): Resource<Unit> {
         return try {
-            val response = activityApiService.updateActivity(activityId, updateActivityRequest)
+            activityApiService.updateActivity(activityId, updateActivityRequest)
             fetchActivityToday()
             Resource.Success(Unit)
         } catch (e: IOException) {
