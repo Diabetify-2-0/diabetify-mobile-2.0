@@ -1,14 +1,9 @@
 package com.itb.diabetify.domain.repository
 
-import com.itb.diabetify.data.remote.prediction.request.WhatIfPredictionRequest
 import com.itb.diabetify.data.remote.prediction.response.GetPredictionResponse
 import com.itb.diabetify.data.remote.prediction.response.GetPredictionScoreResponse
 import com.itb.diabetify.data.remote.prediction.response.PredictionJobResponse
-import com.itb.diabetify.data.remote.prediction.response.WhatIfPredictionResponse
-import com.itb.diabetify.data.remote.prediction.response.WhatIfJobResponse
-import com.itb.diabetify.data.remote.prediction.response.WhatIfJobResultResponse
 import com.itb.diabetify.domain.manager.PredictionJobStatus
-import com.itb.diabetify.domain.manager.WhatIfJobStatus
 import com.itb.diabetify.domain.model.Prediction
 import com.itb.diabetify.util.Resource
 import kotlinx.coroutines.flow.Flow
@@ -22,9 +17,5 @@ interface PredictionRepository {
     suspend fun fetchLatestPrediction(): Resource<Unit>
     suspend fun fetchPredictionByDate(startDate: String, endDate: String): Resource<GetPredictionResponse>
     suspend fun fetchPredictionScoreByDate(startDate: String, endDate: String): Resource<GetPredictionScoreResponse>
-    suspend fun whatIfPrediction(whatIfRequest: WhatIfPredictionRequest): Resource<WhatIfPredictionResponse>
-    suspend fun startWhatIfJob(whatIfRequest: WhatIfPredictionRequest): Resource<WhatIfJobResponse>
-    suspend fun pollWhatIfJob(jobId: String, pollingIntervalMs: Long = 2000L): Flow<WhatIfJobStatus>
-    suspend fun getWhatIfJobResult(jobId: String): Resource<WhatIfJobResultResponse>
     fun getLatestPrediction(): Flow<Prediction?>
 }

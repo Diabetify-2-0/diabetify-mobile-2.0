@@ -1,17 +1,11 @@
 package com.itb.diabetify.data.repository
 
 import com.itb.diabetify.data.remote.prediction.PredictionApiService
-import com.itb.diabetify.data.remote.prediction.request.WhatIfPredictionRequest
 import com.itb.diabetify.data.remote.prediction.response.GetPredictionResponse
 import com.itb.diabetify.data.remote.prediction.response.GetPredictionScoreResponse
 import com.itb.diabetify.data.remote.prediction.response.PredictionJobResponse
-import com.itb.diabetify.data.remote.prediction.response.WhatIfPredictionResponse
-import com.itb.diabetify.data.remote.prediction.response.WhatIfJobResponse
-import com.itb.diabetify.data.remote.prediction.response.WhatIfJobResultResponse
 import com.itb.diabetify.domain.manager.PredictionJobManager
 import com.itb.diabetify.domain.manager.PredictionJobStatus
-import com.itb.diabetify.domain.manager.WhatIfJobManager
-import com.itb.diabetify.domain.manager.WhatIfJobStatus
 import com.itb.diabetify.domain.manager.PredictionManager
 import com.itb.diabetify.domain.manager.TokenManager
 import com.itb.diabetify.domain.model.Prediction
@@ -27,7 +21,6 @@ class PredictionRepositoryImpl (
     private val tokenManager: TokenManager,
     private val predictionManager: PredictionManager,
     private val predictionJobManager: PredictionJobManager,
-    private val whatIfJobManager: WhatIfJobManager,
 ) : PredictionRepository {
     override suspend fun getToken(): String? {
         return tokenManager.getToken()
@@ -229,36 +222,6 @@ class PredictionRepositoryImpl (
     ): Resource<GetPredictionScoreResponse> {
         return try {
             val response = predictionApiService.getPredictionScoreByDate(startDate, endDate)
-            Resource.Success(response)
-        } catch (e: IOException) {
-            Resource.Error("${e.message}")
-        } catch (e: HttpException) {
-            Resource.Error("${e.message}")
-        }
-    }
-
-    override suspend fun whatIfPrediction(whatIfRequest: WhatIfPredictionRequest): Resource<WhatIfPredictionResponse> {
-        return Resource.Error("Use startWhatIfJob instead")
-    }
-
-    override suspend fun startWhatIfJob(whatIfRequest: WhatIfPredictionRequest): Resource<WhatIfJobResponse> {
-        return try {
-            val response = predictionApiService.whatIfPrediction(whatIfRequest)
-            Resource.Success(response)
-        } catch (e: IOException) {
-            Resource.Error("${e.message}")
-        } catch (e: HttpException) {
-            Resource.Error("${e.message}")
-        }
-    }
-
-    override suspend fun pollWhatIfJob(jobId: String, pollingIntervalMs: Long): Flow<WhatIfJobStatus> {
-        return whatIfJobManager.pollJobStatus(jobId, pollingIntervalMs)
-    }
-
-    override suspend fun getWhatIfJobResult(jobId: String): Resource<WhatIfJobResultResponse> {
-        return try {
-            val response = predictionApiService.getWhatIfJobResult(jobId)
             Resource.Success(response)
         } catch (e: IOException) {
             Resource.Error("${e.message}")

@@ -360,12 +360,11 @@ fun HomeScreen(
                     }
                 }
 
-                // What-If Simulation Card
                 Column(
                     modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
                 ) {
                     HomeCard(
-                        title = "Simulasi What-If"
+                        title = "Simulasi Counterfactual"
                     ) {
                         Column(
                             modifier = Modifier
@@ -378,7 +377,7 @@ fun HomeScreen(
                                     .fillMaxWidth()
                                     .padding(bottom = 16.dp),
                                 colors = CardDefaults.cardColors(
-                                    containerColor = Color(0xFFECFDF5)
+                                    containerColor = Color(0xFFFFF7ED)
                                 ),
                                 shape = RoundedCornerShape(12.dp)
                             ) {
@@ -392,23 +391,23 @@ fun HomeScreen(
                                         Icon(
                                             imageVector = Icons.Outlined.Info,
                                             contentDescription = "Info",
-                                            tint = Color(0xFF059669),
+                                            tint = Color(0xFFEA580C),
                                             modifier = Modifier.size(20.dp)
                                         )
                                         Spacer(modifier = Modifier.width(8.dp))
                                         Text(
-                                            text = "Potensi penurunan risiko",
+                                            text = "Skenario perubahan terarah",
                                             fontSize = 14.sp,
                                             fontFamily = poppinsFontFamily,
                                             fontWeight = FontWeight.Medium,
-                                            color = Color(0xFF059669)
+                                            color = Color(0xFFEA580C)
                                         )
                                     }
                                 }
                             }
 
                             Text(
-                                text = "Simulasikan bagaimana perubahan gaya hidup dapat mempengaruhi risiko diabetes Anda",
+                                text = "Temukan kombinasi faktor yang paling mungkin membantu menurunkan risiko berdasarkan kondisi Anda saat ini.",
                                 fontFamily = poppinsFontFamily,
                                 fontWeight = FontWeight.Medium,
                                 fontSize = 14.sp,
@@ -418,9 +417,9 @@ fun HomeScreen(
                             )
 
                             PrimaryButton(
-                                text = "Mulai Simulasi",
+                                text = "Cari Rekomendasi",
                                 onClick = {
-                                     navController.navigate(Route.WhatIfScreen.route)
+                                    navController.navigate(Route.CounterfactualScreen.route)
                                 },
                                 modifier = Modifier
                                     .fillMaxWidth()

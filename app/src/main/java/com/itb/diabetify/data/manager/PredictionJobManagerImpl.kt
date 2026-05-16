@@ -22,45 +22,45 @@ class PredictionJobManagerImpl @Inject constructor(
         isCancelled = false
         emit(PredictionJobStatus.Pending)
 
-        try {
-            while (true) {
-                if (isCancelled) {
+        while (true) {
+            if (isCancelled) {
+                emit(PredictionJobStatus.Failed("Prediction job was cancelled"))
+                break
+            }
+
+            val response = try {
+                predictionApiService.getPredictionJobStatus(jobId)
+            } catch (e: Exception) {
+                emit(PredictionJobStatus.Failed(e.message ?: "Unknown error occurred"))
+                break
+            }
+
+            val data = response.data
+            val progress = data.progress ?: 50
+
+            when (data.status.orEmpty().lowercase()) {
+                "pending", "submitted" -> emit(PredictionJobStatus.Pending)
+                "processing" -> emit(PredictionJobStatus.InProgress(progress))
+                "completed" -> {
+                    emit(PredictionJobStatus.Completed)
+                    break
+                }
+                "failed" -> {
+                    emit(PredictionJobStatus.Failed(data.error ?: data.message ?: "Prediction job failed"))
+                    break
+                }
+                "cancelled" -> {
                     emit(PredictionJobStatus.Failed("Prediction job was cancelled"))
                     break
                 }
-
-                val response = predictionApiService.getPredictionJobStatus(jobId)
-                val data = response.data
-                val progress = data.progress ?: 50
-
-                when (data.status.orEmpty().lowercase()) {
-                    "pending", "submitted" -> emit(PredictionJobStatus.Pending)
-                    "processing" -> emit(PredictionJobStatus.InProgress(progress))
-                    "completed" -> {
-                        emit(PredictionJobStatus.Completed)
-                        break
-                    }
-                    "failed" -> {
-                        emit(PredictionJobStatus.Failed(data.error ?: data.message ?: "Prediction job failed"))
-                        break
-                    }
-                    "cancelled" -> {
-                        emit(PredictionJobStatus.Failed("Prediction job was cancelled"))
-                        break
-                    }
-                    "" -> {
-                        emit(PredictionJobStatus.Failed("Invalid prediction job status response"))
-                        break
-                    }
-                    else -> emit(PredictionJobStatus.InProgress(progress))
+                "" -> {
+                    emit(PredictionJobStatus.Failed("Invalid prediction job status response"))
+                    break
                 }
+                else -> emit(PredictionJobStatus.InProgress(progress))
+            }
 
-                delay(pollingIntervalMs)
-            }
-        } catch (e: Exception) {
-            if (!isCancelled) {
-                emit(PredictionJobStatus.Failed(e.message ?: "Unknown error occurred"))
-            }
+            delay(pollingIntervalMs)
         }
     }
 

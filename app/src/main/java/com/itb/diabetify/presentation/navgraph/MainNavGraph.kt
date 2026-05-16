@@ -47,8 +47,8 @@ import com.itb.diabetify.presentation.no_internet.NoInternetScreen
 import com.itb.diabetify.presentation.register.RegisterViewModel
 import com.itb.diabetify.presentation.survey.SurveyScreen
 import com.itb.diabetify.presentation.survey.SurveyViewModel
-import com.itb.diabetify.presentation.home.whatif.WhatIfResultScreen
-import com.itb.diabetify.presentation.home.whatif.WhatIfScreen
+import com.itb.diabetify.presentation.home.counterfactual.CounterfactualResultScreen
+import com.itb.diabetify.presentation.home.counterfactual.CounterfactualScreen
 
 @SuppressLint("UnrememberedGetBackStackEntry")
 @Composable
@@ -190,21 +190,21 @@ fun MainNavGraph(
                 )
             }
 
-            composable(route = Route.WhatIfScreen.route) {
+            composable(route = Route.CounterfactualScreen.route) {
                 val homeViewModel: HomeViewModel = hiltViewModel(
                     mainNavController.getBackStackEntry(Route.HomeScreen.route)
                 )
-                WhatIfScreen(
+                CounterfactualScreen(
                     navController = mainNavController,
                     viewModel = homeViewModel
                 )
             }
 
-            composable(route = Route.WhatIfResultScreen.route) {
+            composable(route = Route.CounterfactualResultScreen.route) {
                 val homeViewModel: HomeViewModel = hiltViewModel(
                     mainNavController.getBackStackEntry(Route.HomeScreen.route)
                 )
-                WhatIfResultScreen(
+                CounterfactualResultScreen(
                     navController = mainNavController,
                     viewModel = homeViewModel
                 )

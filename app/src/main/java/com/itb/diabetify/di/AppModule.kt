@@ -5,28 +5,30 @@ import android.content.Context
 import com.google.gson.Gson
 import com.itb.diabetify.data.manager.ActivityManagerImpl
 import com.itb.diabetify.data.manager.ConnectivityManagerImpl
+import com.itb.diabetify.data.manager.CounterfactualJobManagerImpl
 import com.itb.diabetify.data.manager.LocalUserManagerImpl
 import com.itb.diabetify.data.manager.PredictionJobManagerImpl
-import com.itb.diabetify.data.manager.WhatIfJobManagerImpl
 import com.itb.diabetify.data.manager.PredictionManagerImpl
 import com.itb.diabetify.data.manager.ProfileManagerImpl
 import com.itb.diabetify.data.manager.TokenManagerImpl
 import com.itb.diabetify.data.manager.UserManagerImpl
 import com.itb.diabetify.data.remote.activity.ActivityApiService
 import com.itb.diabetify.data.remote.auth.AuthApiService
+import com.itb.diabetify.data.remote.counterfactual.CounterfactualApiService
 import com.itb.diabetify.data.remote.interceptor.AuthInterceptor
 import com.itb.diabetify.data.remote.prediction.PredictionApiService
 import com.itb.diabetify.data.remote.profile.ProfileApiService
 import com.itb.diabetify.data.remote.user.UserApiService
 import com.itb.diabetify.data.repository.ActivityRepositoryImpl
 import com.itb.diabetify.data.repository.AuthRepositoryImpl
+import com.itb.diabetify.data.repository.CounterfactualRepositoryImpl
 import com.itb.diabetify.data.repository.PredictionRepositoryImpl
 import com.itb.diabetify.data.repository.ProfileRepositoryImpl
 import com.itb.diabetify.data.repository.UserRepositoryImpl
 import com.itb.diabetify.domain.manager.ConnectivityManager
+import com.itb.diabetify.domain.manager.CounterfactualJobManager
 import com.itb.diabetify.domain.manager.LocalUserManager
 import com.itb.diabetify.domain.manager.PredictionJobManager
-import com.itb.diabetify.domain.manager.WhatIfJobManager
 import com.itb.diabetify.domain.manager.TokenManager
 import com.itb.diabetify.domain.manager.UserManager
 import com.itb.diabetify.domain.manager.ActivityManager
@@ -34,6 +36,7 @@ import com.itb.diabetify.domain.manager.PredictionManager
 import com.itb.diabetify.domain.manager.ProfileManager
 import com.itb.diabetify.domain.repository.ActivityRepository
 import com.itb.diabetify.domain.repository.AuthRepository
+import com.itb.diabetify.domain.repository.CounterfactualRepository
 import com.itb.diabetify.domain.repository.PredictionRepository
 import com.itb.diabetify.domain.repository.ProfileRepository
 import com.itb.diabetify.domain.repository.UserRepository
@@ -53,6 +56,10 @@ import com.itb.diabetify.domain.usecases.auth.VerifyOtpUseCase
 import com.itb.diabetify.domain.usecases.connectivity.CheckConnectivityUseCase
 import com.itb.diabetify.domain.usecases.connectivity.ConnectivityUseCases
 import com.itb.diabetify.domain.usecases.connectivity.ObserveConnectivityUseCase
+import com.itb.diabetify.domain.usecases.counterfactual.CounterfactualUseCases
+import com.itb.diabetify.domain.usecases.counterfactual.GetCounterfactualJobResultUseCase
+import com.itb.diabetify.domain.usecases.counterfactual.RunCounterfactualAsyncUseCase
+import com.itb.diabetify.domain.usecases.counterfactual.StartCounterfactualJobUseCase
 import com.itb.diabetify.domain.usecases.prediction.GetLatestPredictionUseCase
 import com.itb.diabetify.domain.usecases.prediction.GetPredictionByDateUseCase
 import com.itb.diabetify.domain.usecases.prediction.GetPredictionScoreByDateUseCase
@@ -76,9 +83,6 @@ import com.itb.diabetify.domain.usecases.activity.ActivityUseCases
 import com.itb.diabetify.domain.usecases.activity.GetActivityRepositoryUseCase
 import com.itb.diabetify.domain.usecases.prediction.ExplainPredictionUseCase
 import com.itb.diabetify.domain.usecases.prediction.GetLatestPredictionRepositoryUseCase
-import com.itb.diabetify.domain.usecases.prediction.WhatIfPredictionUseCase
-import com.itb.diabetify.domain.usecases.prediction.WhatIfPredictionAsyncUseCase
-import com.itb.diabetify.domain.usecases.prediction.GetWhatIfJobResultUseCase
 import com.itb.diabetify.domain.usecases.profile.GetProfileRepositoryUseCase
 import com.itb.diabetify.domain.usecases.profile.ProfileUseCases
 import com.itb.diabetify.domain.usecases.user.GetUserRepositoryUseCase
@@ -280,6 +284,17 @@ object AppModule {
 
     @Provides
     @Singleton
+    fun providesCounterfactualApiService(okHttpClient: OkHttpClient): CounterfactualApiService {
+        return Retrofit.Builder()
+            .baseUrl(BASE_URL)
+            .client(okHttpClient)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+            .create(CounterfactualApiService::class.java)
+    }
+
+    @Provides
+    @Singleton
     fun providesPredictionManager(): PredictionManager {
         return PredictionManagerImpl()
     }
@@ -294,10 +309,10 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun providesWhatIfJobManager(
-        predictionApiService: PredictionApiService
-    ): WhatIfJobManager {
-        return WhatIfJobManagerImpl(predictionApiService)
+    fun providesCounterfactualJobManager(
+        counterfactualApiService: CounterfactualApiService
+    ): CounterfactualJobManager {
+        return CounterfactualJobManagerImpl(counterfactualApiService)
     }
 
     @Provides
@@ -306,15 +321,25 @@ object AppModule {
         predictionApiService: PredictionApiService,
         tokenManager: TokenManager,
         predictionManager: PredictionManager,
-        predictionJobManager: PredictionJobManager,
-        whatIfJobManager: WhatIfJobManager
+        predictionJobManager: PredictionJobManager
     ): PredictionRepository {
         return PredictionRepositoryImpl(
             predictionApiService = predictionApiService,
             tokenManager = tokenManager,
             predictionManager = predictionManager,
-            predictionJobManager = predictionJobManager,
-            whatIfJobManager = whatIfJobManager
+            predictionJobManager = predictionJobManager
+        )
+    }
+
+    @Provides
+    @Singleton
+    fun providesCounterfactualRepository(
+        counterfactualApiService: CounterfactualApiService,
+        counterfactualJobManager: CounterfactualJobManager
+    ): CounterfactualRepository {
+        return CounterfactualRepositoryImpl(
+            counterfactualApiService = counterfactualApiService,
+            counterfactualJobManager = counterfactualJobManager
         )
     }
 
@@ -331,10 +356,19 @@ object AppModule {
             predict = PredictUseCase(repository),
             predictAsync = PredictAsyncUseCase(repository),
             predictBackground = PredictBackgroundUseCase(repository),
-            explainPrediction = ExplainPredictionUseCase(repository),
-            whatIfPrediction = WhatIfPredictionUseCase(repository),
-            whatIfPredictionAsync = WhatIfPredictionAsyncUseCase(repository),
-            getWhatIfJobResult = GetWhatIfJobResultUseCase(repository)
+            explainPrediction = ExplainPredictionUseCase(repository)
+        )
+    }
+
+    @Provides
+    @Singleton
+    fun providesCounterfactualUseCases(
+        repository: CounterfactualRepository
+    ): CounterfactualUseCases {
+        return CounterfactualUseCases(
+            startCounterfactualJob = StartCounterfactualJobUseCase(repository),
+            runCounterfactualAsync = RunCounterfactualAsyncUseCase(repository),
+            getCounterfactualJobResult = GetCounterfactualJobResultUseCase(repository)
         )
     }
 
