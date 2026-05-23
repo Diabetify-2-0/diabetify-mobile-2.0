@@ -132,10 +132,10 @@ class HistoryViewModel @Inject constructor(
                     val scores = if (getPredictionScoreByDateResult.result.data?.data != null) {
                         getPredictionScoreByDateResult.result.data.data.mapIndexedNotNull { index, scoreData ->
                             scoreData?.let {
-                                val localDate = convertUtcToLocalDate(it.createdAt)
+                                val localDate = convertUtcToLocalDate(it.createdAt.orEmpty())
                                 PredictionScoreEntry(
                                     day = index + 1,
-                                    score = (it.riskScore.toFloat()) * 100f,
+                                    score = ((it.riskScore ?: 0.0).toFloat()) * 100f,
                                     date = localDate
                                 )
                             }
@@ -166,56 +166,56 @@ class HistoryViewModel @Inject constructor(
             riskFactorContributions = listOf(
                 RiskFactorContribution(
                     "Indeks Massa Tubuh",
-                    String.format("%.1f", prediction.bmiContribution * 100),
+                    String.format("%.1f", (prediction.bmiContribution ?: 0.0) * 100),
                     prediction.bmiImpact == 1
                 ),
                 RiskFactorContribution(
                     "Riwayat Hipertensi",
-                    String.format("%.1f", prediction.isHypertensionContribution * 100),
+                    String.format("%.1f", (prediction.isHypertensionContribution ?: 0.0) * 100),
                     prediction.isHypertensionImpact == 1
                 ),
                 RiskFactorContribution(
                     "Riwayat Bayi Makrosomia",
-                    String.format("%.1f", prediction.isMacrosomicBabyContribution * 100),
+                    String.format("%.1f", (prediction.isMacrosomicBabyContribution ?: 0.0) * 100),
                     prediction.isMacrosomicBabyImpact == 1
                 ),
                 RiskFactorContribution(
                     "Aktivitas Fisik",
-                    String.format("%.1f", prediction.physicalActivityFrequencyContribution * 100),
+                    String.format("%.1f", (prediction.physicalActivityFrequencyContribution ?: 0.0) * 100),
                     prediction.physicalActivityFrequencyImpact == 1
                 ),
                 RiskFactorContribution(
                     "Usia",
-                    String.format("%.1f", prediction.ageContribution * 100),
+                    String.format("%.1f", (prediction.ageContribution ?: 0.0) * 100),
                     prediction.ageImpact == 1
                 ),
                 RiskFactorContribution(
                     "Status Merokok",
-                    String.format("%.1f", prediction.smokingStatusContribution * 100),
+                    String.format("%.1f", (prediction.smokingStatusContribution ?: 0.0) * 100),
                     prediction.smokingStatusImpact == 1
                 ),
                 RiskFactorContribution(
                     "Indeks Brinkman",
-                    String.format("%.1f", prediction.brinkmanScoreContribution * 100),
+                    String.format("%.1f", (prediction.brinkmanScoreContribution ?: 0.0) * 100),
                     prediction.brinkmanScoreImpact == 1
                 ),
                 RiskFactorContribution(
                     "Riwayat Keluarga",
-                    String.format("%.1f", prediction.isBloodlineContribution * 100),
+                    String.format("%.1f", (prediction.isBloodlineContribution ?: 0.0) * 100),
                     prediction.isBloodlineImpact == 1
                 ),
                 RiskFactorContribution(
                     "Kolesterol",
-                    String.format("%.1f", prediction.isCholesterolContribution * 100),
+                    String.format("%.1f", (prediction.isCholesterolContribution ?: 0.0) * 100),
                     prediction.isCholesterolImpact == 1
                 )
             ),
             dailyInputs = listOf(
-                DailyInput("Usia", "${prediction.age} tahun"),
-                DailyInput("Indeks Massa Tubuh", "${String.format("%.1f", prediction.bmi)} kg/m²"),
-                DailyInput("Hipertensi", if (prediction.isHypertension) "Ya" else "Tidak"),
-                DailyInput("Kolesterol", if (prediction.isCholesterol) "Ya" else "Tidak"),
-                DailyInput("Riwayat Keluarga", if (prediction.isBloodline) "Ya" else "Tidak"),
+                DailyInput("Usia", "${prediction.age ?: 0} tahun"),
+                DailyInput("Indeks Massa Tubuh", "${String.format("%.1f", prediction.bmi ?: 0.0)} kg/m²"),
+                DailyInput("Hipertensi", if (prediction.isHypertension == true) "Ya" else "Tidak"),
+                DailyInput("Kolesterol", if (prediction.isCholesterol == true) "Ya" else "Tidak"),
+                DailyInput("Riwayat Keluarga", if (prediction.isBloodline == true) "Ya" else "Tidak"),
                 DailyInput("Riwayat Bayi Makrosomia", if (prediction.isMacrosomicBaby == 1) "Ya" else "Tidak"),
                 DailyInput("Status Merokok",
                     when (prediction.smokingStatus) {
@@ -224,9 +224,9 @@ class HistoryViewModel @Inject constructor(
                         "2" -> "Masih Merokok"
                         else -> "Tidak Diketahui"
                     }),
-                DailyInput("Indeks Brinkman", "${prediction.brinkmanScore}"),
-                DailyInput("Jumlah Rokok", "${prediction.avgSmokeCount} batang / hari"),
-                DailyInput("Frekuensi Aktivitas Fisik", "${prediction.physicalActivityFrequency}x / minggu")
+                DailyInput("Indeks Brinkman", "${prediction.brinkmanScore ?: 0}"),
+                DailyInput("Jumlah Rokok", "${prediction.avgSmokeCount ?: 0} batang / hari"),
+                DailyInput("Frekuensi Aktivitas Fisik", "${prediction.physicalActivityFrequency ?: 0}x / minggu")
             )
         )
     }

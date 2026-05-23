@@ -42,6 +42,7 @@ import com.itb.diabetify.presentation.home.risk_factor_detail.RiskFactorDetailSc
 import com.itb.diabetify.presentation.settings.SettingsScreen
 import com.itb.diabetify.presentation.settings.SettingsViewModel
 import com.itb.diabetify.presentation.settings.edit_profile.EditProfileScreen
+import com.itb.diabetify.presentation.settings.health_profile.HealthProfileScreen
 import com.itb.diabetify.presentation.navbar.add_activity.AddActivityViewModel
 import com.itb.diabetify.presentation.no_internet.NoInternetScreen
 import com.itb.diabetify.presentation.register.RegisterViewModel
@@ -126,6 +127,11 @@ fun MainNavGraph(
                     modifier = Modifier.fillMaxWidth(),
                     viewModel = navigationViewModel,
                     addActivityViewModel = addActivityViewModel,
+                    onOpenHealthProfile = {
+                        mainNavController.navigate(Route.HealthProfileScreen.route) {
+                            launchSingleTop = true
+                        }
+                    },
                     onItemSelected = { route ->
                         mainNavController.navigate(route) {
                             popUpTo(mainNavController.graph.findStartDestination().id) {
@@ -267,6 +273,14 @@ fun MainNavGraph(
             composable(route = Route.EditProfileScreen.route) {
                 val settingsViewModel: SettingsViewModel = hiltViewModel()
                 EditProfileScreen(
+                    navController = mainNavController,
+                    viewModel = settingsViewModel,
+                )
+            }
+
+            composable(route = Route.HealthProfileScreen.route) {
+                val settingsViewModel: SettingsViewModel = hiltViewModel()
+                HealthProfileScreen(
                     navController = mainNavController,
                     viewModel = settingsViewModel,
                 )

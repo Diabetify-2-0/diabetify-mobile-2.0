@@ -46,6 +46,7 @@ fun BottomNavigationBar(
     modifier: Modifier = Modifier,
     viewModel: NavigationViewModel,
     addActivityViewModel: AddActivityViewModel,
+    onOpenHealthProfile: () -> Unit,
     backgroundColor: Color = Color.White,
     selectedColor: Color = colorResource(id = R.color.primary),
     unselectedColor: Color = colorResource(id = R.color.tertiary),
@@ -64,7 +65,11 @@ fun BottomNavigationBar(
         AddActionPopup(
             isVisible = showPopup,
             onDismissRequest = { viewModel.setShowPopUp(false) },
-            viewModel = addActivityViewModel
+            viewModel = addActivityViewModel,
+            onOpenHealthProfile = {
+                viewModel.setShowPopUp(false)
+                onOpenHealthProfile()
+            }
         )
     }
 

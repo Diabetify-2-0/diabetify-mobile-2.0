@@ -13,23 +13,25 @@ data class GetProfileResponse (
 
 data class ProfileData(
     @SerializedName("hypertension")
-    val hypertension: Boolean,
+    val hypertension: Boolean? = null,
     @SerializedName("weight")
-    val weight: Int,
+    val weight: Int? = null,
     @SerializedName("height")
-    val height: Int,
+    val height: Int? = null,
     @SerializedName("bmi")
-    val bmi: Double,
+    val bmi: Double? = null,
     @SerializedName("smoking")
-    val smoking: Int,
+    val smoking: Int? = null,
     @SerializedName("age_of_smoking")
-    val ageOfSmoking: Int,
+    val ageOfSmoking: Int? = null,
     @SerializedName("age_of_stop_smoking")
-    val ageOfStopSmoking: Int,
+    val ageOfStopSmoking: Int? = null,
     @SerializedName("macrosomic_baby")
-    val macrosomicBaby: Int,
+    val macrosomicBaby: Int? = null,
     @SerializedName("cholesterol")
-    val cholesterol: Boolean,
+    val cholesterol: Boolean? = null,
     @SerializedName("bloodline")
-    val bloodline: Boolean
+    val bloodline: Boolean? = null,
+    @SerializedName("smoke_count")
+    val smokeCount: Int? = null
 )

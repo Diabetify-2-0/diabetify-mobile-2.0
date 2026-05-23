@@ -18,24 +18,31 @@ class PredictionJobManagerImpl @Inject constructor(
     private var isCancelled = false
 
     override suspend fun pollJobStatus(jobId: String, pollingIntervalMs: Long): Flow<PredictionJobStatus> = flow {
+        val safePollingIntervalMs = pollingIntervalMs.coerceAtLeast(MIN_POLLING_INTERVAL_MS)
+        val startedAtMs = System.currentTimeMillis()
         currentJobId = jobId
         isCancelled = false
         emit(PredictionJobStatus.Pending)
 
-        while (true) {
+        while (System.currentTimeMillis() - startedAtMs < MAX_POLLING_DURATION_MS) {
             if (isCancelled) {
                 emit(PredictionJobStatus.Failed("Prediction job was cancelled"))
-                break
+                return@flow
             }
 
             val response = try {
                 predictionApiService.getPredictionJobStatus(jobId)
             } catch (e: Exception) {
                 emit(PredictionJobStatus.Failed(e.message ?: "Unknown error occurred"))
-                break
+                return@flow
             }
 
             val data = response.data
+            if (data == null) {
+                emit(PredictionJobStatus.Failed(response.message ?: "Invalid prediction job status response"))
+                return@flow
+            }
+
             val progress = data.progress ?: 50
 
             when (data.status.orEmpty().lowercase()) {
@@ -43,30 +50,37 @@ class PredictionJobManagerImpl @Inject constructor(
                 "processing" -> emit(PredictionJobStatus.InProgress(progress))
                 "completed" -> {
                     emit(PredictionJobStatus.Completed)
-                    break
+                    return@flow
                 }
                 "failed" -> {
                     emit(PredictionJobStatus.Failed(data.error ?: data.message ?: "Prediction job failed"))
-                    break
+                    return@flow
                 }
                 "cancelled" -> {
                     emit(PredictionJobStatus.Failed("Prediction job was cancelled"))
-                    break
+                    return@flow
                 }
                 "" -> {
                     emit(PredictionJobStatus.Failed("Invalid prediction job status response"))
-                    break
+                    return@flow
                 }
                 else -> emit(PredictionJobStatus.InProgress(progress))
             }
 
-            delay(pollingIntervalMs)
+            delay(safePollingIntervalMs)
         }
+
+        emit(PredictionJobStatus.Failed("Prediction job timed out"))
     }
 
     override suspend fun cancelJob(jobId: String) {
         if (currentJobId == jobId) {
             isCancelled = true
         }
+    }
+
+    private companion object {
+        private const val MAX_POLLING_DURATION_MS = 5 * 60 * 1000L
+        private const val MIN_POLLING_INTERVAL_MS = 1_000L
     }
 }

@@ -4,7 +4,7 @@ import com.google.gson.annotations.SerializedName
 
 data class CounterfactualJobStatusResponse(
     @SerializedName("data")
-    val data: CounterfactualJobStatusData,
+    val data: CounterfactualJobStatusData? = null,
     @SerializedName("message")
     val message: String? = null,
     @SerializedName("status")

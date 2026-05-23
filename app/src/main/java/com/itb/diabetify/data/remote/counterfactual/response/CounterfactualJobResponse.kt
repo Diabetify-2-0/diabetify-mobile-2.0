@@ -4,22 +4,22 @@ import com.google.gson.annotations.SerializedName
 
 data class CounterfactualJobResponse(
     @SerializedName("data")
-    val data: CounterfactualJobData,
+    val data: CounterfactualJobData? = null,
     @SerializedName("message")
-    val message: String,
+    val message: String? = null,
     @SerializedName("status")
-    val status: String
+    val status: String? = null
 )
 
 data class CounterfactualJobData(
     @SerializedName("job_id")
-    val jobId: String,
+    val jobId: String? = null,
     @SerializedName("poll_url")
-    val pollUrl: String,
+    val pollUrl: String? = null,
     @SerializedName("result_url")
     val resultUrl: String? = null,
     @SerializedName("status")
-    val status: String,
+    val status: String? = null,
     @SerializedName("submit_time")
-    val submitTime: String
+    val submitTime: String? = null
 )

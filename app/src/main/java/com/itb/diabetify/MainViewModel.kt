@@ -10,6 +10,7 @@ import com.itb.diabetify.domain.usecases.app_entry.AppEntryUseCase
 import com.itb.diabetify.domain.usecases.connectivity.ConnectivityUseCases
 import com.itb.diabetify.presentation.navgraph.Route
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
@@ -31,6 +32,7 @@ class MainViewModel @Inject constructor(
         private set
 
     private var previousDestination by mutableStateOf(Route.AppStartNavigation.route)
+    private var connectivityObserverJob: Job? = null
 
     init {
         appEntryUseCase.readAppEntry().onEach { shouldStartFromRegisterScreen ->
@@ -59,7 +61,9 @@ class MainViewModel @Inject constructor(
     }
 
     private fun observeConnectivity() {
-        connectivityUseCases.observeConnectivity().onEach { connected ->
+        if (connectivityObserverJob != null) return
+
+        connectivityObserverJob = connectivityUseCases.observeConnectivity().onEach { connected ->
             if (!connected && startDestination != Route.NoInternetScreen.route) {
                 startDestination?.let { previousDestination = it }
                 startDestination = Route.NoInternetScreen.route

@@ -93,7 +93,8 @@ fun SettingsCard(
 fun ProfileCard(
     name: String,
     email: String,
-    onEditClick: () -> Unit
+    onEditClick: () -> Unit,
+    actionLabel: String = "Edit Profil"
 ) {
     Card(
         modifier = Modifier
@@ -156,11 +157,103 @@ fun ProfileCard(
 
             // Edit button
             SecondaryButton(
-                text = "Edit Profil",
+                text = actionLabel,
                 onClick = onEditClick,
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("EditProfilButton")
+            )
+        }
+    }
+}
+
+@Composable
+fun HealthProfileCard(
+    summary: String,
+    smokingSummary: String,
+    onViewClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(
+                elevation = 8.dp,
+                shape = RoundedCornerShape(20.dp)
+            ),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(46.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(colorResource(id = R.color.primary).copy(alpha = 0.12f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Image(
+                        painter = painterResource(id = R.drawable.ic_heart),
+                        contentDescription = "Profil Kesehatan",
+                        modifier = Modifier.size(22.dp),
+                        colorFilter = ColorFilter.tint(colorResource(id = R.color.primary))
+                    )
+                }
+
+                Column(
+                    modifier = Modifier.padding(start = 12.dp)
+                ) {
+                    Text(
+                        text = "Profil Kesehatan",
+                        fontFamily = poppinsFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                        color = colorResource(id = R.color.primary)
+                    )
+                    Text(
+                        text = "Baseline medis yang dipakai untuk prediksi",
+                        fontFamily = poppinsFontFamily,
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 12.sp,
+                        color = colorResource(id = R.color.gray)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            Text(
+                text = summary,
+                fontFamily = poppinsFontFamily,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 14.sp,
+                color = colorResource(id = R.color.primary)
+            )
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Text(
+                text = smokingSummary,
+                fontFamily = poppinsFontFamily,
+                fontWeight = FontWeight.Medium,
+                fontSize = 13.sp,
+                color = colorResource(id = R.color.gray)
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            SecondaryButton(
+                text = "Lihat Profil Kesehatan",
+                onClick = onViewClick,
+                modifier = Modifier.fillMaxWidth()
             )
         }
     }

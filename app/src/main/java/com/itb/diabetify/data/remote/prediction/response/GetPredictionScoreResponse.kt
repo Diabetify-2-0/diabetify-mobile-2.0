@@ -4,16 +4,16 @@ import com.google.gson.annotations.SerializedName
 
 data class GetPredictionScoreResponse (
     @SerializedName("data")
-    val data: List<PredictionScoreData?>,
+    val data: List<PredictionScoreData?> = emptyList(),
     @SerializedName("message")
-    val message: String,
+    val message: String? = null,
     @SerializedName("status")
-    val status: String
+    val status: String? = null
 )
 
 data class PredictionScoreData(
     @SerializedName("risk_score")
-    val riskScore: Double,
+    val riskScore: Double? = null,
     @SerializedName("created_at")
-    val createdAt: String
+    val createdAt: String? = null
 )

@@ -2,6 +2,7 @@ package com.itb.diabetify.domain.usecases.prediction
 
 import com.itb.diabetify.domain.manager.PredictionJobStatus
 import com.itb.diabetify.domain.repository.PredictionRepository
+import com.itb.diabetify.util.PredictionUpdateNotifier
 import com.itb.diabetify.util.Resource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.first
@@ -20,7 +21,10 @@ class PredictBackgroundUseCase(
                     if (jobId != null) {
                         val jobStatusFlow = repository.pollPredictionJob(jobId, pollingIntervalMs)
                         when (jobStatusFlow.first { it is PredictionJobStatus.Completed || it is PredictionJobStatus.Failed }) {
-                            is PredictionJobStatus.Completed -> repository.fetchLatestPrediction()
+                            is PredictionJobStatus.Completed -> {
+                                repository.fetchLatestPrediction()
+                                PredictionUpdateNotifier.notifyPredictionUpdated()
+                            }
                             is PredictionJobStatus.Failed -> Unit
                             else -> Unit
                         }

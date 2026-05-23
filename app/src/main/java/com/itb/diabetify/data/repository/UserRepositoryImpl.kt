@@ -1,6 +1,5 @@
 package com.itb.diabetify.data.repository
 
-import android.annotation.SuppressLint
 import com.itb.diabetify.data.remote.user.UserApiService
 import com.itb.diabetify.data.remote.user.request.EditUserRequest
 import com.itb.diabetify.domain.manager.TokenManager
@@ -11,8 +10,9 @@ import com.itb.diabetify.util.Resource
 import kotlinx.coroutines.flow.Flow
 import retrofit2.HttpException
 import okio.IOException
-import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
+import java.text.ParseException
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 class UserRepositoryImpl(
     private val userApiService: UserApiService,
@@ -37,25 +37,20 @@ class UserRepositoryImpl(
         }
     }
 
-    @SuppressLint("NewApi")
     override suspend fun fetchUser(): Resource<Unit> {
         return try {
             val response = userApiService.getUser()
             response.data?.let {
                 userManager.saveUser(
                     User(
-                        name = it.name,
-                        email = it.email,
-                        gender = when (it.gender.lowercase()) {
+                        name = it.name.orEmpty(),
+                        email = it.email.orEmpty(),
+                        gender = when (it.gender.orEmpty().lowercase()) {
                             "male" -> "Laki-laki"
                             "female" -> "Perempuan"
-                            else -> it.gender
+                            else -> it.gender.orEmpty()
                         },
-                        dob = it.dob.let { dateString ->
-                            val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'")
-                            val dateTime = LocalDateTime.parse(dateString, formatter)
-                            dateTime.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
-                        },
+                        dob = formatDobForDisplay(it.dob),
                     )
                 )
             }
@@ -64,10 +59,35 @@ class UserRepositoryImpl(
             Resource.Error("${e.message}")
         } catch (e: HttpException) {
             Resource.Error("${e.message}")
+        } catch (e: ParseException) {
+            Resource.Error("Format tanggal lahir tidak valid")
         }
     }
 
     override fun getUser(): Flow<User?> {
         return userManager.getUser()
+    }
+
+    private fun formatDobForDisplay(rawDob: String?): String {
+        val trimmedDob = rawDob?.trim().orEmpty()
+        if (trimmedDob.isBlank()) return ""
+
+        val parsedDate = USER_DOB_INPUT_PATTERNS.firstNotNullOfOrNull { pattern ->
+            runCatching {
+                SimpleDateFormat(pattern, Locale.US).apply {
+                    isLenient = false
+                }.parse(trimmedDob)
+            }.getOrNull()
+        } ?: throw ParseException("Unsupported DOB format", 0)
+
+        return SimpleDateFormat(DISPLAY_DOB_PATTERN, Locale.US).format(parsedDate)
+    }
+
+    private companion object {
+        val USER_DOB_INPUT_PATTERNS = listOf(
+            "yyyy-MM-dd'T'HH:mm:ss'Z'",
+            "yyyy-MM-dd"
+        )
+        const val DISPLAY_DOB_PATTERN = "dd/MM/yyyy"
     }
 }

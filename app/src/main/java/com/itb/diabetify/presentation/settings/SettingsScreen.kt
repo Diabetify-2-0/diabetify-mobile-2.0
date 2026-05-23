@@ -30,6 +30,7 @@ import com.itb.diabetify.presentation.common.ErrorNotification
 import com.itb.diabetify.presentation.common.PrimaryButton
 import com.itb.diabetify.presentation.navgraph.Route
 import com.itb.diabetify.presentation.settings.components.ConfirmationDialog
+import com.itb.diabetify.presentation.settings.components.HealthProfileCard
 import com.itb.diabetify.presentation.settings.components.NotificationCard
 import com.itb.diabetify.presentation.settings.components.NotificationItem
 import com.itb.diabetify.presentation.settings.components.ProfileCard
@@ -46,6 +47,7 @@ fun SettingsScreen(
     val showLogoutDialog by viewModel.showLogoutDialog
     val errorMessage = viewModel.errorMessage.value
     val isLoading = viewModel.logoutState.value.isLoading
+    val healthProfile = viewModel.healthProfile.value
     val context = LocalContext.current
 
     // Navigation Event
@@ -101,7 +103,7 @@ fun SettingsScreen(
             ) {
                 Column {
                     Text(
-                        text = "Profil",
+                        text = "Pengaturan",
                         fontFamily = poppinsFontFamily,
                         fontWeight = FontWeight.Bold,
                         fontSize = 24.sp,
@@ -116,13 +118,52 @@ fun SettingsScreen(
                 modifier = Modifier
                     .padding(horizontal = 16.dp)
             ) {
+                Text(
+                    text = "Profil Akun",
+                    fontFamily = poppinsFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                    color = colorResource(id = R.color.primary)
+                )
 
-                // User profile card
+                Spacer(modifier = Modifier.height(10.dp))
+
                 ProfileCard(
                     name = viewModel.nameFieldState.value.text,
                     email = viewModel.emailFieldState.value.text,
                     onEditClick = {
                         navController.navigate(Route.EditProfileScreen.route) {
+                            launchSingleTop = true
+                        }
+                    },
+                    actionLabel = "Edit Profil Akun"
+                )
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                Text(
+                    text = "Profil Kesehatan",
+                    fontFamily = poppinsFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                    color = colorResource(id = R.color.primary)
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                HealthProfileCard(
+                    summary = if (healthProfile.hasProfile) {
+                        "BMI ${String.format("%.1f", healthProfile.bmi)} • ${healthProfile.weight} kg • ${healthProfile.height} cm"
+                    } else {
+                        "Belum ada baseline kesehatan yang tersimpan"
+                    },
+                    smokingSummary = if (healthProfile.hasProfile) {
+                        "Status merokok: ${settingsSmokingStatusLabel(healthProfile.smokingStatus)}"
+                    } else {
+                        "Lengkapi survey kesehatan agar data profil medis tersedia"
+                    },
+                    onViewClick = {
+                        navController.navigate(Route.HealthProfileScreen.route) {
                             launchSingleTop = true
                         }
                     }
@@ -178,4 +219,11 @@ fun SettingsScreen(
                 .zIndex(1000f)
         )
     }
+}
+
+private fun settingsSmokingStatusLabel(value: Int): String = when (value) {
+    0 -> "Tidak pernah"
+    1 -> "Sudah berhenti"
+    2 -> "Masih merokok"
+    else -> "Tidak diketahui"
 }

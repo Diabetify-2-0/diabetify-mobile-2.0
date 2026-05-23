@@ -12,6 +12,9 @@ import com.itb.diabetify.util.DataState
 import com.itb.diabetify.util.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
+import java.text.ParseException
+import java.text.SimpleDateFormat
+import java.util.Locale
 import javax.inject.Inject
 
 @HiltViewModel
@@ -157,6 +160,9 @@ class RegisterViewModel @Inject constructor(
         if (birthDate.isEmpty()) {
             _dobFieldState.value = dobFieldState.value.copy(error = "Tanggal lahir tidak boleh kosong")
             isValid = false
+        } else if (formatDobForRequest(birthDate) == null) {
+            _dobFieldState.value = dobFieldState.value.copy(error = "Format tanggal lahir harus dd/MM/yyyy")
+            isValid = false
         }
 
         return isValid
@@ -182,12 +188,19 @@ class RegisterViewModel @Inject constructor(
 
     // Use Case Calls
     fun createAccount() {
+        if (!validateRegisterFields() || !validateBiodataFields()) {
+            return
+        }
+
+        val dobFormatted = formatDobForRequest(dobFieldState.value.text)
+        if (dobFormatted == null) {
+            _dobFieldState.value = dobFieldState.value.copy(error = "Format tanggal lahir harus dd/MM/yyyy")
+            _errorMessage.value = "Format tanggal lahir harus dd/MM/yyyy"
+            return
+        }
+
         viewModelScope.launch {
             _createAccountState.value = createAccountState.value.copy(isLoading = true)
-
-            val dob = dobFieldState.value.text
-            val dobParts = dob.split("/")
-            val dobFormatted = "${dobParts[2]}-${dobParts[1]}-${dobParts[0]}"
 
             val gender = genderFieldState.value.text
             val genderFormatted = if (gender == "Laki-laki") { "male" } else { "female" }
@@ -237,6 +250,23 @@ class RegisterViewModel @Inject constructor(
                     Log.e("RegisterViewModel", "Unexpected error")
                 }
             }
+        }
+    }
+
+    private fun formatDobForRequest(displayDob: String): String? {
+        if (displayDob.split("/").size != 3) {
+            return null
+        }
+
+        return try {
+            val displayFormatter = SimpleDateFormat(DISPLAY_DOB_PATTERN, Locale.US).apply {
+                isLenient = false
+            }
+            val requestFormatter = SimpleDateFormat(REQUEST_DOB_PATTERN, Locale.US)
+            val parsedDate = displayFormatter.parse(displayDob) ?: return null
+            requestFormatter.format(parsedDate)
+        } catch (_: ParseException) {
+            null
         }
     }
 
@@ -339,3 +369,6 @@ class RegisterViewModel @Inject constructor(
         _successMessage.value = null
     }
 }
+
+private const val DISPLAY_DOB_PATTERN = "dd/MM/yyyy"
+private const val REQUEST_DOB_PATTERN = "yyyy-MM-dd"

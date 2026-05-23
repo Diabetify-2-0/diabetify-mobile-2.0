@@ -182,7 +182,7 @@ fun HistoryScreen(
                                 } else {
                                     LocalDate.now()
                                 },
-                                riskPercentage = (prediction.riskScore * 100).toFloat(),
+                                riskPercentage = ((prediction.riskScore ?: 0.0) * 100).toFloat(),
                                 riskFactorContributions = data.riskFactorContributions,
                                 dailyInputs = data.dailyInputs
                             )

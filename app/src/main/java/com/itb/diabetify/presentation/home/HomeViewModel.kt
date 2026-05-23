@@ -224,6 +224,15 @@ class HomeViewModel @Inject constructor(
     private val _smokeAverage = mutableIntStateOf(0)
     val smokeAverage: State<Int> = _smokeAverage
 
+    private val _profileSmokeCount = mutableIntStateOf(0)
+    val profileSmokeCount: State<Int> = _profileSmokeCount
+
+    private val _profileAgeOfSmoking = mutableIntStateOf(0)
+    val profileAgeOfSmoking: State<Int> = _profileAgeOfSmoking
+
+    private val _profileAgeOfStopSmoking = mutableIntStateOf(0)
+    val profileAgeOfStopSmoking: State<Int> = _profileAgeOfStopSmoking
+
     private val _brinkmanScore = mutableIntStateOf(0)
     val brinkmanScore: State<Int> = _brinkmanScore
 
@@ -246,7 +255,19 @@ class HomeViewModel @Inject constructor(
         val description: String,
         val iconResId: Int,
         val isSelected: Boolean = true,
-        val supportingText: String? = null
+        val supportingText: String? = null,
+        val idealDirectionLabel: String,
+        val effortLabel: String,
+        val impactLabel: String,
+        val categoryLabel: String,
+        val needsClinicalReview: Boolean = false
+    )
+
+    data class CounterfactualRiskTarget(
+        val label: String,
+        val description: String,
+        val targetHighRiskPercentage: Int,
+        val minLowRiskProbability: Double
     )
 
     private var currentCounterfactualJobId: String? = null
@@ -256,6 +277,12 @@ class HomeViewModel @Inject constructor(
 
     private val _counterfactualOptions = mutableStateOf(defaultCounterfactualOptions())
     val counterfactualOptions: State<List<CounterfactualOption>> = _counterfactualOptions
+
+    private val _counterfactualRiskTargetInput = mutableStateOf(DEFAULT_COUNTERFACTUAL_RISK_TARGET_INPUT)
+    val counterfactualRiskTargetInput: State<String> = _counterfactualRiskTargetInput
+
+    private val _counterfactualSubmittedTarget = mutableStateOf(defaultCounterfactualRiskTarget())
+    val counterfactualSubmittedTarget: State<CounterfactualRiskTarget> = _counterfactualSubmittedTarget
 
     private val _counterfactualSubmittedOptions = mutableStateOf<List<CounterfactualOption>>(emptyList())
     val counterfactualSubmittedOptions: State<List<CounterfactualOption>> = _counterfactualSubmittedOptions
@@ -500,6 +527,7 @@ class HomeViewModel @Inject constructor(
                     _physicalActivityAverage.intValue = latestPrediction.physicalActivityFrequency
 
                     _baselineAge.intValue = latestPrediction.age
+                    refreshCounterfactualOptions()
                 }
             }.launchIn(viewModelScope)
         }
@@ -561,7 +589,9 @@ class HomeViewModel @Inject constructor(
                     _macrosomicBaby.intValue = userProfile.macrosomicBaby
                     _isBloodline.value = userProfile.bloodline
                     _isCholesterol.value = userProfile.cholesterol
-
+                    _profileSmokeCount.intValue = userProfile.smokeCount
+                    _profileAgeOfSmoking.intValue = userProfile.ageOfSmoking
+                    _profileAgeOfStopSmoking.intValue = userProfile.ageOfStopSmoking
                 }
             }.launchIn(viewModelScope)
         }
@@ -654,12 +684,17 @@ class HomeViewModel @Inject constructor(
         _isBloodline.value = false
         _isCholesterol.value = false
         _smokingStatus.value = "0"
+        _profileSmokeCount.intValue = 0
+        _profileAgeOfSmoking.intValue = 0
+        _profileAgeOfStopSmoking.intValue = 0
         _smokeToday.intValue = 0
         _physicalActivityToday.intValue = 0
         _brinkmanScore.intValue = 0
 
         _riskFactors.value = _riskFactors.value.map { it.copy(percentage = 0.0) }
         _counterfactualOptions.value = defaultCounterfactualOptions()
+        _counterfactualRiskTargetInput.value = DEFAULT_COUNTERFACTUAL_RISK_TARGET_INPUT
+        _counterfactualSubmittedTarget.value = defaultCounterfactualRiskTarget()
         _counterfactualSubmittedOptions.value = emptyList()
         _counterfactualResult.value = null
         _counterfactualJobResultMeta.value = null
@@ -685,47 +720,75 @@ class HomeViewModel @Inject constructor(
         isProfileDataLoaded = false
     }
 
-    private fun defaultCounterfactualOptions(): List<CounterfactualOption> {
-        return listOf(
+    private fun defaultCounterfactualOptions(smokingStatus: String = _smokingStatus.value): List<CounterfactualOption> {
+        val options = mutableListOf(
             CounterfactualOption(
                 key = "BMI",
                 label = "Indeks Massa Tubuh",
                 description = "Eksplorasi perubahan berat badan untuk melihat dampaknya pada risiko.",
-                iconResId = R.drawable.ic_weight
+                iconResId = R.drawable.ic_weight,
+                idealDirectionLabel = "Cenderung diturunkan",
+                effortLabel = "Bertahap",
+                impactLabel = "Dampak utama",
+                categoryLabel = "Gaya hidup"
             ),
             CounterfactualOption(
                 key = "moderate_physical_activity_frequency",
                 label = "Aktivitas Fisik",
                 description = "Gunakan frekuensi aktivitas fisik mingguan sebagai faktor yang boleh diubah.",
-                iconResId = R.drawable.ic_walk
-            ),
-            CounterfactualOption(
-                key = "smoking_status",
-                label = "Status Merokok",
-                description = "Izinkan sistem mengeksplorasi perubahan kategori status merokok.",
-                iconResId = R.drawable.ic_smoking
-            ),
-            CounterfactualOption(
-                key = "brinkman_index",
-                label = "Indeks Brinkman",
-                description = "Pertimbangkan perubahan paparan rokok kumulatif sebagai skenario alternatif.",
-                iconResId = R.drawable.ic_smoking
+                iconResId = R.drawable.ic_walk,
+                idealDirectionLabel = "Cenderung ditingkatkan",
+                effortLabel = "Menengah",
+                impactLabel = "Sangat realistis",
+                categoryLabel = "Gaya hidup"
             ),
             CounterfactualOption(
                 key = "is_hypertension",
                 label = "Hipertensi",
-                description = "Faktor ini perlu interpretasi klinis dan tidak boleh dibaca sebagai instruksi medis langsung.",
+                description = "Gunakan faktor ini untuk melihat arah pengendalian tekanan darah, bukan sebagai perubahan instan yang dilakukan sendiri.",
                 iconResId = R.drawable.ic_hypertension,
-                supportingText = "Perlu evaluasi klinis."
+                idealDirectionLabel = "Cenderung dikendalikan",
+                effortLabel = "Butuh tindak lanjut",
+                impactLabel = "Perlu pendampingan",
+                categoryLabel = "Kondisi kesehatan",
+                supportingText = "Biasanya dibaca bersama pemantauan tekanan darah dan evaluasi tenaga kesehatan.",
+                needsClinicalReview = true
             ),
             CounterfactualOption(
                 key = "is_cholesterol",
                 label = "Kolesterol",
-                description = "Faktor ini lebih cocok dibaca sebagai decision-support daripada target aksi mandiri.",
+                description = "Gunakan faktor ini untuk melihat arah pengendalian kolesterol, bukan sebagai target obat atau tindakan mandiri.",
                 iconResId = R.drawable.ic_cholesterol,
-                supportingText = "Perlu evaluasi klinis."
+                idealDirectionLabel = "Cenderung dikendalikan",
+                effortLabel = "Butuh tindak lanjut",
+                impactLabel = "Perlu pendampingan",
+                categoryLabel = "Kondisi kesehatan",
+                supportingText = "Biasanya dibaca bersama pola makan, aktivitas, dan evaluasi tenaga kesehatan.",
+                needsClinicalReview = true
             )
         )
+
+        if (smokingStatus == "2") {
+            options.add(
+                2,
+                CounterfactualOption(
+                    key = "smoking_behavior",
+                    label = "Kebiasaan Merokok",
+                    description = "Planner dapat mengeksplorasi dua skenario: berhenti merokok sepenuhnya atau mengurangi konsumsi rokok harian secara bertahap.",
+                    iconResId = R.drawable.ic_smoking,
+                    idealDirectionLabel = "Cenderung dikurangi",
+                    effortLabel = "Menantang",
+                    impactLabel = "Dampak besar",
+                    categoryLabel = "Perilaku"
+                )
+            )
+        }
+
+        return options
+    }
+
+    private fun defaultCounterfactualRiskTarget(): CounterfactualRiskTarget {
+        return buildCounterfactualRiskTarget(DEFAULT_COUNTERFACTUAL_RISK_TARGET_INPUT.toInt())
     }
 
     private fun checkAllDataLoaded() {
@@ -755,7 +818,12 @@ class HomeViewModel @Inject constructor(
 
     fun resetCounterfactualOptions() {
         _counterfactualOptions.value = defaultCounterfactualOptions()
+        _counterfactualRiskTargetInput.value = DEFAULT_COUNTERFACTUAL_RISK_TARGET_INPUT
         _successMessage.value = "Pilihan faktor berhasil di-reset"
+    }
+
+    fun updateCounterfactualRiskTargetInput(value: String) {
+        _counterfactualRiskTargetInput.value = value.filter { it.isDigit() }.take(3)
     }
 
     fun runCounterfactualAnalysis() {
@@ -774,25 +842,45 @@ class HomeViewModel @Inject constructor(
             return
         }
 
-        val request = buildCounterfactualRequest(selectedOptions.map { it.key })
+        val parsedRiskTarget = parseCounterfactualRiskTarget()
+        if (parsedRiskTarget == null) {
+            _errorMessage.value = "Masukkan target risiko akhir antara 1% sampai 100%"
+            return
+        }
+
+        val request = buildCounterfactualRequest(
+            selectedKeys = selectedOptions.flatMap(::mutableKeysForCounterfactualOption).distinct()
+        )
         _counterfactualSubmittedOptions.value = selectedOptions
+        _counterfactualSubmittedTarget.value = parsedRiskTarget
         _counterfactualResult.value = null
         _counterfactualJobResultMeta.value = null
         currentCounterfactualJobId = null
         _counterfactualState.value = counterfactualState.value.copy(isLoading = true)
+        _loadingMessage.value = "Menyiapkan baseline dan batas pencarian counterfactual..."
 
         viewModelScope.launch {
             counterfactualUseCases.handleAsyncCounterfactual(
                 scope = viewModelScope,
                 request = request,
+                onPending = {
+                    _loadingMessage.value =
+                        "Mencari skenario yang tetap realistis dan sesuai faktor yang Anda izinkan..."
+                },
+                onProgress = {
+                    _loadingMessage.value =
+                        "Memilih rekomendasi yang paling feasible untuk ditampilkan..."
+                },
                 onCompleted = { jobId ->
                     if (currentCounterfactualJobId == null) {
                         currentCounterfactualJobId = jobId
+                        _loadingMessage.value = "Skenario ditemukan, menyiapkan rencana untuk Anda..."
                         handleCounterfactualJobCompleted(jobId)
                     }
                 },
                 onFailed = { error ->
                     _counterfactualState.value = counterfactualState.value.copy(isLoading = false)
+                    _loadingMessage.value = null
                     _errorMessage.value = error
                 }
             )
@@ -800,6 +888,7 @@ class HomeViewModel @Inject constructor(
     }
 
     private fun buildCounterfactualRequest(selectedKeys: List<String>): CounterfactualRequest {
+        val selectedTarget = parseCounterfactualRiskTarget() ?: defaultCounterfactualRiskTarget()
         return CounterfactualRequest(
             instance = CounterfactualInstance(
                 features = CounterfactualFeatureSet(
@@ -819,11 +908,45 @@ class HomeViewModel @Inject constructor(
             ),
             target = CounterfactualTarget(
                 targetClass = "low_risk",
-                minTargetProbability = 0.5
+                minTargetProbability = selectedTarget.minLowRiskProbability
             ),
             generation = CounterfactualGeneration(
                 totalCfs = 3
             )
+        )
+    }
+
+    private fun mutableKeysForCounterfactualOption(
+        option: CounterfactualOption
+    ): List<String> {
+        return when (option.key) {
+            "smoking_behavior" -> listOf("smoking_status", "brinkman_index")
+            else -> listOf(option.key)
+        }
+    }
+
+    private fun refreshCounterfactualOptions() {
+        val existingSelections = _counterfactualOptions.value.associateBy({ it.key }, { it.isSelected })
+        _counterfactualOptions.value = defaultCounterfactualOptions().map { option ->
+            option.copy(isSelected = existingSelections[option.key] ?: option.isSelected)
+        }
+    }
+
+    private fun parseCounterfactualRiskTarget(): CounterfactualRiskTarget? {
+        val highRiskPercentage = counterfactualRiskTargetInput.value.toIntOrNull() ?: return null
+        if (highRiskPercentage !in 1..100) {
+            return null
+        }
+        return buildCounterfactualRiskTarget(highRiskPercentage)
+    }
+
+    private fun buildCounterfactualRiskTarget(highRiskPercentage: Int): CounterfactualRiskTarget {
+        val minLowRiskProbability = (100 - highRiskPercentage) / 100.0
+        return CounterfactualRiskTarget(
+            label = "Di bawah $highRiskPercentage%",
+            description = "Planner akan mencari skenario yang mendorong risiko akhir Anda berada di bawah $highRiskPercentage%. Semakin kecil target ini, semakin sulit solusi ditemukan.",
+            targetHighRiskPercentage = highRiskPercentage,
+            minLowRiskProbability = minLowRiskProbability
         )
     }
 
@@ -840,6 +963,7 @@ class HomeViewModel @Inject constructor(
                 _counterfactualJobResultMeta.value = data
                 _counterfactualResult.value = data.result
                 _counterfactualState.value = counterfactualState.value.copy(isLoading = false)
+                _loadingMessage.value = null
 
                 if (!_isNavigating.value) {
                     _isNavigating.value = true
@@ -849,11 +973,13 @@ class HomeViewModel @Inject constructor(
 
             is Resource.Error -> {
                 _counterfactualState.value = counterfactualState.value.copy(isLoading = false)
+                _loadingMessage.value = null
                 _errorMessage.value = resultResponse.message ?: "Gagal mengambil hasil counterfactual"
             }
 
             else -> {
                 _counterfactualState.value = counterfactualState.value.copy(isLoading = false)
+                _loadingMessage.value = null
                 _errorMessage.value = "Terjadi kesalahan yang tidak diketahui"
             }
         }
@@ -863,5 +989,9 @@ class HomeViewModel @Inject constructor(
         _navigationEvent.value = null
         _isNavigating.value = false
         currentCounterfactualJobId = null
+    }
+
+    companion object {
+        private const val DEFAULT_COUNTERFACTUAL_RISK_TARGET_INPUT = "45"
     }
 }

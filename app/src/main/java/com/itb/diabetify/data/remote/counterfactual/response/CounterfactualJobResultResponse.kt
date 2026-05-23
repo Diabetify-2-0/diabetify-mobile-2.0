@@ -4,18 +4,18 @@ import com.google.gson.annotations.SerializedName
 
 data class CounterfactualJobResultResponse(
     @SerializedName("data")
-    val data: CounterfactualJobResultData,
+    val data: CounterfactualJobResultData? = null,
     @SerializedName("message")
-    val message: String,
+    val message: String? = null,
     @SerializedName("status")
-    val status: String
+    val status: String? = null
 )
 
 data class CounterfactualJobResultData(
     @SerializedName("job_id")
-    val jobId: String,
+    val jobId: String? = null,
     @SerializedName("job_status")
-    val jobStatus: String,
+    val jobStatus: String? = null,
     @SerializedName("reason_code")
     val reasonCode: String? = null,
     @SerializedName("result")
@@ -38,7 +38,9 @@ data class CounterfactualResultPayload(
     @SerializedName("runtime_ms")
     val runtimeMs: Int? = null,
     @SerializedName("status")
-    val status: String? = null
+    val status: String? = null,
+    @SerializedName("validation")
+    val validation: CounterfactualValidationSummary? = null
 )
 
 data class CounterfactualCandidate(
@@ -90,10 +92,19 @@ data class CounterfactualPlannerInput(
 )
 
 data class CounterfactualPlannerPrediction(
-    @SerializedName("class_name")
+    @SerializedName("class")
     val className: String? = null,
     @SerializedName("probability_low_risk")
     val probabilityLowRisk: Double? = null
+)
+
+data class CounterfactualValidationSummary(
+    @SerializedName("immutable_violation")
+    val immutableViolation: Boolean? = null,
+    @SerializedName("mutable_compliance")
+    val mutableCompliance: Boolean? = null,
+    @SerializedName("medical_rules_passed")
+    val medicalRulesPassed: Boolean? = null
 )
 
 data class CounterfactualChangedFeature(

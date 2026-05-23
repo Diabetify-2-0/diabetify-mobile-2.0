@@ -55,16 +55,17 @@ class ProfileRepositoryImpl(
             response.data?.let { profile ->
                 profileManager.saveProfile(
                     Profile(
-                        cholesterol = profile.cholesterol,
-                        bloodline = profile.bloodline,
-                        hypertension = profile.hypertension,
-                        weight = profile.weight,
-                        height = profile.height,
-                        bmi = profile.bmi,
-                        smoking = profile.smoking,
-                        ageOfSmoking = profile.ageOfSmoking,
-                        ageOfStopSmoking = profile.ageOfStopSmoking,
-                        macrosomicBaby = profile.macrosomicBaby
+                        cholesterol = profile.cholesterol ?: false,
+                        bloodline = profile.bloodline ?: false,
+                        hypertension = profile.hypertension ?: false,
+                        weight = profile.weight ?: 0,
+                        height = profile.height ?: 0,
+                        bmi = profile.bmi ?: 0.0,
+                        smoking = profile.smoking ?: 0,
+                        smokeCount = profile.smokeCount ?: 0,
+                        ageOfSmoking = profile.ageOfSmoking ?: 0,
+                        ageOfStopSmoking = profile.ageOfStopSmoking ?: 0,
+                        macrosomicBaby = profile.macrosomicBaby ?: 0
                     )
                 )
             }

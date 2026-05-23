@@ -14,5 +14,13 @@ data class UpdateProfileRequest (
     @SerializedName("cholesterol")
     val cholesterol: Boolean,
     @SerializedName("bloodline")
-    val bloodline: Boolean
+    val bloodline: Boolean,
+    @SerializedName("smoking")
+    val smoking: Int? = null,
+    @SerializedName("age_of_smoking")
+    val ageOfSmoking: Int? = null,
+    @SerializedName("age_of_stop_smoking")
+    val ageOfStopSmoking: Int? = null,
+    @SerializedName("smoke_count")
+    val smokeCount: Int? = null
 )

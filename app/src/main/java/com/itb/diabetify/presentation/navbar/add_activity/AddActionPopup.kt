@@ -9,19 +9,22 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
@@ -34,7 +37,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -51,28 +53,17 @@ import com.itb.diabetify.ui.theme.poppinsFontFamily
 fun AddActionPopup(
     isVisible: Boolean,
     onDismissRequest: () -> Unit,
-    viewModel: AddActivityViewModel
+    viewModel: AddActivityViewModel,
+    onOpenHealthProfile: () -> Unit
 ) {
     // States
     val smokeFieldState by viewModel.smokeFieldState
     val workoutFieldState by viewModel.workoutFieldState
-    val weightFieldState by viewModel.weightFieldState
-    val heightFieldState by viewModel.heightFieldState
-    val birthFieldState by viewModel.birthFieldState
-    val hypertensionFieldState by viewModel.hypertensionFieldState
-    val cholesterolFieldState by viewModel.cholesterolFieldState
-    val bloodlineFieldState by viewModel.bloodlineFieldState
-    val userGender by viewModel.userGender
-    val isFemale = userGender?.lowercase() == "perempuan" || userGender?.lowercase() == "female"
+    val currentSmokingStatus by viewModel.currentSmokingStatus
+    val shouldShowSmokingTracker = currentSmokingStatus == 2
     val currentValues = mapOf(
-        "weight" to weightFieldState.text,
-        "height" to heightFieldState.text,
         "cigarette" to smokeFieldState.text,
-        "activity" to workoutFieldState.text,
-        "birth" to birthFieldState.text,
-        "hypertension" to hypertensionFieldState.text,
-        "cholesterol" to cholesterolFieldState.text,
-        "bloodline" to bloodlineFieldState.text
+        "activity" to workoutFieldState.text
     )
     val currentQuestionType by viewModel.currentQuestionType
     val showBottomSheet by viewModel.showBottomSheet
@@ -81,7 +72,7 @@ fun AddActionPopup(
 
     // Bottom Sheet
     if (showBottomSheet) {
-        val isNumericQuestion = listOf("weight", "height", "cigarette").contains(currentQuestionType)
+        val isNumericQuestion = currentQuestionType == "cigarette"
 
         BottomSheet(
             isVisible = true,
@@ -118,9 +109,8 @@ fun AddActionPopup(
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(18.dp),
-                        modifier = Modifier.padding(bottom = 8.dp)
+                        modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 8.dp)
                     ) {
-                        // Non-daily tracking options
                         AnimatedVisibility(
                             visible = true,
                             enter = fadeIn(animationSpec = tween(300, delayMillis = 120)) +
@@ -133,20 +123,19 @@ fun AddActionPopup(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                             ) {
                                 Text(
-                                    text = "Laporan Non-Harian",
+                                    text = "Catat Hari Ini",
                                     fontFamily = poppinsFontFamily,
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 20.sp,
+                                    fontSize = 22.sp,
                                     color = colorResource(id = R.color.white)
                                 )
                                 Text(
                                     modifier = Modifier.padding(horizontal = 30.dp),
-                                    text = "Perbarui data hanya jika ada perubahan",
+                                    text = "Fokus untuk perilaku harian yang paling memengaruhi risiko Anda saat ini",
                                     fontFamily = poppinsFontFamily,
                                     fontWeight = FontWeight.Medium,
                                     fontSize = 14.sp,
                                     lineHeight = 16.sp,
-                                    fontStyle = FontStyle.Italic,
                                     textAlign = TextAlign.Center,
                                     color = colorResource(id = R.color.white)
                                 )
@@ -155,135 +144,62 @@ fun AddActionPopup(
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceEvenly
+                            horizontalArrangement = if (shouldShowSmokingTracker) Arrangement.SpaceEvenly else Arrangement.Center
                         ) {
-                            AnimatedTrackingButton(
-                                icon = R.drawable.ic_weight,
-                                label = "Berat",
-                                delayMillis = 150,
-                                onClick = {
-                                    viewModel.setCurrentQuestionType("weight")
-                                    viewModel.setShowBottomSheet(true)
-                                }
-                            )
-
-                            AnimatedTrackingButton(
-                                icon = R.drawable.ic_height,
-                                label = "Tinggi",
-                                delayMillis = 200,
-                                onClick = {
-                                    viewModel.setCurrentQuestionType("height")
-                                    viewModel.setShowBottomSheet(true)
-                                }
-                            )
-                        }
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceEvenly
-                        ) {
-                            AnimatedTrackingButton(
-                                icon = R.drawable.ic_hypertension,
-                                label = "Hipertensi",
-                                delayMillis = 300,
-                                onClick = {
-                                    viewModel.setCurrentQuestionType("hypertension")
-                                    viewModel.setShowBottomSheet(true)
-                                }
-                            )
-
-                            AnimatedTrackingButton(
-                                icon = R.drawable.ic_cholesterol,
-                                label = "Kolesterol",
-                                delayMillis = 250,
-                                onClick = {
-                                    viewModel.setCurrentQuestionType("cholesterol")
-                                    viewModel.setShowBottomSheet(true)
-                                }
-                            )
-                        }
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-                            horizontalArrangement = if (isFemale) Arrangement.SpaceEvenly else Arrangement.Center
-                        ) {
-                            AnimatedTrackingButton(
-                                icon = R.drawable.ic_family,
-                                label = "Keluarga",
-                                delayMillis = 250,
-                                onClick = {
-                                    viewModel.setCurrentQuestionType("bloodline")
-                                    viewModel.setShowBottomSheet(true)
-                                }
-                            )
-
-                            if (isFemale) {
+                            if (shouldShowSmokingTracker) {
                                 AnimatedTrackingButton(
-                                    icon = R.drawable.ic_baby,
-                                    label = "Kehamilan",
-                                    delayMillis = 300,
+                                    icon = R.drawable.ic_smoking,
+                                    label = "Rokok",
+                                    delayMillis = 50,
                                     onClick = {
-                                        viewModel.setCurrentQuestionType("birth")
+                                        viewModel.setCurrentQuestionType("cigarette")
                                         viewModel.setShowBottomSheet(true)
+                                    }
+                                )
+                            }
+
+                            AnimatedTrackingButton(
+                                icon = R.drawable.ic_walk,
+                                label = "Aktivitas",
+                                delayMillis = if (shouldShowSmokingTracker) 100 else 60,
+                                onClick = {
+                                    viewModel.setCurrentQuestionType("activity")
+                                    viewModel.setShowBottomSheet(true)
+                                }
+                            )
+                        }
+
+                        if (!shouldShowSmokingTracker) {
+                            AnimatedVisibility(
+                                visible = true,
+                                enter = fadeIn(animationSpec = tween(300, delayMillis = 140)) +
+                                        slideInVertically(
+                                            animationSpec = tween(300, delayMillis = 140, easing = FastOutSlowInEasing),
+                                            initialOffsetY = { it / 4 }
+                                        )
+                            ) {
+                                SmokingTrackingNoticeCard(
+                                    smokingStatus = currentSmokingStatus,
+                                    onClick = {
+                                        onDismissRequest()
+                                        onOpenHealthProfile()
                                     }
                                 )
                             }
                         }
 
-                        // Daily tracking options
                         AnimatedVisibility(
                             visible = true,
-                            enter = fadeIn(animationSpec = tween(300)) +
+                            enter = fadeIn(animationSpec = tween(300, delayMillis = 180)) +
                                     slideInVertically(
-                                        animationSpec = tween(300, easing = FastOutSlowInEasing),
+                                        animationSpec = tween(300, delayMillis = 180, easing = FastOutSlowInEasing),
                                         initialOffsetY = { it / 4 }
                                     )
                         ) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                            ) {
-                                Text(
-                                    text = "Laporan Harian",
-                                    fontFamily = poppinsFontFamily,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 20.sp,
-                                    color = colorResource(id = R.color.white)
-                                )
-                                Text(
-                                    modifier = Modifier.padding(horizontal = 30.dp),
-                                    text = "Perbarui data setiap hari",
-                                    fontFamily = poppinsFontFamily,
-                                    fontWeight = FontWeight.Medium,
-                                    fontSize = 14.sp,
-                                    lineHeight = 16.sp,
-                                    fontStyle = FontStyle.Italic,
-                                    textAlign = TextAlign.Center,
-                                    color = colorResource(id = R.color.white)
-                                )
-                            }
-                        }
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceEvenly
-                        ) {
-                            AnimatedTrackingButton(
-                                icon = R.drawable.ic_smoking,
-                                label = "Rokok",
-                                delayMillis = 50,
+                            HealthProfileShortcutCard(
                                 onClick = {
-                                    viewModel.setCurrentQuestionType("cigarette")
-                                    viewModel.setShowBottomSheet(true)
-                                }
-                            )
-
-                            AnimatedTrackingButton(
-                                icon = R.drawable.ic_walk,
-                                label = "Aktivitas",
-                                delayMillis = 100,
-                                onClick = {
-                                    viewModel.setCurrentQuestionType("activity")
-                                    viewModel.setShowBottomSheet(true)
+                                    onDismissRequest()
+                                    onOpenHealthProfile()
                                 }
                             )
                         }
@@ -331,6 +247,150 @@ fun AddActionPopup(
                         .zIndex(1000f)
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun SmokingTrackingNoticeCard(
+    smokingStatus: Int,
+    onClick: () -> Unit
+) {
+    val title = when (smokingStatus) {
+        1 -> "Status rokok Anda tercatat sudah berhenti"
+        else -> "Status rokok Anda tercatat tidak pernah merokok"
+    }
+    val body = when (smokingStatus) {
+        1 -> "Anda tidak perlu mencatat 0 batang setiap hari. Jika kebiasaan merokok berubah lagi, perbarui statusnya dari Profil Kesehatan."
+        else -> "Pencatatan rokok harian tidak ditampilkan untuk kondisi ini. Jika status merokok berubah, perbarui dulu dari Profil Kesehatan."
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White.copy(alpha = 0.12f)
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(42.dp)
+                        .background(
+                            color = Color.White.copy(alpha = 0.18f),
+                            shape = CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Image(
+                        painter = painterResource(id = R.drawable.ic_smoking),
+                        contentDescription = "Info Merokok",
+                        modifier = Modifier.size(20.dp),
+                        colorFilter = ColorFilter.tint(colorResource(id = R.color.white))
+                    )
+                }
+
+                Text(
+                    text = title,
+                    modifier = Modifier.padding(start = 12.dp),
+                    fontFamily = poppinsFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    color = colorResource(id = R.color.white)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Text(
+                text = body,
+                fontFamily = poppinsFontFamily,
+                fontWeight = FontWeight.Medium,
+                fontSize = 12.sp,
+                lineHeight = 16.sp,
+                color = colorResource(id = R.color.white).copy(alpha = 0.92f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun HealthProfileShortcutCard(
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White.copy(alpha = 0.12f)
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 18.dp, vertical = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .background(
+                            color = Color.White.copy(alpha = 0.18f),
+                            shape = CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Image(
+                        painter = painterResource(id = R.drawable.ic_heart),
+                        contentDescription = "Profil Kesehatan",
+                        modifier = Modifier.size(22.dp),
+                        colorFilter = ColorFilter.tint(colorResource(id = R.color.white))
+                    )
+                }
+
+                Column(
+                    modifier = Modifier.padding(start = 12.dp)
+                ) {
+                    Text(
+                        text = "Perbarui Data Kesehatan",
+                        fontFamily = poppinsFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        color = colorResource(id = R.color.white)
+                    )
+                    Text(
+                        text = "Berat, tinggi, riwayat klinis, dan baseline lainnya diatur dari profil kesehatan.",
+                        fontFamily = poppinsFontFamily,
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 12.sp,
+                        lineHeight = 15.sp,
+                        color = colorResource(id = R.color.white).copy(alpha = 0.92f)
+                    )
+                }
+            }
+
+            Image(
+                painter = painterResource(id = R.drawable.ic_chevron_right),
+                contentDescription = "Buka Profil Kesehatan",
+                modifier = Modifier
+                    .padding(start = 12.dp)
+                    .size(20.dp),
+                colorFilter = ColorFilter.tint(colorResource(id = R.color.white))
+            )
         }
     }
 }

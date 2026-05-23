@@ -15,7 +15,6 @@ import com.itb.diabetify.domain.usecases.user.UserUseCases
 import com.itb.diabetify.presentation.common.FieldState
 import com.itb.diabetify.util.DataState
 import com.itb.diabetify.util.handleAsyncPrediction
-import com.itb.diabetify.util.PredictionUpdateNotifier
 import com.itb.diabetify.util.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.launchIn
@@ -69,6 +68,9 @@ class AddActivityViewModel @Inject constructor(
 
     private val _userGender = mutableStateOf<String?>(null)
     val userGender: State<String?> = _userGender
+
+    private val _currentSmokingStatus = mutableStateOf(0)
+    val currentSmokingStatus: State<Int> = _currentSmokingStatus
 
     private val _smokingId = mutableStateOf<Int?>(null)
     val smokingId: State<Int?> = _smokingId
@@ -406,6 +408,7 @@ class AddActivityViewModel @Inject constructor(
                 _profileState.value = profileState.value.copy(isLoading = false)
 
                 profile?.let {
+                    _currentSmokingStatus.value = it.smoking
                     _weightFieldState.value = FieldState(
                         text = it.weight.toString(),
                         error = null
@@ -603,15 +606,39 @@ class AddActivityViewModel @Inject constructor(
     }
 
     fun updateProfile(type: String) {
+        val weight = parseProfileInt(
+            value = weightFieldState.value.text,
+            fieldName = "Berat badan",
+            setError = { error -> _weightFieldState.value = weightFieldState.value.copy(error = error) }
+        ) ?: return
+        val height = parseProfileInt(
+            value = heightFieldState.value.text,
+            fieldName = "Tinggi badan",
+            setError = { error -> _heightFieldState.value = heightFieldState.value.copy(error = error) }
+        ) ?: return
+        val hypertension = parseProfileBoolean(
+            value = hypertensionFieldState.value.text,
+            fieldName = "Hipertensi",
+            setError = { error -> _hypertensionFieldState.value = hypertensionFieldState.value.copy(error = error) }
+        ) ?: return
+        val macrosomicBaby = parseProfileInt(
+            value = birthFieldState.value.text,
+            fieldName = "Bayi makrosomik",
+            setError = { error -> _birthFieldState.value = birthFieldState.value.copy(error = error) }
+        ) ?: return
+        val bloodline = parseProfileBoolean(
+            value = bloodlineFieldState.value.text,
+            fieldName = "Riwayat keluarga",
+            setError = { error -> _bloodlineFieldState.value = bloodlineFieldState.value.copy(error = error) }
+        ) ?: return
+        val cholesterol = parseProfileBoolean(
+            value = cholesterolFieldState.value.text,
+            fieldName = "Kolesterol",
+            setError = { error -> _cholesterolFieldState.value = cholesterolFieldState.value.copy(error = error) }
+        ) ?: return
+
         viewModelScope.launch {
             _updateProfileState.value = updateProfileState.value.copy(isLoading = true)
-
-            val weight = weightFieldState.value.text.toInt()
-            val height = heightFieldState.value.text.toInt()
-            val hypertension = hypertensionFieldState.value.text.toBoolean()
-            val macrosomicBaby = birthFieldState.value.text.toInt()
-            val bloodline = bloodlineFieldState.value.text.toBoolean()
-            val cholesterol = cholesterolFieldState.value.text.toBoolean()
 
             val updateProfileResult = when (type) {
                 "weight", "height", "hypertension", "birth", "bloodline", "cholesterol" -> {
@@ -663,12 +690,42 @@ class AddActivityViewModel @Inject constructor(
         }
     }
 
+    private fun parseProfileInt(
+        value: String,
+        fieldName: String,
+        setError: (String) -> Unit
+    ): Int? {
+        val parsedValue = value.toIntOrNull()
+        if (parsedValue == null) {
+            val error = "$fieldName harus berupa angka yang valid"
+            setError(error)
+            _errorMessage.value = error
+        }
+        return parsedValue
+    }
+
+    private fun parseProfileBoolean(
+        value: String,
+        fieldName: String,
+        setError: (String) -> Unit
+    ): Boolean? {
+        return when (value) {
+            "true" -> true
+            "false" -> false
+            else -> {
+                val error = "Pilihan $fieldName tidak valid"
+                setError(error)
+                _errorMessage.value = error
+                null
+            }
+        }
+    }
+
     private fun triggerPredictionUpdate() {
         viewModelScope.launch {
             predictionUseCases.predictBackground(viewModelScope, pollingIntervalMs = 5000L)
             
             _successMessage.value = "Data berhasil disimpan dan prediksi akan diperbarui dalam beberapa saat."
-            PredictionUpdateNotifier.notifyPredictionUpdated()
         }
     }
 

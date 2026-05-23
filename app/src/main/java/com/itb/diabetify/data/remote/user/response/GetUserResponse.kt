@@ -13,11 +13,11 @@ data class GetUserResponse (
 
 data class UserData(
     @SerializedName("name")
-    val name: String,
+    val name: String? = null,
     @SerializedName("email")
-    val email: String,
+    val email: String? = null,
     @SerializedName("gender")
-    val gender: String,
+    val gender: String? = null,
     @SerializedName("dob")
-    val dob: String,
+    val dob: String? = null,
 )
