@@ -613,11 +613,10 @@ private fun CounterfactualOptionCard(
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
                         verticalAlignment = Alignment.Top
                     ) {
                         Column(
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
                                 text = option.label,
@@ -637,12 +636,6 @@ private fun CounterfactualOptionCard(
                                 color = Color(0xFF475569)
                             )
                         }
-
-                        StatusChip(
-                            text = option.categoryLabel,
-                            backgroundColor = Color(0xFFE0F2FE),
-                            textColor = Color(0xFF0369A1)
-                        )
                     }
 
                     Spacer(modifier = Modifier.height(8.dp))
@@ -667,24 +660,21 @@ private fun CounterfactualOptionCard(
                             backgroundColor = Color(0xFFEFF6FF),
                             textColor = Color(0xFF1D4ED8)
                         )
-                        StatusChip(
-                            text = option.effortLabel,
-                            backgroundColor = Color(0xFFF3F4F6),
-                            textColor = Color(0xFF475569)
-                        )
-                        StatusChip(
-                            text = option.impactLabel,
-                            backgroundColor = if (option.needsClinicalReview) {
-                                Color(0xFFFFF7ED)
-                            } else {
-                                Color(0xFFECFDF5)
-                            },
-                            textColor = if (option.needsClinicalReview) {
-                                Color(0xFFB45309)
-                            } else {
-                                Color(0xFF0F766E)
-                            }
-                        )
+                        option.impactLabel?.let { impactLabel ->
+                            StatusChip(
+                                text = impactLabel,
+                                backgroundColor = if (option.needsClinicalReview) {
+                                    Color(0xFFFFF7ED)
+                                } else {
+                                    Color(0xFFECFDF5)
+                                },
+                                textColor = if (option.needsClinicalReview) {
+                                    Color(0xFFB45309)
+                                } else {
+                                    Color(0xFF0F766E)
+                                }
+                            )
+                        }
                     }
 
                     option.supportingText?.let { note ->

@@ -32,6 +32,8 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+internal const val NO_PREDICTION_TIMESTAMP = "Belum ada prediksi"
+
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val userUseCases: UserUseCases,
@@ -74,7 +76,7 @@ class HomeViewModel @Inject constructor(
     private val _userName = mutableStateOf("Pengguna")
     val userName: State<String> = _userName
 
-    private val _lastPredictionAt = mutableStateOf("Belum ada prediksi")
+    private val _lastPredictionAt = mutableStateOf(NO_PREDICTION_TIMESTAMP)
     val lastPredictionAt: State<String> = _lastPredictionAt
 
     private val _latestPredictionScore = mutableDoubleStateOf(0.0)
@@ -257,8 +259,8 @@ class HomeViewModel @Inject constructor(
         val isSelected: Boolean = true,
         val supportingText: String? = null,
         val idealDirectionLabel: String,
-        val effortLabel: String,
-        val impactLabel: String,
+        val effortLabel: String? = null,
+        val impactLabel: String? = null,
         val categoryLabel: String,
         val needsClinicalReview: Boolean = false
     )
@@ -675,6 +677,7 @@ class HomeViewModel @Inject constructor(
     // Helper Functions
     private fun resetToDefaultValues() {
         _baselineAge.intValue = 0
+        _lastPredictionAt.value = NO_PREDICTION_TIMESTAMP
         _latestPredictionScore.doubleValue = 0.0
         _bmi.doubleValue = 0.0
         _weight.intValue = 0
@@ -748,10 +751,7 @@ class HomeViewModel @Inject constructor(
                 description = "Gunakan faktor ini untuk melihat arah pengendalian tekanan darah, bukan sebagai perubahan instan yang dilakukan sendiri.",
                 iconResId = R.drawable.ic_hypertension,
                 idealDirectionLabel = "Cenderung dikendalikan",
-                effortLabel = "Butuh tindak lanjut",
-                impactLabel = "Perlu pendampingan",
                 categoryLabel = "Kondisi kesehatan",
-                supportingText = "Biasanya dibaca bersama pemantauan tekanan darah dan evaluasi tenaga kesehatan.",
                 needsClinicalReview = true
             ),
             CounterfactualOption(
@@ -760,10 +760,7 @@ class HomeViewModel @Inject constructor(
                 description = "Gunakan faktor ini untuk melihat arah pengendalian kolesterol, bukan sebagai target obat atau tindakan mandiri.",
                 iconResId = R.drawable.ic_cholesterol,
                 idealDirectionLabel = "Cenderung dikendalikan",
-                effortLabel = "Butuh tindak lanjut",
-                impactLabel = "Perlu pendampingan",
                 categoryLabel = "Kondisi kesehatan",
-                supportingText = "Biasanya dibaca bersama pola makan, aktivitas, dan evaluasi tenaga kesehatan.",
                 needsClinicalReview = true
             )
         )

@@ -1,6 +1,7 @@
 package com.itb.diabetify.presentation.home
 
 import android.annotation.SuppressLint
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -23,6 +24,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Warning
@@ -42,8 +44,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -91,6 +96,8 @@ fun HomeScreen(
     val userName by viewModel.userName
     val lastPredictionAt by viewModel.lastPredictionAt
     val latestPredictionScore by viewModel.latestPredictionScore
+    val hasLatestPrediction = lastPredictionAt != NO_PREDICTION_TIMESTAMP
+    val isLatestPredictionLoading = viewModel.latestPredictionState.value.isLoading
     val riskFactors by viewModel.riskFactors
     val successMessage = viewModel.successMessage.value
     val errorMessage = viewModel.errorMessage.value
@@ -364,7 +371,7 @@ fun HomeScreen(
                     modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
                 ) {
                     HomeCard(
-                        title = "Simulasi Counterfactual"
+                        title = "Rencana Penurunan Risiko"
                     ) {
                         Column(
                             modifier = Modifier
@@ -372,58 +379,109 @@ fun HomeScreen(
                                 .fillMaxWidth(),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Card(
+                            Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(bottom = 16.dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = Color(0xFFFFF7ED)
-                                ),
-                                shape = RoundedCornerShape(12.dp)
+                                horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                Column(
-                                    modifier = Modifier.padding(12.dp)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceEvenly
                                 ) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        verticalAlignment = Alignment.CenterVertically
+                                    CounterfactualScenarioCircle(
+                                        label = "Risiko saat ini",
+                                        value = if (hasLatestPrediction) {
+                                            String.format("%.1f%%", latestPredictionScore)
+                                        } else {
+                                            "--"
+                                        },
+                                        progress = if (hasLatestPrediction) {
+                                            (latestPredictionScore / 100.0).toFloat()
+                                        } else {
+                                            0f
+                                        },
+                                        ringColor = if (hasLatestPrediction) {
+                                            getRiskCategoryColor(latestPredictionScore)
+                                        } else {
+                                            Color(0xFFD1D5DB)
+                                        },
+                                        valueColor = if (hasLatestPrediction) {
+                                            getRiskCategoryColor(latestPredictionScore)
+                                        } else {
+                                            Color(0xFF9CA3AF)
+                                        },
+                                        backgroundColor = if (hasLatestPrediction) {
+                                            getRiskCategoryColor(latestPredictionScore).copy(alpha = 0.12f)
+                                        } else {
+                                            Color(0xFFF3F4F6)
+                                        }
+                                    )
+
+                                    Box(
+                                        modifier = Modifier
+                                            .padding(horizontal = 8.dp)
+                                            .size(36.dp)
+                                            .offset(y = (-16).dp)
+                                            .clip(CircleShape)
+                                            .background(Color(0xFFF3F4F6)),
+                                        contentAlignment = Alignment.Center
                                     ) {
                                         Icon(
-                                            imageVector = Icons.Outlined.Info,
-                                            contentDescription = "Info",
-                                            tint = Color(0xFFEA580C),
+                                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                            contentDescription = null,
+                                            tint = Color(0xFF6B7280),
                                             modifier = Modifier.size(20.dp)
                                         )
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text(
-                                            text = "Skenario perubahan terarah",
-                                            fontSize = 14.sp,
-                                            fontFamily = poppinsFontFamily,
-                                            fontWeight = FontWeight.Medium,
-                                            color = Color(0xFFEA580C)
-                                        )
                                     }
+
+                                    CounterfactualScenarioCircle(
+                                        label = "Risiko baru",
+                                        value = "Target",
+                                        valueFontSize = 14.sp,
+                                        ringColor = Color(0xFF10B981),
+                                        valueColor = Color(0xFF047857),
+                                        backgroundColor = Color(0xFFECFDF5)
+                                    )
                                 }
+
+                                Text(
+                                    text = if (hasLatestPrediction) {
+                                        "Temukan skenario perubahan yang realistis untuk membantu menurunkan risiko diabetes Anda"
+                                    } else {
+                                        "Lakukan pemeriksaan risiko terlebih dahulu agar simulasi dapat memakai kondisi terbaru Anda."
+                                    },
+                                    fontFamily = poppinsFontFamily,
+                                    fontWeight = FontWeight.Medium,
+                                    fontSize = 13.sp,
+                                    lineHeight = 20.sp,
+                                    color = Color(0xFF6B7280),
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = 22.dp)
+                                )
+
+                                SmartPlannerCapabilityChips(
+                                    modifier = Modifier.padding(top = 14.dp)
+                                )
                             }
 
-                            Text(
-                                text = "Temukan kombinasi faktor yang paling mungkin membantu menurunkan risiko berdasarkan kondisi Anda saat ini.",
-                                fontFamily = poppinsFontFamily,
-                                fontWeight = FontWeight.Medium,
-                                fontSize = 14.sp,
-                                color = Color(0xFF6B7280),
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-
                             PrimaryButton(
-                                text = "Cari Rekomendasi",
+                                text = if (hasLatestPrediction) "Buat Rencana" else "Lakukan Pemeriksaan",
                                 onClick = {
-                                    navController.navigate(Route.CounterfactualScreen.route)
+                                    if (hasLatestPrediction) {
+                                        navController.navigate(Route.CounterfactualScreen.route)
+                                    } else {
+                                        navController.navigate(Route.SurveyScreen.route)
+                                    }
                                 },
+                                enabled = !isLatestPredictionLoading,
+                                isLoading = isLatestPredictionLoading,
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(top = 16.dp)
+                                    .padding(top = 8.dp)
                                     .height(50.dp)
                             )
                         }
@@ -1191,6 +1249,133 @@ fun HomeScreen(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .zIndex(1000f)
+        )
+    }
+}
+
+@Composable
+private fun SmartPlannerCapabilityChips(
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        SmartPlannerCapabilityChip(
+            text = "Personal",
+            modifier = Modifier.weight(1f)
+        )
+        SmartPlannerCapabilityChip(
+            text = "Realistis",
+            modifier = Modifier.weight(1f)
+        )
+        SmartPlannerCapabilityChip(
+            text = "Actionable",
+            modifier = Modifier.weight(1f)
+        )
+    }
+}
+
+@Composable
+private fun SmartPlannerCapabilityChip(
+    text: String,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(999.dp))
+            .background(colorResource(id = R.color.tertiary).copy(alpha = 0.12f))
+            .padding(horizontal = 8.dp, vertical = 7.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            fontFamily = poppinsFontFamily,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 10.sp,
+            color = colorResource(id = R.color.primary),
+            maxLines = 1,
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+@Composable
+private fun CounterfactualScenarioCircle(
+    label: String,
+    value: String,
+    valueFontSize: androidx.compose.ui.unit.TextUnit = 18.sp,
+    progress: Float? = null,
+    ringColor: Color,
+    valueColor: Color,
+    backgroundColor: Color
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            modifier = Modifier
+                .size(82.dp)
+                .clip(CircleShape)
+                .background(backgroundColor)
+                .then(
+                    if (progress == null) {
+                        Modifier.border(
+                            width = 4.dp,
+                            color = ringColor,
+                            shape = CircleShape
+                        )
+                    } else {
+                        Modifier
+                    }
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            progress?.let { arcProgress ->
+                Canvas(modifier = Modifier.size(82.dp)) {
+                    val strokeWidth = 5.dp.toPx()
+                    val arcPadding = strokeWidth / 2
+                    val arcSize = size.copy(
+                        width = size.width - strokeWidth,
+                        height = size.height - strokeWidth
+                    )
+
+                    drawArc(
+                        color = Color(0xFFE5E7EB),
+                        startAngle = -90f,
+                        sweepAngle = 360f,
+                        useCenter = false,
+                        topLeft = Offset(arcPadding, arcPadding),
+                        size = arcSize,
+                        style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+                    )
+                    drawArc(
+                        color = ringColor,
+                        startAngle = -90f,
+                        sweepAngle = 360f * arcProgress.coerceIn(0f, 1f),
+                        useCenter = false,
+                        topLeft = Offset(arcPadding, arcPadding),
+                        size = arcSize,
+                        style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+                    )
+                }
+            }
+            Text(
+                text = value,
+                fontFamily = poppinsFontFamily,
+                fontWeight = FontWeight.Bold,
+                fontSize = valueFontSize,
+                color = valueColor
+            )
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = label,
+            fontFamily = poppinsFontFamily,
+            fontWeight = FontWeight.Medium,
+            fontSize = 11.sp,
+            color = Color(0xFF6B7280),
+            textAlign = TextAlign.Center
         )
     }
 }
