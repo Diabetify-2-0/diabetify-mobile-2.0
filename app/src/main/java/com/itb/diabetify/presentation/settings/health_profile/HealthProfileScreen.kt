@@ -1,9 +1,11 @@
 package com.itb.diabetify.presentation.settings.health_profile
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,16 +18,24 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
@@ -42,6 +52,7 @@ import com.itb.diabetify.presentation.common.InputField
 import com.itb.diabetify.presentation.common.PrimaryButton
 import com.itb.diabetify.presentation.common.SecondaryButton
 import com.itb.diabetify.presentation.common.SuccessNotification
+import com.itb.diabetify.presentation.navgraph.Route
 import com.itb.diabetify.presentation.settings.HealthProfileUiState
 import com.itb.diabetify.presentation.settings.SettingsViewModel
 import com.itb.diabetify.ui.theme.poppinsFontFamily
@@ -56,7 +67,6 @@ fun HealthProfileScreen(
     val isUpdating = viewModel.updateHealthProfileState.value.isLoading
     val errorMessage = viewModel.errorMessage.value
     val successMessage = viewModel.successMessage.value
-    val isEditing by viewModel.isEditingHealthProfile
     val weightField by viewModel.healthWeightFieldState
     val heightField by viewModel.healthHeightFieldState
     val hypertensionField by viewModel.healthHypertensionFieldState
@@ -69,6 +79,7 @@ fun HealthProfileScreen(
     val smokingStartAgeField by viewModel.healthSmokingStartAgeFieldState
     val smokingStopAgeField by viewModel.healthSmokingStopAgeFieldState
     val smokingBaselineField by viewModel.healthSmokingBaselineFieldState
+    var editingSection by remember { mutableStateOf<HealthProfileSection?>(null) }
 
     Box(
         modifier = Modifier
@@ -86,7 +97,13 @@ fun HealthProfileScreen(
             ) {
                 IconButton(
                     modifier = Modifier.align(Alignment.CenterStart),
-                    onClick = { navController.popBackStack() }
+                    onClick = {
+                        if (!navController.popBackStack(Route.SettingsScreen.route, inclusive = false)) {
+                            navController.navigate(Route.SettingsScreen.route) {
+                                launchSingleTop = true
+                            }
+                        }
+                    }
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
@@ -121,93 +138,85 @@ fun HealthProfileScreen(
                         .verticalScroll(rememberScrollState())
                         .padding(horizontal = 16.dp, vertical = 4.dp)
                 ) {
-                    ProfileHighlightCard(
-                        healthProfile = healthProfile,
-                        isEditing = isEditing,
-                        onEditClick = { viewModel.setEditingHealthProfile(true) }
-                    )
-
-                    Spacer(modifier = Modifier.height(18.dp))
-
                     if (!healthProfile.hasProfile) {
                         EmptyHealthProfileCard()
                     } else {
-                        if (isEditing) {
-                            EditHealthProfileCard(
-                                weight = weightField.text,
-                                onWeightChange = viewModel::setHealthWeight,
-                                weightError = weightField.error,
-                                height = heightField.text,
-                                onHeightChange = viewModel::setHealthHeight,
-                                heightError = heightField.error,
-                                hypertension = hypertensionField.text,
-                                onHypertensionChange = viewModel::setHealthHypertension,
-                                hypertensionError = hypertensionField.error,
-                                systolic = systolicField.text,
-                                onSystolicChange = viewModel::setHealthSystolic,
-                                systolicError = systolicField.error,
-                                diastolic = diastolicField.text,
-                                onDiastolicChange = viewModel::setHealthDiastolic,
-                                diastolicError = diastolicField.error,
-                                cholesterol = cholesterolField.text,
-                                onCholesterolChange = viewModel::setHealthCholesterol,
-                                cholesterolError = cholesterolField.error,
-                                bloodline = bloodlineField.text,
-                                onBloodlineChange = viewModel::setHealthBloodline,
-                                bloodlineError = bloodlineField.error,
-                                macrosomic = macrosomicField.text,
-                                onMacrosomicChange = viewModel::setHealthMacrosomic,
-                                macrosomicError = macrosomicField.error,
-                                smokingStatus = smokingStatusField.text,
-                                onSmokingStatusChange = viewModel::setHealthSmokingStatus,
-                                smokingStatusError = smokingStatusField.error,
-                                smokingStartAge = smokingStartAgeField.text,
-                                onSmokingStartAgeChange = viewModel::setHealthSmokingStartAge,
-                                smokingStartAgeError = smokingStartAgeField.error,
-                                smokingStopAge = smokingStopAgeField.text,
-                                onSmokingStopAgeChange = viewModel::setHealthSmokingStopAge,
-                                smokingStopAgeError = smokingStopAgeField.error,
-                                smokingBaseline = smokingBaselineField.text,
-                                onSmokingBaselineChange = viewModel::setHealthSmokingBaseline,
-                                smokingBaselineError = smokingBaselineField.error,
-                                onSave = { viewModel.saveHealthProfile() },
-                                onCancel = { viewModel.setEditingHealthProfile(false) },
-                                isSaving = isUpdating
-                            )
-
-                            Spacer(modifier = Modifier.height(14.dp))
-                        }
-
-                        HealthSectionCard(
-                            title = "Kondisi Tubuh",
-                            items = listOf(
-                                HealthInfoItem("Berat badan", "${healthProfile.weight} kg", R.drawable.ic_weight),
-                                HealthInfoItem("Tinggi badan", "${healthProfile.height} cm", R.drawable.ic_height),
-                                HealthInfoItem("BMI", String.format("%.1f kg/m²", healthProfile.bmi), R.drawable.ic_scale)
-                            )
+                        BodySectionCard(
+                            healthProfile = healthProfile,
+                            isEditing = editingSection == HealthProfileSection.Body,
+                            weight = weightField.text,
+                            onWeightChange = viewModel::setHealthWeight,
+                            weightError = weightField.error,
+                            height = heightField.text,
+                            onHeightChange = viewModel::setHealthHeight,
+                            heightError = heightField.error,
+                            onEditClick = { editingSection = HealthProfileSection.Body },
+                            onSave = {
+                                viewModel.saveHealthProfile {
+                                    editingSection = null
+                                }
+                            },
+                            isSaving = isUpdating
                         )
 
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        HealthSectionCard(
-                            title = "Riwayat Klinis",
-                            items = listOf(
-                                HealthInfoItem("Hipertensi", yesNoLabel(healthProfile.hypertension), R.drawable.ic_hypertension),
-                                HealthInfoItem("Kolesterol", yesNoLabel(healthProfile.cholesterol), R.drawable.ic_cholesterol),
-                                HealthInfoItem("Riwayat keluarga", yesNoLabel(healthProfile.bloodline), R.drawable.ic_family),
-                                HealthInfoItem("Riwayat bayi makrosomia", macrosomicLabel(healthProfile.macrosomicBaby), R.drawable.ic_baby)
-                            )
+                        ClinicalSectionCard(
+                            healthProfile = healthProfile,
+                            isEditing = editingSection == HealthProfileSection.Clinical,
+                            hypertension = hypertensionField.text,
+                            onHypertensionChange = viewModel::setHealthHypertension,
+                            hypertensionError = hypertensionField.error,
+                            systolic = systolicField.text,
+                            onSystolicChange = viewModel::setHealthSystolic,
+                            systolicError = systolicField.error,
+                            diastolic = diastolicField.text,
+                            onDiastolicChange = viewModel::setHealthDiastolic,
+                            diastolicError = diastolicField.error,
+                            onDetermineHypertension = viewModel::determineHypertensionFromBloodPressure,
+                            cholesterol = cholesterolField.text,
+                            onCholesterolChange = viewModel::setHealthCholesterol,
+                            cholesterolError = cholesterolField.error,
+                            bloodline = bloodlineField.text,
+                            onBloodlineChange = viewModel::setHealthBloodline,
+                            bloodlineError = bloodlineField.error,
+                            macrosomic = macrosomicField.text,
+                            onMacrosomicChange = viewModel::setHealthMacrosomic,
+                            macrosomicError = macrosomicField.error,
+                            onEditClick = { editingSection = HealthProfileSection.Clinical },
+                            onSave = {
+                                viewModel.saveHealthProfile {
+                                    editingSection = null
+                                }
+                            },
+                            isSaving = isUpdating
                         )
 
                         Spacer(modifier = Modifier.height(14.dp))
 
                         SmokingHistoryCard(
-                            healthProfile = healthProfile
+                            healthProfile = healthProfile,
+                            isEditing = editingSection == HealthProfileSection.Smoking,
+                            smokingStatus = smokingStatusField.text,
+                            onSmokingStatusChange = viewModel::setHealthSmokingStatus,
+                            smokingStatusError = smokingStatusField.error,
+                            smokingStartAge = smokingStartAgeField.text,
+                            onSmokingStartAgeChange = viewModel::setHealthSmokingStartAge,
+                            smokingStartAgeError = smokingStartAgeField.error,
+                            smokingStopAge = smokingStopAgeField.text,
+                            onSmokingStopAgeChange = viewModel::setHealthSmokingStopAge,
+                            smokingStopAgeError = smokingStopAgeField.error,
+                            smokingBaseline = smokingBaselineField.text,
+                            onSmokingBaselineChange = viewModel::setHealthSmokingBaseline,
+                            smokingBaselineError = smokingBaselineField.error,
+                            onEditClick = { editingSection = HealthProfileSection.Smoking },
+                            onSave = {
+                                viewModel.saveHealthProfile {
+                                    editingSection = null
+                                }
+                            },
+                            isSaving = isUpdating
                         )
-
-                        Spacer(modifier = Modifier.height(14.dp))
-
-                        GuidanceCard()
                     }
 
                     Spacer(modifier = Modifier.height(24.dp))
@@ -235,58 +244,208 @@ fun HealthProfileScreen(
     }
 }
 
+private enum class HealthProfileSection {
+    Body,
+    Clinical,
+    Smoking
+}
+
 @Composable
-private fun ProfileHighlightCard(
+private fun BodySectionCard(
     healthProfile: HealthProfileUiState,
     isEditing: Boolean,
-    onEditClick: () -> Unit
+    weight: String,
+    onWeightChange: (String) -> Unit,
+    weightError: String?,
+    height: String,
+    onHeightChange: (String) -> Unit,
+    heightError: String?,
+    onEditClick: () -> Unit,
+    onSave: () -> Unit,
+    isSaving: Boolean
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = colorResource(id = R.color.primary).copy(alpha = 0.08f)
-        )
+    HealthSectionScaffold(
+        title = "Kondisi Tubuh",
+        isEditing = isEditing,
+        onEditClick = onEditClick
     ) {
-        Column(
-            modifier = Modifier.padding(18.dp)
-        ) {
-            Text(
-                text = "Baseline kesehatan Anda",
-                fontFamily = poppinsFontFamily,
-                fontWeight = FontWeight.Bold,
-                fontSize = 18.sp,
-                color = colorResource(id = R.color.primary)
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = if (healthProfile.hasProfile) {
-                    "Data ini dipakai sebagai dasar prediksi risiko dan perencanaan counterfactual. Log harian tetap dicatat terpisah dari profil kesehatan."
-                } else {
-                    "Profil kesehatan belum tersedia. Lengkapi survey awal agar prediksi dan rekomendasi bisa lebih akurat."
-                },
-                fontFamily = poppinsFontFamily,
-                fontWeight = FontWeight.Medium,
-                fontSize = 13.sp,
-                color = colorResource(id = R.color.gray)
+        if (isEditing) {
+            FieldLabel("Berat badan")
+            InputField(
+                value = weight,
+                onValueChange = onWeightChange,
+                placeholderText = "Berat badan",
+                iconResId = R.drawable.ic_weight,
+                keyboardType = KeyboardType.Number,
+                isError = weightError != null,
+                errorMessage = weightError ?: ""
             )
 
-            if (healthProfile.hasProfile && !isEditing) {
-                Spacer(modifier = Modifier.height(14.dp))
-                SecondaryButton(
-                    text = "Edit Data Dasar",
-                    onClick = onEditClick,
-                    modifier = Modifier.fillMaxWidth()
+            Spacer(modifier = Modifier.height(12.dp))
+
+            FieldLabel("Tinggi badan")
+            InputField(
+                value = height,
+                onValueChange = onHeightChange,
+                placeholderText = "Tinggi badan",
+                iconResId = R.drawable.ic_height,
+                keyboardType = KeyboardType.Number,
+                isError = heightError != null,
+                errorMessage = heightError ?: ""
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            HealthInfoRow(
+                item = HealthInfoItem("BMI", String.format("%.1f kg/m²", healthProfile.bmi), R.drawable.ic_scale)
+            )
+
+            SaveSectionButton(onClick = onSave, isSaving = isSaving)
+        } else {
+            HealthInfoRows(
+                items = listOf(
+                    HealthInfoItem("Berat badan", "${healthProfile.weight} kg", R.drawable.ic_weight),
+                    HealthInfoItem("Tinggi badan", "${healthProfile.height} cm", R.drawable.ic_height),
+                    HealthInfoItem("BMI", String.format("%.1f kg/m²", healthProfile.bmi), R.drawable.ic_scale)
                 )
-            }
+            )
         }
     }
 }
 
 @Composable
-private fun HealthSectionCard(
+private fun ClinicalSectionCard(
+    healthProfile: HealthProfileUiState,
+    isEditing: Boolean,
+    hypertension: String,
+    onHypertensionChange: (String) -> Unit,
+    hypertensionError: String?,
+    systolic: String,
+    onSystolicChange: (String) -> Unit,
+    systolicError: String?,
+    diastolic: String,
+    onDiastolicChange: (String) -> Unit,
+    diastolicError: String?,
+    onDetermineHypertension: () -> Boolean,
+    cholesterol: String,
+    onCholesterolChange: (String) -> Unit,
+    cholesterolError: String?,
+    bloodline: String,
+    onBloodlineChange: (String) -> Unit,
+    bloodlineError: String?,
+    macrosomic: String,
+    onMacrosomicChange: (String) -> Unit,
+    macrosomicError: String?,
+    onEditClick: () -> Unit,
+    onSave: () -> Unit,
+    isSaving: Boolean
+) {
+    var isBloodPressureHelperVisible by remember { mutableStateOf(false) }
+
+    HealthSectionScaffold(
+        title = "Riwayat Klinis",
+        isEditing = isEditing,
+        onEditClick = onEditClick
+    ) {
+        if (isEditing) {
+            if (isBloodPressureHelperVisible) {
+                BloodPressureHelperCard(
+                    systolic = systolic,
+                    onSystolicChange = onSystolicChange,
+                    systolicError = systolicError,
+                    diastolic = diastolic,
+                    onDiastolicChange = onDiastolicChange,
+                    diastolicError = diastolicError,
+                    onDetermine = {
+                        if (onDetermineHypertension()) {
+                            isBloodPressureHelperVisible = false
+                        }
+                    },
+                    onCancel = {
+                        onSystolicChange("")
+                        onDiastolicChange("")
+                        isBloodPressureHelperVisible = false
+                    }
+                )
+            } else {
+                FieldLabel("Hipertensi")
+                DropdownField(
+                    selectedOption = hypertension,
+                    onOptionSelected = onHypertensionChange,
+                    options = listOf("Ya", "Tidak"),
+                    placeHolderText = "Pilih status hipertensi",
+                    iconResId = R.drawable.ic_hypertension,
+                    isError = hypertensionError != null,
+                    errorMessage = hypertensionError ?: ""
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                HelperTriggerButton(
+                    text = "Bantu tentukan dari tekanan darah",
+                    onClick = { isBloodPressureHelperVisible = true }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            FieldLabel("Kolesterol")
+            DropdownField(
+                selectedOption = cholesterol,
+                onOptionSelected = onCholesterolChange,
+                options = listOf("Ya", "Tidak"),
+                placeHolderText = "Pilih status kolesterol",
+                iconResId = R.drawable.ic_cholesterol,
+                isError = cholesterolError != null,
+                errorMessage = cholesterolError ?: ""
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            FieldLabel("Riwayat keluarga")
+            DropdownField(
+                selectedOption = bloodline,
+                onOptionSelected = onBloodlineChange,
+                options = listOf("Ya", "Tidak"),
+                placeHolderText = "Pilih riwayat keluarga",
+                iconResId = R.drawable.ic_family,
+                isError = bloodlineError != null,
+                errorMessage = bloodlineError ?: ""
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            FieldLabel("Riwayat bayi makrosomia")
+            DropdownField(
+                selectedOption = macrosomic,
+                onOptionSelected = onMacrosomicChange,
+                options = listOf("Tidak", "Pernah", "Tidak Pernah Melahirkan"),
+                placeHolderText = "Pilih riwayat makrosomia",
+                iconResId = R.drawable.ic_baby,
+                isError = macrosomicError != null,
+                errorMessage = macrosomicError ?: ""
+            )
+
+            SaveSectionButton(onClick = onSave, isSaving = isSaving)
+        } else {
+            HealthInfoRows(
+                items = listOf(
+                    HealthInfoItem("Hipertensi", yesNoLabel(healthProfile.hypertension), R.drawable.ic_hypertension),
+                    HealthInfoItem("Kolesterol", yesNoLabel(healthProfile.cholesterol), R.drawable.ic_cholesterol),
+                    HealthInfoItem("Riwayat keluarga", yesNoLabel(healthProfile.bloodline), R.drawable.ic_family),
+                    HealthInfoItem("Riwayat bayi makrosomia", macrosomicLabel(healthProfile.macrosomicBaby), R.drawable.ic_baby)
+                )
+            )
+        }
+    }
+}
+
+@Composable
+private fun HealthSectionScaffold(
     title: String,
-    items: List<HealthInfoItem>
+    isEditing: Boolean,
+    onEditClick: () -> Unit,
+    content: @Composable ColumnScope.() -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -299,22 +458,72 @@ private fun HealthSectionCard(
         Column(
             modifier = Modifier.padding(18.dp)
         ) {
-            Text(
-                text = title,
-                fontFamily = poppinsFontFamily,
-                fontWeight = FontWeight.Bold,
-                fontSize = 17.sp,
-                color = colorResource(id = R.color.primary)
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = title,
+                    fontFamily = poppinsFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 17.sp,
+                    color = colorResource(id = R.color.primary)
+                )
 
-            Spacer(modifier = Modifier.height(14.dp))
-
-            items.forEachIndexed { index, item ->
-                HealthInfoRow(item = item)
-                if (index < items.lastIndex) {
-                    Spacer(modifier = Modifier.height(12.dp))
+                if (!isEditing) {
+                    EditSectionButton(onClick = onEditClick)
                 }
             }
+
+            Spacer(modifier = Modifier.height(14.dp))
+            content()
+        }
+    }
+}
+
+@Composable
+private fun EditSectionButton(
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .size(34.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(colorResource(id = R.color.primary).copy(alpha = 0.08f))
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = Icons.Filled.Edit,
+            contentDescription = "Edit section",
+            tint = colorResource(id = R.color.primary),
+            modifier = Modifier.size(18.dp)
+        )
+    }
+}
+
+@Composable
+private fun SaveSectionButton(
+    onClick: () -> Unit,
+    isSaving: Boolean
+) {
+    Spacer(modifier = Modifier.height(18.dp))
+    PrimaryButton(
+        text = "Simpan Perubahan",
+        onClick = onClick,
+        isLoading = isSaving
+    )
+}
+
+@Composable
+private fun HealthInfoRows(
+    items: List<HealthInfoItem>
+) {
+    items.forEachIndexed { index, item ->
+        HealthInfoRow(item = item)
+        if (index < items.lastIndex) {
+            Spacer(modifier = Modifier.height(12.dp))
         }
     }
 }
@@ -357,170 +566,9 @@ private fun HealthInfoRow(item: HealthInfoItem) {
 }
 
 @Composable
-private fun GuidanceCard() {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = colorResource(id = R.color.gray).copy(alpha = 0.06f)
-        )
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
-            Text(
-                text = "Catatan",
-                fontFamily = poppinsFontFamily,
-                fontWeight = FontWeight.Bold,
-                fontSize = 15.sp,
-                color = colorResource(id = R.color.primary)
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "Profil kesehatan berisi data baseline yang relatif jarang berubah. Aktivitas fisik dan konsumsi rokok harian tetap dicatat melalui laporan harian.",
-                fontFamily = poppinsFontFamily,
-                fontWeight = FontWeight.Medium,
-                fontSize = 13.sp,
-                color = colorResource(id = R.color.gray)
-            )
-        }
-    }
-}
-
-@Composable
 private fun SmokingHistoryCard(
-    healthProfile: HealthProfileUiState
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.White
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(18.dp)
-        ) {
-            Text(
-                text = "Riwayat Merokok",
-                fontFamily = poppinsFontFamily,
-                fontWeight = FontWeight.Bold,
-                fontSize = 17.sp,
-                color = colorResource(id = R.color.primary)
-            )
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            Text(
-                text = "Bagian ini menampilkan status merokok dan baseline konsumsi yang menjadi konteks untuk prediksi. Catatan rokok harian tetap diisi terpisah lewat tombol tengah.",
-                fontFamily = poppinsFontFamily,
-                fontWeight = FontWeight.Medium,
-                fontSize = 13.sp,
-                color = colorResource(id = R.color.gray)
-            )
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            SmokingStatusBadge(
-                label = smokingStatusLabel(healthProfile.smokingStatus),
-                supportingText = smokingStatusDescription(healthProfile)
-            )
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            HealthInfoRow(
-                item = HealthInfoItem(
-                    "Usia mulai merokok",
-                    smokingStartLabel(healthProfile),
-                    R.drawable.ic_calendar
-                )
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            HealthInfoRow(
-                item = HealthInfoItem(
-                    "Usia berhenti merokok",
-                    smokingStopLabel(healthProfile),
-                    R.drawable.ic_calendar
-                )
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            HealthInfoRow(
-                item = HealthInfoItem(
-                    "Baseline konsumsi rokok",
-                    smokingBaselineLabel(healthProfile),
-                    R.drawable.ic_smoking
-                )
-            )
-        }
-    }
-}
-
-@Composable
-private fun SmokingStatusBadge(
-    label: String,
-    supportingText: String
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = colorResource(id = R.color.primary).copy(alpha = 0.08f)
-        )
-    ) {
-        Column(
-            modifier = Modifier.padding(14.dp)
-        ) {
-            Text(
-                text = "Status saat ini: $label",
-                fontFamily = poppinsFontFamily,
-                fontWeight = FontWeight.Bold,
-                fontSize = 14.sp,
-                color = colorResource(id = R.color.primary)
-            )
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = supportingText,
-                fontFamily = poppinsFontFamily,
-                fontWeight = FontWeight.Medium,
-                fontSize = 12.sp,
-                lineHeight = 16.sp,
-                color = colorResource(id = R.color.gray)
-            )
-        }
-    }
-}
-
-@Composable
-private fun EditHealthProfileCard(
-    weight: String,
-    onWeightChange: (String) -> Unit,
-    weightError: String?,
-    height: String,
-    onHeightChange: (String) -> Unit,
-    heightError: String?,
-    hypertension: String,
-    onHypertensionChange: (String) -> Unit,
-    hypertensionError: String?,
-    systolic: String,
-    onSystolicChange: (String) -> Unit,
-    systolicError: String?,
-    diastolic: String,
-    onDiastolicChange: (String) -> Unit,
-    diastolicError: String?,
-    cholesterol: String,
-    onCholesterolChange: (String) -> Unit,
-    cholesterolError: String?,
-    bloodline: String,
-    onBloodlineChange: (String) -> Unit,
-    bloodlineError: String?,
-    macrosomic: String,
-    onMacrosomicChange: (String) -> Unit,
-    macrosomicError: String?,
+    healthProfile: HealthProfileUiState,
+    isEditing: Boolean,
     smokingStatus: String,
     onSmokingStatusChange: (String) -> Unit,
     smokingStatusError: String?,
@@ -533,148 +581,16 @@ private fun EditHealthProfileCard(
     smokingBaseline: String,
     onSmokingBaselineChange: (String) -> Unit,
     smokingBaselineError: String?,
+    onEditClick: () -> Unit,
     onSave: () -> Unit,
-    onCancel: () -> Unit,
     isSaving: Boolean
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.White
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+    HealthSectionScaffold(
+        title = "Riwayat Merokok",
+        isEditing = isEditing,
+        onEditClick = onEditClick
     ) {
-        Column(
-            modifier = Modifier.padding(18.dp)
-        ) {
-            Text(
-                text = "Perbarui Data Dasar",
-                fontFamily = poppinsFontFamily,
-                fontWeight = FontWeight.Bold,
-                fontSize = 17.sp,
-                color = colorResource(id = R.color.primary)
-            )
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = "Gunakan bagian ini untuk baseline kesehatan yang tidak perlu dicatat setiap hari.",
-                fontFamily = poppinsFontFamily,
-                fontWeight = FontWeight.Medium,
-                fontSize = 13.sp,
-                color = colorResource(id = R.color.gray)
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            FieldLabel("Berat badan")
-            InputField(
-                value = weight,
-                onValueChange = onWeightChange,
-                placeholderText = "Berat badan",
-                iconResId = R.drawable.ic_weight,
-                keyboardType = KeyboardType.Number,
-                isError = weightError != null,
-                errorMessage = weightError ?: ""
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            FieldLabel("Tinggi badan")
-            InputField(
-                value = height,
-                onValueChange = onHeightChange,
-                placeholderText = "Tinggi badan",
-                iconResId = R.drawable.ic_height,
-                keyboardType = KeyboardType.Number,
-                isError = heightError != null,
-                errorMessage = heightError ?: ""
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            FieldLabel("Hipertensi")
-            DropdownField(
-                selectedOption = hypertension,
-                onOptionSelected = onHypertensionChange,
-                options = listOf("Ya", "Tidak"),
-                placeHolderText = "Pilih status hipertensi",
-                iconResId = R.drawable.ic_hypertension,
-                isError = hypertensionError != null,
-                errorMessage = hypertensionError ?: ""
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            BloodPressureHelperCard(
-                systolic = systolic,
-                onSystolicChange = onSystolicChange,
-                systolicError = systolicError,
-                diastolic = diastolic,
-                onDiastolicChange = onDiastolicChange,
-                diastolicError = diastolicError
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            FieldLabel("Kolesterol")
-            DropdownField(
-                selectedOption = cholesterol,
-                onOptionSelected = onCholesterolChange,
-                options = listOf("Ya", "Tidak"),
-                placeHolderText = "Pilih status kolesterol",
-                iconResId = R.drawable.ic_cholesterol,
-                isError = cholesterolError != null,
-                errorMessage = cholesterolError ?: ""
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            FieldLabel("Riwayat keluarga")
-            DropdownField(
-                selectedOption = bloodline,
-                onOptionSelected = onBloodlineChange,
-                options = listOf("Ya", "Tidak"),
-                placeHolderText = "Pilih riwayat keluarga",
-                iconResId = R.drawable.ic_family,
-                isError = bloodlineError != null,
-                errorMessage = bloodlineError ?: ""
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            FieldLabel("Riwayat bayi makrosomia")
-            DropdownField(
-                selectedOption = macrosomic,
-                onOptionSelected = onMacrosomicChange,
-                options = listOf("Tidak", "Pernah", "Tidak Pernah Melahirkan"),
-                placeHolderText = "Pilih riwayat makrosomia",
-                iconResId = R.drawable.ic_baby,
-                isError = macrosomicError != null,
-                errorMessage = macrosomicError ?: ""
-            )
-
-            Spacer(modifier = Modifier.height(18.dp))
-
-            Text(
-                text = "Riwayat Merokok",
-                fontFamily = poppinsFontFamily,
-                fontWeight = FontWeight.Bold,
-                fontSize = 16.sp,
-                color = colorResource(id = R.color.primary)
-            )
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            Text(
-                text = "Atur status merokok dan baseline konsumsi yang menjadi konteks dasar untuk prediksi. Catatan rokok harian tetap diisi terpisah.",
-                fontFamily = poppinsFontFamily,
-                fontWeight = FontWeight.Medium,
-                fontSize = 12.sp,
-                color = colorResource(id = R.color.gray)
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
+        if (isEditing) {
             FieldLabel("Status merokok")
             DropdownField(
                 selectedOption = smokingStatus,
@@ -700,18 +616,20 @@ private fun EditHealthProfileCard(
                     errorMessage = smokingStartAgeError ?: ""
                 )
 
-                Spacer(modifier = Modifier.height(12.dp))
+                if (smokingStatus == "Masih Merokok") {
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                FieldLabel("Baseline konsumsi rokok")
-                InputField(
-                    value = smokingBaseline,
-                    onValueChange = onSmokingBaselineChange,
-                    placeholderText = "Rata-rata batang per hari",
-                    iconResId = R.drawable.ic_smoking,
-                    keyboardType = KeyboardType.Number,
-                    isError = smokingBaselineError != null,
-                    errorMessage = smokingBaselineError ?: ""
-                )
+                    FieldLabel("Baseline konsumsi rokok")
+                    InputField(
+                        value = smokingBaseline,
+                        onValueChange = onSmokingBaselineChange,
+                        placeholderText = "Rata-rata batang per hari",
+                        iconResId = R.drawable.ic_smoking,
+                        keyboardType = KeyboardType.Number,
+                        isError = smokingBaselineError != null,
+                        errorMessage = smokingBaselineError ?: ""
+                    )
+                }
             }
 
             if (smokingStatus == "Sudah Berhenti") {
@@ -729,23 +647,48 @@ private fun EditHealthProfileCard(
                 )
             }
 
-            Spacer(modifier = Modifier.height(18.dp))
-
-            PrimaryButton(
-                text = "Simpan Profil Kesehatan",
-                onClick = onSave,
-                isLoading = isSaving
-            )
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            SecondaryButton(
-                text = "Batal",
-                onClick = onCancel,
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !isSaving
+            SaveSectionButton(onClick = onSave, isSaving = isSaving)
+        } else {
+            HealthInfoRows(
+                items = buildList {
+                    add(HealthInfoItem("Status merokok", smokingStatusLabel(healthProfile.smokingStatus), R.drawable.ic_smoking))
+                    when (healthProfile.smokingStatus) {
+                        1 -> {
+                            add(HealthInfoItem("Usia mulai merokok", smokingStartLabel(healthProfile), R.drawable.ic_calendar))
+                            add(HealthInfoItem("Usia berhenti merokok", smokingStopLabel(healthProfile), R.drawable.ic_calendar))
+                        }
+                        2 -> {
+                            add(HealthInfoItem("Usia mulai merokok", smokingStartLabel(healthProfile), R.drawable.ic_calendar))
+                            add(HealthInfoItem("Baseline konsumsi rokok", smokingBaselineLabel(healthProfile), R.drawable.ic_smoking))
+                        }
+                    }
+                }
             )
         }
+    }
+}
+
+@Composable
+private fun HelperTriggerButton(
+    text: String,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(colorResource(id = R.color.primary).copy(alpha = 0.06f))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            fontFamily = poppinsFontFamily,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 13.sp,
+            color = colorResource(id = R.color.primary)
+        )
     }
 }
 
@@ -756,7 +699,9 @@ private fun BloodPressureHelperCard(
     systolicError: String?,
     diastolic: String,
     onDiastolicChange: (String) -> Unit,
-    diastolicError: String?
+    diastolicError: String?,
+    onDetermine: () -> Unit,
+    onCancel: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -779,7 +724,7 @@ private fun BloodPressureHelperCard(
             Spacer(modifier = Modifier.height(6.dp))
 
             Text(
-                text = "Opsional. Jika Anda mengetahui nilai sistolik dan diastolik, isi dua angka ini agar status hipertensi dihitung otomatis. Nilai ini tidak disimpan sebagai field profil permanen.",
+                text = "Masukkan tekanan darah terakhir Anda untuk membantu menentukan status hipertensi",
                 fontFamily = poppinsFontFamily,
                 fontWeight = FontWeight.Medium,
                 fontSize = 12.sp,
@@ -811,6 +756,62 @@ private fun BloodPressureHelperCard(
                 keyboardType = KeyboardType.Number,
                 isError = diastolicError != null,
                 errorMessage = diastolicError ?: ""
+            )
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            CompactPrimaryButton(
+                text = "Tentukan Status",
+                onClick = onDetermine
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            SecondaryButton(
+                text = "Batal",
+                onClick = onCancel,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+}
+
+@Composable
+private fun CompactPrimaryButton(
+    text: String,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(44.dp)
+            .shadow(
+                elevation = 3.dp,
+                shape = RoundedCornerShape(22.dp)
+            ),
+        shape = RoundedCornerShape(22.dp),
+        color = Color.Transparent
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    brush = Brush.horizontalGradient(
+                        colors = listOf(
+                            colorResource(id = R.color.primary),
+                            colorResource(id = R.color.primary).copy(alpha = 0.8f)
+                        )
+                    )
+                )
+                .clickable(onClick = onClick),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = text,
+                fontFamily = poppinsFontFamily,
+                fontWeight = FontWeight.Medium,
+                fontSize = 14.sp,
+                color = Color.White
             )
         }
     }
@@ -904,14 +905,5 @@ private fun smokingBaselineLabel(healthProfile: HealthProfileUiState): String {
         0 -> "Tidak relevan"
         1, 2 -> if (healthProfile.smokeCount > 0) "${healthProfile.smokeCount} batang per hari" else "Belum diisi"
         else -> "Tidak diketahui"
-    }
-}
-
-private fun smokingStatusDescription(healthProfile: HealthProfileUiState): String {
-    return when (healthProfile.smokingStatus) {
-        0 -> "Profil Anda saat ini tercatat tidak pernah merokok. Bagian rokok harian tidak menjadi fokus utama pada kondisi ini."
-        1 -> "Profil Anda tercatat sudah berhenti merokok. Riwayat ini tetap disimpan sebagai konteks kesehatan, tetapi konsumsi harian seharusnya tidak lagi rutin dicatat."
-        2 -> "Profil Anda tercatat masih merokok. Baseline konsumsi di bawah ini adalah konteks awal, sedangkan konsumsi rokok hari ini tetap dicatat melalui laporan harian."
-        else -> "Status merokok belum dapat dijelaskan karena datanya belum lengkap."
     }
 }

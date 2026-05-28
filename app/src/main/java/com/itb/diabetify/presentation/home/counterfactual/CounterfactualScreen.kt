@@ -7,8 +7,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -33,6 +31,7 @@ import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -51,7 +50,6 @@ import androidx.compose.ui.zIndex
 import androidx.navigation.NavController
 import androidx.compose.ui.text.input.KeyboardType
 import com.itb.diabetify.R
-import com.itb.diabetify.presentation.common.CustomizableButton
 import com.itb.diabetify.presentation.common.ErrorNotification
 import com.itb.diabetify.presentation.common.LoadingNotification
 import com.itb.diabetify.presentation.common.PrimaryButton
@@ -109,7 +107,7 @@ fun CounterfactualScreen(
 
                 Text(
                     modifier = Modifier.align(Alignment.Center),
-                    text = "Counterfactual Planner",
+                    text = "Rencana Penurunan Risiko",
                     fontFamily = poppinsFontFamily,
                     fontWeight = FontWeight.Bold,
                     fontSize = 20.sp,
@@ -164,6 +162,22 @@ fun CounterfactualScreen(
                                 modifier = Modifier.weight(1f),
                                 label = "Konsumsi Rokok",
                                 value = smokingDailySummary(viewModel)
+                            )
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            SummaryMetricCard(
+                                modifier = Modifier.weight(1f),
+                                label = "Hipertensi",
+                                value = if (viewModel.isHypertension.value) "Ya" else "Tidak"
+                            )
+                            SummaryMetricCard(
+                                modifier = Modifier.weight(1f),
+                                label = "Kolesterol",
+                                value = if (viewModel.isCholesterol.value) "Ya" else "Tidak"
                             )
                         }
                     }
@@ -226,7 +240,7 @@ fun CounterfactualScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Text(
-                            text = "Masukkan ambang risiko akhir yang ingin Anda capai. Angka ini dipakai sebagai batas minimum keberhasilan, sehingga hasil akhir bisa saja lebih rendah jika skenario itu yang paling feasible.",
+                            text = "Tentukan batas risiko yang ingin dicapai. Planner akan mencari skenario realistis dengan risiko di bawah angka ini",
                             fontFamily = poppinsFontFamily,
                             fontSize = 13.sp,
                             color = Color(0xFF6B7280),
@@ -259,11 +273,22 @@ fun CounterfactualScreen(
                                     color = colorResource(id = R.color.primary)
                                 )
                             },
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = colorResource(id = R.color.primary),
+                                unfocusedTextColor = colorResource(id = R.color.primary),
+                                cursorColor = colorResource(id = R.color.primary),
+                                focusedBorderColor = colorResource(id = R.color.primary),
+                                unfocusedBorderColor = Color(0xFFE5E7EB),
+                                focusedLabelColor = colorResource(id = R.color.primary),
+                                unfocusedLabelColor = Color(0xFF6B7280),
+                                focusedContainerColor = Color.White,
+                                unfocusedContainerColor = Color.White
+                            ),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                         )
 
                         Text(
-                            text = "Contoh: isi 45 berarti planner akan mencari skenario dengan risiko akhir di bawah 45%. Jika skenario yang paling masuk akal justru turun sampai 38%, hasil itu yang akan ditampilkan.",
+                            text = "Contoh: isi 45 berarti planner akan mencari skenario dengan risiko akhir di bawah 45% ",
                             fontFamily = poppinsFontFamily,
                             fontSize = 12.sp,
                             color = Color(0xFF94A3B8),
@@ -272,35 +297,13 @@ fun CounterfactualScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    CustomizableButton(
-                        text = "Reset",
-                        onClick = { viewModel.resetCounterfactualOptions() },
-                        backgroundColor = Color(0xFFE5E7EB),
-                        textColor = colorResource(id = R.color.primary),
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(50.dp)
-                    )
-
-                    PrimaryButton(
-                        text = "Cari Skenario",
-                        onClick = { viewModel.runCounterfactualAnalysis() },
-                        enabled = !isLoading,
-                        isLoading = isLoading,
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(50.dp)
-                    )
-                }
-
                 Spacer(modifier = Modifier.height(20.dp))
             }
+
+            CounterfactualActionBar(
+                isLoading = isLoading,
+                onRun = { viewModel.runCounterfactualAnalysis() }
+            )
         }
 
         ErrorNotification(
@@ -332,6 +335,41 @@ fun CounterfactualScreen(
 }
 
 @Composable
+private fun CounterfactualActionBar(
+    isLoading: Boolean,
+    onRun: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.White)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(1.dp)
+                .background(Color(0xFFE5E7EB))
+        )
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+        ) {
+            PrimaryButton(
+                text = "Cari Skenario",
+                onClick = onRun,
+                enabled = !isLoading,
+                isLoading = isLoading,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
+            )
+        }
+    }
+}
+
+@Composable
 private fun PlannerIntroCard() {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -353,36 +391,21 @@ private fun PlannerIntroCard() {
                 .padding(18.dp)
         ) {
             Column(
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                modifier = Modifier.fillMaxWidth(),
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(34.dp)
-                            .background(Color.White.copy(alpha = 0.16f), CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Info,
-                            contentDescription = "Info",
-                            tint = Color.White,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Text(
-                        text = "Rencanakan skenario perubahan yang terarah",
-                        fontFamily = poppinsFontFamily,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 17.sp,
-                        color = Color.White
-                    )
-                }
+                Text(
+                    text = "Pilih skenario perubahan",
+                    fontFamily = poppinsFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 17.sp,
+                    color = Color.White,
+                    lineHeight = 23.sp
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
-                    text = "Counterfactual planner mencari kombinasi perubahan yang paling mungkin membantu menurunkan risiko tanpa mengubah faktor tetap dan tetap menghormati pilihan Anda.",
+                    text = "Tentukan faktor, lalu sistem akan mencari skenario untuk mencapai target risiko",
                     fontFamily = poppinsFontFamily,
                     fontSize = 13.sp,
                     color = Color.White.copy(alpha = 0.92f),
@@ -547,7 +570,6 @@ private fun ImmutableInfoCard(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun CounterfactualOptionCard(
     option: HomeViewModel.CounterfactualOption,
@@ -648,37 +670,8 @@ private fun CounterfactualOptionCard(
                         lineHeight = 18.sp
                     )
 
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    FlowRow(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        StatusChip(
-                            text = option.idealDirectionLabel,
-                            backgroundColor = Color(0xFFEFF6FF),
-                            textColor = Color(0xFF1D4ED8)
-                        )
-                        option.impactLabel?.let { impactLabel ->
-                            StatusChip(
-                                text = impactLabel,
-                                backgroundColor = if (option.needsClinicalReview) {
-                                    Color(0xFFFFF7ED)
-                                } else {
-                                    Color(0xFFECFDF5)
-                                },
-                                textColor = if (option.needsClinicalReview) {
-                                    Color(0xFFB45309)
-                                } else {
-                                    Color(0xFF0F766E)
-                                }
-                            )
-                        }
-                    }
-
                     option.supportingText?.let { note ->
-                        Spacer(modifier = Modifier.height(6.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             text = note,
                             fontFamily = poppinsFontFamily,

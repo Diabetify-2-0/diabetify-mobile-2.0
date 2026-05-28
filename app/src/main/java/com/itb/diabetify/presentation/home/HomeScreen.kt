@@ -59,6 +59,8 @@ import androidx.compose.ui.unit.times
 import androidx.compose.ui.zIndex
 import androidx.navigation.NavController
 import com.itb.diabetify.R
+import com.itb.diabetify.domain.model.planner.PlannerGoal
+import com.itb.diabetify.domain.model.planner.PlannerGoalStatus
 import com.itb.diabetify.presentation.common.ErrorNotification
 import com.itb.diabetify.presentation.common.LoadingNotification
 import com.itb.diabetify.presentation.common.PrimaryButton
@@ -99,6 +101,7 @@ fun HomeScreen(
     val hasLatestPrediction = lastPredictionAt != NO_PREDICTION_TIMESTAMP
     val isLatestPredictionLoading = viewModel.latestPredictionState.value.isLoading
     val riskFactors by viewModel.riskFactors
+    val activePlannerGoal by viewModel.activePlannerGoal
     val successMessage = viewModel.successMessage.value
     val errorMessage = viewModel.errorMessage.value
     val loadingMessage = viewModel.loadingMessage.value
@@ -385,6 +388,16 @@ fun HomeScreen(
                                     .padding(bottom = 16.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
+                                activePlannerGoal?.let { goal ->
+                                    ActivePlannerGoalCard(
+                                        goal = goal,
+                                        modifier = Modifier.padding(bottom = 16.dp),
+                                        onClick = {
+                                            navController.navigate(Route.PlannerGoalDetailScreen.createRoute(goal.id))
+                                        }
+                                    )
+                                }
+
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     verticalAlignment = Alignment.CenterVertically,
@@ -468,8 +481,8 @@ fun HomeScreen(
                                 )
                             }
 
-                            PrimaryButton(
-                                text = if (hasLatestPrediction) "Buat Rencana" else "Lakukan Pemeriksaan",
+                                PrimaryButton(
+                                    text = if (hasLatestPrediction) "Buat Rencana" else "Lakukan Pemeriksaan",
                                 onClick = {
                                     if (hasLatestPrediction) {
                                         navController.navigate(Route.CounterfactualScreen.route)
@@ -846,6 +859,7 @@ fun HomeScreen(
                                     fontSize = 14.sp,
                                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
                                 )
+
                             }
                         }
                     }
@@ -1251,6 +1265,146 @@ fun HomeScreen(
                 .zIndex(1000f)
         )
     }
+}
+
+@Composable
+private fun ActivePlannerGoalCard(
+    goal: PlannerGoal,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    val isCompleted = goal.status == PlannerGoalStatus.COMPLETED
+    val containerColor = if (isCompleted) Color(0xFFF1F5F9) else Color(0xFFECFDF5)
+    val statusColor = if (isCompleted) Color(0xFF475569) else Color(0xFF047857)
+    val iconTint = if (isCompleted) Color(0xFF64748B) else Color(0xFF059669)
+
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = containerColor)
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        text = if (isCompleted) "Goal Selesai" else "Goal Aktif",
+                        fontFamily = poppinsFontFamily,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 12.sp,
+                        color = statusColor
+                    )
+                    Text(
+                        text = goal.title,
+                        fontFamily = poppinsFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        lineHeight = 20.sp,
+                        color = colorResource(id = R.color.primary)
+                    )
+                }
+                Icon(
+                    imageVector = Icons.Outlined.CheckCircle,
+                    contentDescription = null,
+                    tint = iconTint,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                PlannerGoalRiskPill(
+                    modifier = Modifier.weight(1f),
+                    label = "Awal",
+                    value = formatPlannerGoalRisk(goal.currentRiskPercentage)
+                )
+                PlannerGoalRiskPill(
+                    modifier = Modifier.weight(1f),
+                    label = "Skenario",
+                    value = formatPlannerGoalRisk(goal.projectedRiskPercentage)
+                )
+                PlannerGoalRiskPill(
+                    modifier = Modifier.weight(1f),
+                    label = "Target",
+                    value = "<${goal.targetRiskPercentage}%"
+                )
+            }
+
+            if (goal.features.isNotEmpty()) {
+                HorizontalDivider(color = if (isCompleted) Color(0xFFCBD5E1) else Color(0xFFBBF7D0))
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    goal.features.take(2).forEach { feature ->
+                        Text(
+                            text = "${feature.label}: ${feature.baselineText} -> ${feature.targetText}",
+                            fontFamily = poppinsFontFamily,
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 12.sp,
+                            lineHeight = 17.sp,
+                            color = Color(0xFF374151)
+                        )
+                    }
+                    if (goal.features.size > 2) {
+                        Text(
+                            text = "+${goal.features.size - 2} target lain",
+                            fontFamily = poppinsFontFamily,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 12.sp,
+                            color = statusColor
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlannerGoalRiskPill(
+    modifier: Modifier = Modifier,
+    label: String,
+    value: String
+) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color.White.copy(alpha = 0.78f))
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = label,
+            fontFamily = poppinsFontFamily,
+            fontSize = 10.sp,
+            color = Color(0xFF6B7280),
+            maxLines = 1
+        )
+        Text(
+            text = value,
+            fontFamily = poppinsFontFamily,
+            fontWeight = FontWeight.Bold,
+            fontSize = 13.sp,
+            color = colorResource(id = R.color.primary),
+            maxLines = 1
+        )
+    }
+}
+
+private fun formatPlannerGoalRisk(value: Double?): String {
+    return value?.let { String.format("%.1f%%", it) } ?: "-"
 }
 
 @Composable

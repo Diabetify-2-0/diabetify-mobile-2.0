@@ -10,8 +10,12 @@ import com.itb.diabetify.domain.model.activity.AddActivityResult
 import com.itb.diabetify.domain.model.activity.UpdateActivityResult
 import com.itb.diabetify.domain.usecases.activity.ActivityUseCases
 import com.itb.diabetify.domain.usecases.prediction.PredictionUseCases
+import com.itb.diabetify.domain.usecases.planner.PlannerGoalUseCases
 import com.itb.diabetify.domain.usecases.profile.ProfileUseCases
 import com.itb.diabetify.domain.usecases.user.UserUseCases
+import com.itb.diabetify.domain.model.planner.PlannerGoal
+import com.itb.diabetify.domain.model.planner.PlannerCheckInEntry
+import com.itb.diabetify.domain.model.planner.PlannerGoalStatus
 import com.itb.diabetify.presentation.common.FieldState
 import com.itb.diabetify.util.DataState
 import com.itb.diabetify.util.handleAsyncPrediction
@@ -29,7 +33,8 @@ class AddActivityViewModel @Inject constructor(
     private val activityUseCases: ActivityUseCases,
     private val profileUseCases: ProfileUseCases,
     private val predictionUseCases: PredictionUseCases,
-    private val userUseCases: UserUseCases
+    private val userUseCases: UserUseCases,
+    private val plannerGoalUseCases: PlannerGoalUseCases
 ) : ViewModel() {
     // Error and Success States
     private val _errorMessage = mutableStateOf<String?>(null)
@@ -59,6 +64,11 @@ class AddActivityViewModel @Inject constructor(
 
     private val _userState = mutableStateOf(DataState())
     val userState: State<DataState> = _userState
+
+    private val _activePlannerGoal = mutableStateOf<PlannerGoal?>(null)
+    val activePlannerGoal: State<PlannerGoal?> = _activePlannerGoal
+
+    private val _plannerCheckIns = mutableStateOf<Map<String, Long>>(emptyMap())
 
     // UI States
     val surveyQuestions = questions
@@ -120,6 +130,9 @@ class AddActivityViewModel @Inject constructor(
         collectActivityTodayData()
         collectProfileData()
         collectUserData()
+        collectActivePlannerGoal()
+        collectPlannerCheckIns()
+        refreshPlannerGoal()
     }
 
     // Setters for UI States
@@ -377,6 +390,154 @@ class AddActivityViewModel @Inject constructor(
         }
     }
 
+    private fun collectActivePlannerGoal() {
+        plannerGoalUseCases.getActivePlannerGoal()
+            .onEach { goal ->
+                _activePlannerGoal.value = goal
+                goal?.let { refreshPlannerCheckIns(it.id) }
+            }
+            .launchIn(viewModelScope)
+    }
+
+    private fun collectPlannerCheckIns() {
+        plannerGoalUseCases.getPlannerCheckIns()
+            .onEach { checkIns ->
+                _plannerCheckIns.value = checkIns
+            }
+            .launchIn(viewModelScope)
+    }
+
+    private fun refreshPlannerGoal() {
+        viewModelScope.launch {
+            plannerGoalUseCases.refreshPlannerGoal()
+        }
+    }
+
+    private fun refreshPlannerCheckIns(goalId: String) {
+        viewModelScope.launch {
+            plannerGoalUseCases.refreshPlannerCheckIns(goalId)
+        }
+    }
+
+    data class PlannerCheckInAction(
+        val label: String,
+        val description: String,
+        val checkInType: String,
+        val cadenceLabel: String,
+        val dueText: String,
+        val isDue: Boolean,
+        val questionType: String? = null,
+        val opensHealthProfile: Boolean = false
+    )
+
+    fun plannerCheckInActions(): List<PlannerCheckInAction> {
+        val goal = activePlannerGoal.value ?: return emptyList()
+        if (goal.status != PlannerGoalStatus.ACTIVE) {
+            return emptyList()
+        }
+
+        val featureNames = goal.features.map { it.featureName }.toSet()
+        val actions = mutableListOf<PlannerCheckInAction>()
+
+        if ("BMI" in featureNames) {
+            actions += plannerCheckInAction(
+                label = "Berat",
+                description = "Update berat untuk menghitung progres BMI.",
+                checkInType = CHECK_IN_WEIGHT,
+                intervalMillis = WEEKLY_INTERVAL_MILLIS,
+                cadenceLabel = "Mingguan",
+                questionType = "weight"
+            )
+        }
+
+        if ("moderate_physical_activity_frequency" in featureNames) {
+            actions += plannerCheckInAction(
+                label = "Aktivitas",
+                description = "Catat aktivitas fisik hari ini.",
+                checkInType = CHECK_IN_ACTIVITY,
+                intervalMillis = DAILY_INTERVAL_MILLIS,
+                cadenceLabel = "Harian",
+                questionType = "activity"
+            )
+        }
+
+        if ("smoking_status" in featureNames || "brinkman_index" in featureNames) {
+            if (currentSmokingStatus.value == 2) {
+                actions += plannerCheckInAction(
+                    label = "Rokok",
+                    description = "Catat konsumsi rokok hari ini.",
+                    checkInType = CHECK_IN_SMOKING,
+                    intervalMillis = DAILY_INTERVAL_MILLIS,
+                    cadenceLabel = "Harian",
+                    questionType = "cigarette"
+                )
+            } else {
+                actions += plannerCheckInAction(
+                    label = "Status Rokok",
+                    description = "Perbarui status merokok dari profil kesehatan.",
+                    checkInType = CHECK_IN_SMOKING,
+                    intervalMillis = WEEKLY_INTERVAL_MILLIS,
+                    cadenceLabel = "Sesuai Perubahan",
+                    opensHealthProfile = true
+                )
+            }
+        }
+
+        if ("is_hypertension" in featureNames) {
+            actions += plannerCheckInAction(
+                label = "Hipertensi",
+                description = "Update tekanan darah atau status hipertensi.",
+                checkInType = CHECK_IN_HYPERTENSION,
+                intervalMillis = WEEKLY_INTERVAL_MILLIS,
+                cadenceLabel = "Mingguan",
+                questionType = "hypertension"
+            )
+        }
+
+        if ("is_cholesterol" in featureNames) {
+            actions += plannerCheckInAction(
+                label = "Kolesterol",
+                description = "Update status kolesterol bila ada data terbaru.",
+                checkInType = CHECK_IN_CHOLESTEROL,
+                intervalMillis = MONTHLY_INTERVAL_MILLIS,
+                cadenceLabel = "Bulanan",
+                questionType = "cholesterol"
+            )
+        }
+
+        return actions
+            .distinctBy { it.label }
+            .sortedWith(compareByDescending<PlannerCheckInAction> { it.isDue }.thenBy { it.label })
+            .take(4)
+    }
+
+    private fun plannerCheckInAction(
+        label: String,
+        description: String,
+        checkInType: String,
+        intervalMillis: Long,
+        cadenceLabel: String,
+        questionType: String? = null,
+        opensHealthProfile: Boolean = false
+    ): PlannerCheckInAction {
+        val lastCheckIn = _plannerCheckIns.value[checkInType]
+        val isDue = lastCheckIn == null || System.currentTimeMillis() - lastCheckIn >= intervalMillis
+        return PlannerCheckInAction(
+            label = label,
+            description = description,
+            checkInType = checkInType,
+            cadenceLabel = cadenceLabel,
+            dueText = when {
+                lastCheckIn == null -> "Belum pernah check-in"
+                isDue -> "Check-in tersedia"
+                else -> "Sudah check-in"
+            },
+            isDue = isDue,
+            questionType = questionType,
+            opensHealthProfile = opensHealthProfile
+        )
+    }
+
     private fun collectActivityTodayData() {
         viewModelScope.launch {
             _activityTodayState.value = DataState(isLoading = true)
@@ -591,6 +752,7 @@ class AddActivityViewModel @Inject constructor(
 
         when (resourceResult) {
             is Resource.Success -> {
+                markPlannerCheckInForQuestion(currentQuestionType.value)
                 triggerPredictionUpdate()
             }
             is Resource.Error -> {
@@ -674,6 +836,7 @@ class AddActivityViewModel @Inject constructor(
 
             when (updateProfileResult?.result) {
                 is Resource.Success -> {
+                    markPlannerCheckInForQuestion(type)
                     triggerPredictionUpdate()
                 }
                 is Resource.Error -> {
@@ -729,6 +892,68 @@ class AddActivityViewModel @Inject constructor(
         }
     }
 
+    private fun markPlannerCheckInForQuestion(questionType: String) {
+        val checkInType = when (questionType) {
+            "weight" -> CHECK_IN_WEIGHT
+            "activity" -> CHECK_IN_ACTIVITY
+            "cigarette" -> CHECK_IN_SMOKING
+            "hypertension" -> CHECK_IN_HYPERTENSION
+            "cholesterol" -> CHECK_IN_CHOLESTEROL
+            else -> return
+        }
+        val goal = activePlannerGoal.value
+            ?.takeIf { it.status == PlannerGoalStatus.ACTIVE }
+            ?: return
+
+        viewModelScope.launch {
+            plannerGoalUseCases.markPlannerCheckIn(checkInType)
+            plannerGoalUseCases.recordPlannerCheckIn(
+                PlannerCheckInEntry(
+                    id = "${goal.id}-$checkInType-${System.currentTimeMillis()}",
+                    goalId = goal.id,
+                    type = checkInType,
+                    label = checkInLabel(checkInType),
+                    valueText = checkInValueText(questionType),
+                    note = checkInNote(checkInType),
+                    createdAtMillis = System.currentTimeMillis()
+                )
+            )
+        }
+    }
+
+    private fun checkInLabel(checkInType: String): String {
+        return when (checkInType) {
+            CHECK_IN_WEIGHT -> "Berat"
+            CHECK_IN_ACTIVITY -> "Aktivitas"
+            CHECK_IN_SMOKING -> "Rokok"
+            CHECK_IN_HYPERTENSION -> "Hipertensi"
+            CHECK_IN_CHOLESTEROL -> "Kolesterol"
+            else -> "Check-in"
+        }
+    }
+
+    private fun checkInValueText(questionType: String): String {
+        return when (questionType) {
+            "weight" -> "${weightFieldState.value.text} kg"
+            "activity" -> if (workoutFieldState.value.text == "true") "Aktif hari ini" else "Tidak aktif hari ini"
+            "cigarette" -> "${smokeFieldState.value.text} batang"
+            "hypertension" -> if (hypertensionFieldState.value.text == "true") "Ya" else "Tidak"
+            "cholesterol" -> if (cholesterolFieldState.value.text == "true") "Ya" else "Tidak"
+            else -> "-"
+        }
+    }
+
+    private fun checkInNote(checkInType: String): String {
+        return when (checkInType) {
+            CHECK_IN_WEIGHT -> "Data berat diperbarui untuk memantau progres BMI."
+            CHECK_IN_ACTIVITY -> "Aktivitas harian dicatat untuk memantau konsistensi minggu ini."
+            CHECK_IN_SMOKING -> "Konsumsi rokok harian dicatat untuk memantau paparan rokok."
+            CHECK_IN_HYPERTENSION -> "Status hipertensi diperbarui dari data kesehatan terbaru."
+            CHECK_IN_CHOLESTEROL -> "Status kolesterol diperbarui dari data kesehatan terbaru."
+            else -> "Check-in planner berhasil dicatat."
+        }
+    }
+
     // Helper Functions
     fun onErrorShown() {
         _errorMessage.value = null
@@ -736,5 +961,17 @@ class AddActivityViewModel @Inject constructor(
 
     fun onSuccessShown() {
         _successMessage.value = null
+    }
+
+    private companion object {
+        const val CHECK_IN_WEIGHT = "weight"
+        const val CHECK_IN_ACTIVITY = "activity"
+        const val CHECK_IN_SMOKING = "smoking"
+        const val CHECK_IN_HYPERTENSION = "hypertension"
+        const val CHECK_IN_CHOLESTEROL = "cholesterol"
+
+        const val DAILY_INTERVAL_MILLIS = 24L * 60L * 60L * 1000L
+        const val WEEKLY_INTERVAL_MILLIS = 7L * DAILY_INTERVAL_MILLIS
+        const val MONTHLY_INTERVAL_MILLIS = 30L * DAILY_INTERVAL_MILLIS
     }
 }

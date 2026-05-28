@@ -45,6 +45,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.zIndex
 import com.itb.diabetify.R
+import com.itb.diabetify.domain.model.planner.PlannerGoalStatus
 import com.itb.diabetify.presentation.common.ErrorNotification
 import com.itb.diabetify.presentation.common.SuccessNotification
 import com.itb.diabetify.ui.theme.poppinsFontFamily
@@ -59,11 +60,26 @@ fun AddActionPopup(
     // States
     val smokeFieldState by viewModel.smokeFieldState
     val workoutFieldState by viewModel.workoutFieldState
+    val weightFieldState by viewModel.weightFieldState
+    val heightFieldState by viewModel.heightFieldState
+    val hypertensionFieldState by viewModel.hypertensionFieldState
+    val cholesterolFieldState by viewModel.cholesterolFieldState
+    val bloodlineFieldState by viewModel.bloodlineFieldState
+    val birthFieldState by viewModel.birthFieldState
+    val activePlannerGoal by viewModel.activePlannerGoal
     val currentSmokingStatus by viewModel.currentSmokingStatus
     val shouldShowSmokingTracker = currentSmokingStatus == 2
+    val hasActivePlannerGoal = activePlannerGoal?.status == PlannerGoalStatus.ACTIVE
+    val plannerCheckInActions = viewModel.plannerCheckInActions()
     val currentValues = mapOf(
         "cigarette" to smokeFieldState.text,
-        "activity" to workoutFieldState.text
+        "activity" to workoutFieldState.text,
+        "weight" to weightFieldState.text,
+        "height" to heightFieldState.text,
+        "hypertension" to hypertensionFieldState.text,
+        "cholesterol" to cholesterolFieldState.text,
+        "bloodline" to bloodlineFieldState.text,
+        "birth" to birthFieldState.text
     )
     val currentQuestionType by viewModel.currentQuestionType
     val showBottomSheet by viewModel.showBottomSheet
@@ -72,7 +88,7 @@ fun AddActionPopup(
 
     // Bottom Sheet
     if (showBottomSheet) {
-        val isNumericQuestion = currentQuestionType == "cigarette"
+        val isNumericQuestion = currentQuestionType in listOf("cigarette", "weight", "height")
 
         BottomSheet(
             isVisible = true,
@@ -123,7 +139,7 @@ fun AddActionPopup(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                             ) {
                                 Text(
-                                    text = "Catat Hari Ini",
+                                    text = if (hasActivePlannerGoal) "Check-in Planner" else "Catat Hari Ini",
                                     fontFamily = poppinsFontFamily,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 22.sp,
@@ -131,13 +147,44 @@ fun AddActionPopup(
                                 )
                                 Text(
                                     modifier = Modifier.padding(horizontal = 30.dp),
-                                    text = "Fokus untuk perilaku harian yang paling memengaruhi risiko Anda saat ini",
+                                    text = if (hasActivePlannerGoal) {
+                                        "Update data yang paling relevan dengan goal aktif Anda"
+                                    } else {
+                                        "Fokus untuk perilaku harian yang paling memengaruhi risiko Anda saat ini"
+                                    },
                                     fontFamily = poppinsFontFamily,
                                     fontWeight = FontWeight.Medium,
                                     fontSize = 14.sp,
                                     lineHeight = 16.sp,
                                     textAlign = TextAlign.Center,
                                     color = colorResource(id = R.color.white)
+                                )
+                            }
+                        }
+
+                        if (hasActivePlannerGoal && plannerCheckInActions.isNotEmpty()) {
+                            AnimatedVisibility(
+                                visible = true,
+                                enter = fadeIn(animationSpec = tween(300, delayMillis = 90)) +
+                                        slideInVertically(
+                                            animationSpec = tween(300, delayMillis = 90, easing = FastOutSlowInEasing),
+                                            initialOffsetY = { it / 4 }
+                                        )
+                            ) {
+                                PlannerCheckInCard(
+                                    goalTitle = activePlannerGoal?.title.orEmpty(),
+                                    actions = plannerCheckInActions,
+                                    onActionClick = { action ->
+                                        if (action.opensHealthProfile) {
+                                            onDismissRequest()
+                                            onOpenHealthProfile()
+                                        } else {
+                                            action.questionType?.let { questionType ->
+                                                viewModel.setCurrentQuestionType(questionType)
+                                                viewModel.setShowBottomSheet(true)
+                                            }
+                                        }
+                                    }
                                 )
                             }
                         }
@@ -248,6 +295,134 @@ fun AddActionPopup(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun PlannerCheckInCard(
+    goalTitle: String,
+    actions: List<AddActivityViewModel.PlannerCheckInAction>,
+    onActionClick: (AddActivityViewModel.PlannerCheckInAction) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White.copy(alpha = 0.16f)
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(42.dp)
+                        .background(
+                            color = Color.White.copy(alpha = 0.18f),
+                            shape = CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Image(
+                        painter = painterResource(id = R.drawable.ic_shield),
+                        contentDescription = "Goal Planner",
+                        modifier = Modifier.size(21.dp),
+                        colorFilter = ColorFilter.tint(colorResource(id = R.color.white))
+                    )
+                }
+
+                Column(
+                    modifier = Modifier.padding(start = 12.dp)
+                ) {
+                    Text(
+                        text = "Goal aktif",
+                        fontFamily = poppinsFontFamily,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 12.sp,
+                        color = colorResource(id = R.color.white).copy(alpha = 0.9f)
+                    )
+                    Text(
+                        text = goalTitle,
+                        fontFamily = poppinsFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        lineHeight = 18.sp,
+                        color = colorResource(id = R.color.white)
+                    )
+                }
+            }
+
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                actions.forEach { action ->
+                    PlannerCheckInActionRow(
+                        action = action,
+                        onClick = { onActionClick(action) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlannerCheckInActionRow(
+    action: AddActivityViewModel.PlannerCheckInAction,
+    onClick: () -> Unit
+) {
+    val statusColor = if (action.isDue) Color(0xFFFDE68A) else Color.White.copy(alpha = 0.72f)
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.White.copy(alpha = 0.12f), RoundedCornerShape(14.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(
+            modifier = Modifier.weight(1f)
+        ) {
+            Text(
+                text = action.label,
+                fontFamily = poppinsFontFamily,
+                fontWeight = FontWeight.Bold,
+                fontSize = 13.sp,
+                color = colorResource(id = R.color.white)
+            )
+            Text(
+                text = action.description,
+                fontFamily = poppinsFontFamily,
+                fontWeight = FontWeight.Medium,
+                fontSize = 11.sp,
+                lineHeight = 15.sp,
+                color = colorResource(id = R.color.white).copy(alpha = 0.86f)
+            )
+            Text(
+                text = "${action.cadenceLabel} • ${action.dueText}",
+                fontFamily = poppinsFontFamily,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 10.sp,
+                lineHeight = 14.sp,
+                color = statusColor,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+        }
+
+        Image(
+            painter = painterResource(id = R.drawable.ic_chevron_right),
+            contentDescription = "Buka check-in",
+            modifier = Modifier
+                .padding(start = 12.dp)
+                .size(18.dp),
+            colorFilter = ColorFilter.tint(colorResource(id = R.color.white))
+        )
     }
 }
 

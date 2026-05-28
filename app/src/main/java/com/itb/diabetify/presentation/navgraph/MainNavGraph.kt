@@ -50,6 +50,8 @@ import com.itb.diabetify.presentation.survey.SurveyScreen
 import com.itb.diabetify.presentation.survey.SurveyViewModel
 import com.itb.diabetify.presentation.home.counterfactual.CounterfactualResultScreen
 import com.itb.diabetify.presentation.home.counterfactual.CounterfactualScreen
+import com.itb.diabetify.presentation.home.planner.PlannerGoalDetailScreen
+import com.itb.diabetify.presentation.home.planner.PlannerGoalHistoryScreen
 
 @SuppressLint("UnrememberedGetBackStackEntry")
 @Composable
@@ -88,10 +90,33 @@ fun MainNavGraph(
     }
 
     val homeRoute = Route.HomeScreen.route
+    val settingsChildRoutes = setOf(
+        Route.EditProfileScreen.route,
+        Route.HealthProfileScreen.route
+    )
+    val guideChildRoutes = setOf(
+        Route.GuideDetailScreen.route,
+        Route.TipsDetailScreen.route
+    )
+
     BackHandler {
         when (currentRoute) {
             Route.SurveyScreen.route -> {
                 // Do nothing to prevent back navigation
+            }
+            in settingsChildRoutes -> {
+                if (!mainNavController.popBackStack(Route.SettingsScreen.route, inclusive = false)) {
+                    mainNavController.navigate(Route.SettingsScreen.route) {
+                        launchSingleTop = true
+                    }
+                }
+            }
+            in guideChildRoutes -> {
+                if (!mainNavController.popBackStack(Route.GuideScreen.route, inclusive = false)) {
+                    mainNavController.navigate(Route.GuideScreen.route) {
+                        launchSingleTop = true
+                    }
+                }
             }
             homeRoute -> {
                 // Do nothing when already at home
@@ -117,7 +142,20 @@ fun MainNavGraph(
         }
     }
 
-    val shouldShowBottomBar = currentRoute !in listOf(Route.SurveyScreen.route, Route.SurveySuccessScreen.route)
+    val bottomBarHiddenRoutes = setOf(
+        Route.SurveyScreen.route,
+        Route.SurveySuccessScreen.route,
+        Route.RiskDetailScreen.route,
+        Route.RiskFactorDetailScreen.route,
+        Route.CounterfactualScreen.route,
+        Route.CounterfactualResultScreen.route,
+        Route.PlannerGoalDetailScreen.route,
+        Route.EditProfileScreen.route,
+        Route.HealthProfileScreen.route,
+        Route.GuideDetailScreen.route,
+        Route.TipsDetailScreen.route
+    )
+    val shouldShowBottomBar = currentRoute !in bottomBarHiddenRoutes
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -216,10 +254,45 @@ fun MainNavGraph(
                 )
             }
 
+            composable(
+                route = Route.PlannerGoalDetailScreen.route,
+                arguments = listOf(
+                    navArgument("goalId") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    }
+                )
+            ) { backStackEntry ->
+                val homeViewModel: HomeViewModel = hiltViewModel(
+                    mainNavController.getBackStackEntry(Route.HomeScreen.route)
+                )
+                PlannerGoalDetailScreen(
+                    navController = mainNavController,
+                    viewModel = homeViewModel,
+                    goalId = backStackEntry.arguments?.getString("goalId")
+                )
+            }
+
+            composable(route = Route.PlannerGoalHistoryScreen.route) {
+                val homeViewModel: HomeViewModel = hiltViewModel(
+                    mainNavController.getBackStackEntry(Route.HomeScreen.route)
+                )
+                PlannerGoalHistoryScreen(
+                    navController = mainNavController,
+                    viewModel = homeViewModel
+                )
+            }
+
             composable(route = Route.HistoryScreen.route) {
                 val historyViewModel: HistoryViewModel = hiltViewModel()
+                val homeViewModel: HomeViewModel = hiltViewModel(
+                    mainNavController.getBackStackEntry(Route.HomeScreen.route)
+                )
                 HistoryScreen(
                     viewModel = historyViewModel,
+                    plannerViewModel = homeViewModel,
+                    navController = mainNavController
                 )
             }
 

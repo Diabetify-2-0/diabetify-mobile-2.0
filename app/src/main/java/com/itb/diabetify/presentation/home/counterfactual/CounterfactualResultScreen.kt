@@ -33,7 +33,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.times
@@ -41,6 +40,7 @@ import androidx.navigation.NavController
 import com.itb.diabetify.R
 import com.itb.diabetify.data.remote.counterfactual.response.CounterfactualChangedFeature
 import com.itb.diabetify.data.remote.counterfactual.response.CounterfactualResultPayload
+import com.itb.diabetify.presentation.common.PrimaryButton
 import com.itb.diabetify.presentation.home.HomeViewModel
 import com.itb.diabetify.presentation.home.components.HomeCard
 import com.itb.diabetify.ui.theme.poppinsFontFamily
@@ -58,6 +58,7 @@ fun CounterfactualResultScreen(
     val resultMeta by viewModel.counterfactualJobResultMeta
     val submittedOptions by viewModel.counterfactualSubmittedOptions
     val submittedTarget by viewModel.counterfactualSubmittedTarget
+    val activePlannerGoal by viewModel.activePlannerGoal
     val scrollState = rememberScrollState()
 
     Column(
@@ -83,7 +84,7 @@ fun CounterfactualResultScreen(
 
             Text(
                 modifier = Modifier.align(Alignment.Center),
-                text = "Hasil Counterfactual",
+                text = "Hasil Rencana Risiko",
                 fontFamily = poppinsFontFamily,
                 fontWeight = FontWeight.Bold,
                 fontSize = 20.sp,
@@ -115,20 +116,12 @@ fun CounterfactualResultScreen(
                 StatusHeroCard(
                     title = state.title,
                     message = heroMessageOf(safeResult, state),
-                    backgroundColors = state.backgroundColors,
-                    accentColor = state.accentColor,
-                    runtimeMs = safeResult.runtimeMs,
-                    reasonCode = safeResult.reasonCode
+                    backgroundColors = state.backgroundColors
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
 
                 RiskComparisonCard(result = safeResult)
-                Spacer(modifier = Modifier.height(16.dp))
-
-                HomeCard(title = "Target Yang Dipilih") {
-                    SelectedTargetSection(target = submittedTarget)
-                }
                 Spacer(modifier = Modifier.height(16.dp))
 
                 if (selectedLabels.isNotEmpty()) {
@@ -164,15 +157,13 @@ fun CounterfactualResultScreen(
                             Spacer(modifier = Modifier.height(16.dp))
                         }
 
-                        safeResult.prescriptivePlan?.goals
-                            ?.takeIf { it.isNotEmpty() }
-                            ?.let { goals ->
-                                HomeCard(title = "Tujuan Perubahan") {
-                                    BulletSection(items = goals)
-                                }
-                                Spacer(modifier = Modifier.height(16.dp))
-                            }
-
+                        SaveGoalCard(
+                            isSaved = activePlannerGoal?.sourceJobId != null &&
+                                activePlannerGoal?.sourceJobId == resultMeta?.jobId,
+                            targetRiskPercentage = submittedTarget.targetHighRiskPercentage,
+                            onSave = viewModel::saveCounterfactualAsGoal
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
                     }
 
                     else -> {
@@ -205,6 +196,32 @@ fun CounterfactualResultScreen(
             }
 
             Spacer(modifier = Modifier.height(16.dp))
+        }
+    }
+}
+
+@Composable
+private fun SaveGoalCard(
+    isSaved: Boolean,
+    targetRiskPercentage: Int,
+    onSave: () -> Unit
+) {
+    HomeCard(title = "Lanjutkan Sebagai Goal") {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            SummaryText(
+                text = "Simpan rencana ini agar menjadi goal aktif. Setelah tersimpan, goal akan muncul di Home dan bisa menjadi dasar tracking progres berikutnya."
+            )
+            PrimaryButton(
+                text = if (isSaved) "Goal Sudah Aktif" else "Jadikan Goal Risiko <$targetRiskPercentage%",
+                onClick = onSave,
+                enabled = !isSaved,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
+            )
         }
     }
 }
@@ -356,10 +373,7 @@ private fun EmptyResultCard() {
 private fun StatusHeroCard(
     title: String,
     message: String,
-    backgroundColors: List<Color>,
-    accentColor: Color,
-    runtimeMs: Int?,
-    reasonCode: String?
+    backgroundColors: List<Color>
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -389,23 +403,6 @@ private fun StatusHeroCard(
                         fontSize = 19.sp,
                         color = Color.White
                     )
-
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        runtimeMs?.let {
-                            HeroBadge(
-                                text = "${it} ms",
-                                backgroundColor = accentColor.copy(alpha = 0.18f)
-                            )
-                        }
-                        reasonBadgeLabelOf(reasonCode)?.let {
-                            HeroBadge(
-                                text = it,
-                                backgroundColor = accentColor.copy(alpha = 0.14f)
-                            )
-                        }
-                    }
                 }
 
                 Text(
@@ -420,54 +417,19 @@ private fun StatusHeroCard(
     }
 }
 
-private fun reasonBadgeLabelOf(reasonCode: String?): String? {
-    return when (reasonCode) {
-        "TARGET_ALREADY_SATISFIED" -> "Target tercapai"
-        "NO_MUTABLE_FEATURE" -> "Belum ada faktor"
-        "TARGET_UNREACHABLE_UNDER_CONSTRAINTS" -> "Belum feasible"
-        "MEDICAL_RULE_VIOLATION_ONLY" -> "Masih belum masuk akal"
-        "TIMEOUT_NO_FEASIBLE_SOLUTION" -> "Pencarian habis waktu"
-        else -> null
-    }
-}
-
-@Composable
-private fun HeroBadge(
-    text: String,
-    backgroundColor: Color
-) {
-    Box(
-        modifier = Modifier
-            .background(backgroundColor, RoundedCornerShape(999.dp))
-            .padding(horizontal = 10.dp, vertical = 6.dp)
-    ) {
-        Text(
-            text = text,
-            fontFamily = poppinsFontFamily,
-            fontSize = 10.sp,
-            color = Color.White,
-            maxLines = 1
-        )
-    }
-}
-
 @Composable
 private fun RiskComparisonCard(result: CounterfactualResultPayload) {
     val currentRisk = result.inputPrediction?.probabilityLowRisk?.let(::toHighRiskPercentage)
     val projectedRisk = result.candidates.firstOrNull()?.prediction?.probabilityLowRisk?.let(
         ::toHighRiskPercentage
     )
-    val improvement = if (currentRisk != null && projectedRisk != null) {
-        currentRisk - projectedRisk
-    } else {
-        null
-    }
 
     HomeCard(title = "Perkiraan Risiko") {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -476,46 +438,17 @@ private fun RiskComparisonCard(result: CounterfactualResultPayload) {
                 ProbabilityItem(
                     modifier = Modifier.weight(1f),
                     label = "Risiko saat ini",
-                    value = formatPercentage(currentRisk)
+                    value = formatPercentage(currentRisk),
+                    containerColor = Color(0xFFFFF7ED),
+                    valueColor = Color(0xFFEA580C)
                 )
                 ProbabilityItem(
                     modifier = Modifier.weight(1f),
                     label = "Risiko setelah skenario",
-                    value = formatPercentage(projectedRisk)
+                    value = formatPercentage(projectedRisk),
+                    containerColor = Color(0xFFECFDF5),
+                    valueColor = Color(0xFF059669)
                 )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC))
-            ) {
-                Column(
-                    modifier = Modifier.padding(14.dp)
-                ) {
-                    Text(
-                        text = "Interpretasi cepat",
-                        fontFamily = poppinsFontFamily,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 13.sp,
-                        color = colorResource(id = R.color.primary)
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = when {
-                            improvement == null -> "Belum ada perubahan risiko yang bisa dihitung dari hasil saat ini."
-                            improvement > 0 -> "Skenario utama diperkirakan menurunkan risiko high risk sekitar ${String.format("%.1f", improvement)} poin persentase."
-                            improvement < 0 -> "Skenario ini belum menunjukkan penurunan risiko high risk dibanding kondisi saat ini."
-                            else -> "Skenario utama menghasilkan tingkat risiko yang serupa dengan kondisi saat ini."
-                        },
-                        fontFamily = poppinsFontFamily,
-                        fontSize = 12.sp,
-                        color = Color(0xFF475569),
-                        lineHeight = 18.sp
-                    )
-                }
             }
         }
     }
@@ -525,75 +458,33 @@ private fun RiskComparisonCard(result: CounterfactualResultPayload) {
 private fun ProbabilityItem(
     modifier: Modifier = Modifier,
     label: String,
-    value: String
+    value: String,
+    containerColor: Color = Color(0xFFF9FAFB),
+    valueColor: Color = colorResource(id = R.color.primary)
 ) {
     Card(
-        modifier = modifier,
+        modifier = modifier.height(104.dp),
         shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF9FAFB))
+        colors = CardDefaults.cardColors(containerColor = containerColor)
     ) {
         Column(
-            modifier = Modifier.padding(12.dp)
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
                 text = label,
                 fontFamily = poppinsFontFamily,
                 fontSize = 12.sp,
-                color = Color(0xFF6B7280)
+                color = Color(0xFF6B7280),
+                lineHeight = 16.sp
             )
-            Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = value,
                 fontFamily = poppinsFontFamily,
                 fontWeight = FontWeight.Bold,
                 fontSize = 18.sp,
-                color = colorResource(id = R.color.primary)
-            )
-        }
-    }
-}
-
-@Composable
-private fun SelectedTargetSection(
-    target: HomeViewModel.CounterfactualRiskTarget
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp),
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC))
-    ) {
-        Column(
-            modifier = Modifier.padding(14.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = target.label,
-                    fontFamily = poppinsFontFamily,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 15.sp,
-                    color = colorResource(id = R.color.primary)
-                )
-                ScenarioChip(
-                    text = "Low risk >= ${String.format("%.0f%%", target.minLowRiskProbability * 100)}",
-                    backgroundColor = Color(0xFFE0F2FE),
-                    textColor = Color(0xFF0369A1)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            Text(
-                text = target.description,
-                fontFamily = poppinsFontFamily,
-                fontSize = 12.sp,
-                color = Color(0xFF6B7280),
-                lineHeight = 18.sp
+                lineHeight = 24.sp,
+                color = valueColor
             )
         }
     }
@@ -613,11 +504,13 @@ private fun FeatureTransitionCard(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC))
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(
-            modifier = Modifier.padding(14.dp)
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -633,19 +526,52 @@ private fun FeatureTransitionCard(
                 )
                 ScenarioChip(
                     text = feature.chipText,
-                    backgroundColor = accentColor.copy(alpha = 0.12f),
+                    backgroundColor = accentColor.copy(alpha = 0.10f),
                     textColor = accentColor
                 )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TransitionValuePanel(
+                    modifier = Modifier.weight(1f),
+                    label = "Saat ini",
+                    value = feature.baselineText,
+                    containerColor = Color(0xFFF8FAFC),
+                    valueColor = colorResource(id = R.color.primary)
+                )
+                Box(
+                    modifier = Modifier
+                        .size(34.dp)
+                        .background(accentColor.copy(alpha = 0.12f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "->",
+                        fontFamily = poppinsFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        color = accentColor
+                    )
+                }
+                TransitionValuePanel(
+                    modifier = Modifier.weight(1f),
+                    label = "Skenario",
+                    value = feature.candidateText,
+                    containerColor = accentColor.copy(alpha = 0.08f),
+                    valueColor = accentColor
+                )
+            }
 
             BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(34.dp)
+                    .height(30.dp)
             ) {
-                val knobSize = 16.dp
+                val knobSize = 14.dp
                 val startOffset = (maxWidth - knobSize) * startFraction
                 val endOffset = (maxWidth - knobSize) * endFraction
 
@@ -655,7 +581,7 @@ private fun FeatureTransitionCard(
                         .fillMaxWidth()
                         .height(6.dp)
                         .clip(RoundedCornerShape(999.dp))
-                        .background(Color(0xFFE2E8F0))
+                        .background(Color(0xFFE5E7EB))
                 )
 
                 val segmentStart = minOf(startFraction, endFraction)
@@ -687,32 +613,16 @@ private fun FeatureTransitionCard(
                 )
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                TransitionValueBlock(
-                    label = "Sebelum",
-                    value = feature.baselineText
-                )
-                TransitionValueBlock(
-                    label = "Sesudah",
-                    value = feature.candidateText,
-                    textAlign = TextAlign.End
-                )
-            }
-
             feature.detailDescription?.let { detailDescription ->
-                Spacer(modifier = Modifier.height(12.dp))
-                Card(
+                Box(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                    contentAlignment = Alignment.CenterStart
                 ) {
                     Column(
-                        modifier = Modifier.padding(12.dp)
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(Color(0xFFF8FAFC))
+                            .padding(12.dp)
                     ) {
                         Text(
                             text = feature.detailTitle ?: "Interpretasi perubahan",
@@ -737,30 +647,37 @@ private fun FeatureTransitionCard(
 }
 
 @Composable
-private fun TransitionValueBlock(
+private fun TransitionValuePanel(
+    modifier: Modifier = Modifier,
     label: String,
     value: String,
-    textAlign: TextAlign = TextAlign.Start
+    containerColor: Color,
+    valueColor: Color
 ) {
-    Column(
-        horizontalAlignment = if (textAlign == TextAlign.End) Alignment.End else Alignment.Start
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(14.dp))
+            .background(containerColor)
+            .padding(12.dp)
     ) {
-        Text(
-            text = label,
-            fontFamily = poppinsFontFamily,
-            fontSize = 11.sp,
-            color = Color(0xFF6B7280),
-            textAlign = textAlign
-        )
-        Spacer(modifier = Modifier.height(2.dp))
-        Text(
-            text = value,
-            fontFamily = poppinsFontFamily,
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 13.sp,
-            color = colorResource(id = R.color.primary),
-            textAlign = textAlign
-        )
+        Column(
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                text = label,
+                fontFamily = poppinsFontFamily,
+                fontSize = 11.sp,
+                color = Color(0xFF6B7280)
+            )
+            Text(
+                text = value,
+                fontFamily = poppinsFontFamily,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 13.sp,
+                lineHeight = 18.sp,
+                color = valueColor
+            )
+        }
     }
 }
 

@@ -59,6 +59,7 @@ fun BottomNavigationBar(
     val items = viewModel.navigationItems
     val middleIndex = items.size / 2
     val showPopup by viewModel.showPopUp
+    val hasDuePlannerCheckIn = addActivityViewModel.plannerCheckInActions().any { it.isDue }
 
     // Popup
     if (showPopup) {
@@ -159,20 +160,39 @@ fun BottomNavigationBar(
             }
         }
 
-        FloatingActionButton(
-            onClick = { viewModel.setShowPopUp(true) },
+        Box(
             modifier = Modifier
                 .align(Alignment.Center)
-                .shadow(8.dp, CircleShape),
-            shape = CircleShape,
-            containerColor = colorResource(id = R.color.primary),
-            contentColor = colorResource(id = R.color.white)
+                .shadow(8.dp, CircleShape)
         ) {
-            Icon(
-                modifier = Modifier.scale(1.5f),
-                imageVector = Icons.Rounded.Add,
-                contentDescription = "Add"
-            )
+            FloatingActionButton(
+                onClick = { viewModel.setShowPopUp(true) },
+                shape = CircleShape,
+                containerColor = colorResource(id = R.color.primary),
+                contentColor = colorResource(id = R.color.white)
+            ) {
+                Icon(
+                    modifier = Modifier.scale(1.5f),
+                    imageVector = Icons.Rounded.Add,
+                    contentDescription = "Add"
+                )
+            }
+
+            if (hasDuePlannerCheckIn) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .size(18.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFEF4444)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "!",
+                        color = Color.White
+                    )
+                }
+            }
         }
     }
 }

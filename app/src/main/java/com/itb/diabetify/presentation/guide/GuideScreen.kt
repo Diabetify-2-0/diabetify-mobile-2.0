@@ -248,10 +248,9 @@ fun GuideScreen(
                     modifier = Modifier.padding(vertical = 16.dp)
                 )
 
-                faqCards.forEachIndexed { index, faqCardData ->
+                faqCards.forEach { faqCardData ->
                     FAQCard(
-                        faqCardData = faqCardData,
-                        initiallyExpanded = index == 0
+                        faqCardData = faqCardData
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                 }

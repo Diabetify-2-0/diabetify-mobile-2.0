@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import java.text.ParseException
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Locale
 import javax.inject.Inject
 
@@ -186,13 +187,11 @@ class SettingsViewModel @Inject constructor(
     fun setHealthSystolic(value: String) {
         val sanitized = value.filter { it.isDigit() }.take(3)
         _healthSystolicFieldState.value = healthSystolicFieldState.value.copy(text = sanitized, error = null)
-        applyBloodPressureHelperIfComplete()
     }
 
     fun setHealthDiastolic(value: String) {
         val sanitized = value.filter { it.isDigit() }.take(3)
         _healthDiastolicFieldState.value = healthDiastolicFieldState.value.copy(text = sanitized, error = null)
-        applyBloodPressureHelperIfComplete()
     }
 
     fun setHealthCholesterol(value: String) {
@@ -212,6 +211,8 @@ class SettingsViewModel @Inject constructor(
         if (value == "Tidak Pernah") {
             _healthSmokingStartAgeFieldState.value = FieldState(text = "")
             _healthSmokingStopAgeFieldState.value = FieldState(text = "")
+            _healthSmokingBaselineFieldState.value = FieldState(text = "")
+        } else if (value == "Sudah Berhenti") {
             _healthSmokingBaselineFieldState.value = FieldState(text = "")
         } else if (value == "Masih Merokok") {
             _healthSmokingStopAgeFieldState.value = FieldState(text = "")
@@ -332,8 +333,13 @@ class SettingsViewModel @Inject constructor(
             "Masih Merokok" -> {
                 val startAge = healthSmokingStartAgeFieldState.value.text.toIntOrNull()
                 val baseline = healthSmokingBaselineFieldState.value.text.toIntOrNull()
+                val currentAge = currentUserAge()
                 if (startAge == null || startAge !in 10..80) {
                     _healthSmokingStartAgeFieldState.value = healthSmokingStartAgeFieldState.value.copy(error = "Usia mulai merokok harus 10-80 tahun")
+                    isValid = false
+                }
+                if (startAge != null && currentAge != null && startAge > currentAge) {
+                    _healthSmokingStartAgeFieldState.value = healthSmokingStartAgeFieldState.value.copy(error = "Usia mulai tidak boleh melebihi usia saat ini")
                     isValid = false
                 }
                 if (baseline == null || baseline !in 1..60) {
@@ -344,21 +350,25 @@ class SettingsViewModel @Inject constructor(
             "Sudah Berhenti" -> {
                 val startAge = healthSmokingStartAgeFieldState.value.text.toIntOrNull()
                 val stopAge = healthSmokingStopAgeFieldState.value.text.toIntOrNull()
-                val baseline = healthSmokingBaselineFieldState.value.text.toIntOrNull()
+                val currentAge = currentUserAge()
                 if (startAge == null || startAge !in 10..80) {
                     _healthSmokingStartAgeFieldState.value = healthSmokingStartAgeFieldState.value.copy(error = "Usia mulai merokok harus 10-80 tahun")
+                    isValid = false
+                }
+                if (startAge != null && currentAge != null && startAge > currentAge) {
+                    _healthSmokingStartAgeFieldState.value = healthSmokingStartAgeFieldState.value.copy(error = "Usia mulai tidak boleh melebihi usia saat ini")
                     isValid = false
                 }
                 if (stopAge == null || stopAge !in 10..80) {
                     _healthSmokingStopAgeFieldState.value = healthSmokingStopAgeFieldState.value.copy(error = "Usia berhenti merokok harus 10-80 tahun")
                     isValid = false
                 }
-                if (startAge != null && stopAge != null && stopAge <= startAge) {
-                    _healthSmokingStopAgeFieldState.value = healthSmokingStopAgeFieldState.value.copy(error = "Usia berhenti harus lebih besar dari usia mulai")
+                if (stopAge != null && currentAge != null && stopAge > currentAge) {
+                    _healthSmokingStopAgeFieldState.value = healthSmokingStopAgeFieldState.value.copy(error = "Usia berhenti tidak boleh melebihi usia saat ini")
                     isValid = false
                 }
-                if (baseline == null || baseline !in 1..60) {
-                    _healthSmokingBaselineFieldState.value = healthSmokingBaselineFieldState.value.copy(error = "Baseline rokok harus 1-60 batang")
+                if (startAge != null && stopAge != null && stopAge <= startAge) {
+                    _healthSmokingStopAgeFieldState.value = healthSmokingStopAgeFieldState.value.copy(error = "Usia berhenti harus lebih besar dari usia mulai")
                     isValid = false
                 }
             }
@@ -554,7 +564,31 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    fun saveHealthProfile() {
+    private fun currentUserAge(): Int? {
+        val dob = dobFieldState.value.text
+        if (dob.isBlank()) return null
+
+        return try {
+            val formatter = SimpleDateFormat(DISPLAY_DOB_PATTERN, Locale.US).apply {
+                isLenient = false
+            }
+            val birthDate = formatter.parse(dob) ?: return null
+            val today = Calendar.getInstance()
+            val birthCalendar = Calendar.getInstance().apply {
+                time = birthDate
+            }
+
+            var age = today.get(Calendar.YEAR) - birthCalendar.get(Calendar.YEAR)
+            if (today.get(Calendar.DAY_OF_YEAR) < birthCalendar.get(Calendar.DAY_OF_YEAR)) {
+                age--
+            }
+            age
+        } catch (_: ParseException) {
+            null
+        }
+    }
+
+    fun saveHealthProfile(onSuccess: (() -> Unit)? = null) {
         if (!validateHealthProfileFields()) {
             return
         }
@@ -587,8 +621,8 @@ class SettingsViewModel @Inject constructor(
                     else -> 0
                 },
                 smokeCount = when (healthSmokingStatusFieldState.value.text) {
-                    "Tidak Pernah" -> 0
-                    else -> healthSmokingBaselineFieldState.value.text.toInt()
+                    "Masih Merokok" -> healthSmokingBaselineFieldState.value.text.toInt()
+                    else -> 0
                 }
             )
 
@@ -627,6 +661,7 @@ class SettingsViewModel @Inject constructor(
                     triggerPredictionUpdate()
                     _successMessage.value = "Profil kesehatan berhasil diperbarui. Prediksi akan menyesuaikan dalam beberapa saat."
                     _isEditingHealthProfile.value = false
+                    onSuccess?.invoke()
                 }
                 is Resource.Error -> {
                     _errorMessage.value = updateProfileResult.result.message ?: "Terjadi kesalahan saat memperbarui profil kesehatan"
@@ -646,20 +681,31 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    private fun applyBloodPressureHelperIfComplete() {
+    fun determineHypertensionFromBloodPressure(): Boolean {
         val systolic = healthSystolicFieldState.value.text.toIntOrNull()
         val diastolic = healthDiastolicFieldState.value.text.toIntOrNull()
-        if (systolic == null || diastolic == null) {
-            return
+        var isValid = true
+
+        if (systolic == null || systolic !in 70..250) {
+            _healthSystolicFieldState.value = healthSystolicFieldState.value.copy(error = "Sistolik harus antara 70-250 mmHg")
+            isValid = false
         }
 
-        if (systolic in 70..250 && diastolic in 40..150) {
-            val hasHypertension = systolic >= 140 || diastolic >= 90
-            _healthHypertensionFieldState.value = healthHypertensionFieldState.value.copy(
-                text = if (hasHypertension) "Ya" else "Tidak",
-                error = null
-            )
+        if (diastolic == null || diastolic !in 40..150) {
+            _healthDiastolicFieldState.value = healthDiastolicFieldState.value.copy(error = "Diastolik harus antara 40-150 mmHg")
+            isValid = false
         }
+
+        if (!isValid || systolic == null || diastolic == null) {
+            return false
+        }
+
+        val hasHypertension = systolic >= 140 || diastolic >= 90
+        _healthHypertensionFieldState.value = healthHypertensionFieldState.value.copy(
+            text = if (hasHypertension) "Ya" else "Tidak",
+            error = null
+        )
+        return true
     }
 
     fun logout() {
