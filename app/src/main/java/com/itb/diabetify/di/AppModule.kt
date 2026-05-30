@@ -14,6 +14,7 @@ import com.itb.diabetify.data.manager.TokenManagerImpl
 import com.itb.diabetify.data.manager.UserManagerImpl
 import com.itb.diabetify.data.remote.activity.ActivityApiService
 import com.itb.diabetify.data.remote.auth.AuthApiService
+import com.itb.diabetify.data.remote.chatbot.ChatbotApiService
 import com.itb.diabetify.data.remote.counterfactual.CounterfactualApiService
 import com.itb.diabetify.data.remote.interceptor.AuthInterceptor
 import com.itb.diabetify.data.remote.prediction.PredictionApiService
@@ -21,6 +22,7 @@ import com.itb.diabetify.data.remote.profile.ProfileApiService
 import com.itb.diabetify.data.remote.user.UserApiService
 import com.itb.diabetify.data.repository.ActivityRepositoryImpl
 import com.itb.diabetify.data.repository.AuthRepositoryImpl
+import com.itb.diabetify.data.repository.ChatbotRepositoryImpl
 import com.itb.diabetify.data.repository.CounterfactualRepositoryImpl
 import com.itb.diabetify.data.repository.PredictionRepositoryImpl
 import com.itb.diabetify.data.repository.ProfileRepositoryImpl
@@ -36,6 +38,7 @@ import com.itb.diabetify.domain.manager.PredictionManager
 import com.itb.diabetify.domain.manager.ProfileManager
 import com.itb.diabetify.domain.repository.ActivityRepository
 import com.itb.diabetify.domain.repository.AuthRepository
+import com.itb.diabetify.domain.repository.ChatbotRepository
 import com.itb.diabetify.domain.repository.CounterfactualRepository
 import com.itb.diabetify.domain.repository.PredictionRepository
 import com.itb.diabetify.domain.repository.ProfileRepository
@@ -47,6 +50,11 @@ import com.itb.diabetify.domain.usecases.app_entry.AppEntryUseCase
 import com.itb.diabetify.domain.usecases.app_entry.ReadAppEntry
 import com.itb.diabetify.domain.usecases.app_entry.SaveAppEntry
 import com.itb.diabetify.domain.usecases.auth.AuthUseCases
+import com.itb.diabetify.domain.usecases.chatbot.ChatbotUseCases
+import com.itb.diabetify.domain.usecases.chatbot.LoadChatHistoryUseCase
+import com.itb.diabetify.domain.usecases.chatbot.LoadRecommendationsUseCase
+import com.itb.diabetify.domain.usecases.chatbot.RefreshRecommendationsUseCase
+import com.itb.diabetify.domain.usecases.chatbot.SendChatMessageUseCase
 import com.itb.diabetify.domain.usecases.auth.ChangePasswordUseCase
 import com.itb.diabetify.domain.usecases.auth.CreateAccountUseCase
 import com.itb.diabetify.domain.usecases.auth.LoginUseCase
@@ -88,6 +96,7 @@ import com.itb.diabetify.domain.usecases.profile.ProfileUseCases
 import com.itb.diabetify.domain.usecases.user.GetUserRepositoryUseCase
 import com.itb.diabetify.domain.usecases.user.UserUseCases
 import com.itb.diabetify.util.Constants.BASE_URL
+import com.itb.diabetify.util.Constants.CHATBOT_BASE_URL
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -453,6 +462,38 @@ object AppModule {
         return ConnectivityUseCases(
             observeConnectivity = ObserveConnectivityUseCase(connectivityManager),
             checkConnectivity = CheckConnectivityUseCase(connectivityManager)
+        )
+    }
+
+    @Provides
+    @Singleton
+    fun providesChatbotApiService(okHttpClient: OkHttpClient): ChatbotApiService {
+        return Retrofit.Builder()
+            .baseUrl(CHATBOT_BASE_URL)
+            .client(okHttpClient)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+            .create(ChatbotApiService::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun providesChatbotRepository(
+        chatbotApiService: ChatbotApiService,
+    ): ChatbotRepository {
+        return ChatbotRepositoryImpl(chatbotApiService = chatbotApiService)
+    }
+
+    @Provides
+    @Singleton
+    fun providesChatbotUseCases(
+        repository: ChatbotRepository,
+    ): ChatbotUseCases {
+        return ChatbotUseCases(
+            sendChatMessage = SendChatMessageUseCase(repository),
+            loadChatHistory = LoadChatHistoryUseCase(repository),
+            loadRecommendations = LoadRecommendationsUseCase(repository),
+            refreshRecommendations = RefreshRecommendationsUseCase(repository),
         )
     }
 }

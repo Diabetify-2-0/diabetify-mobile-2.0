@@ -50,6 +50,7 @@ import com.itb.diabetify.presentation.survey.SurveyScreen
 import com.itb.diabetify.presentation.survey.SurveyViewModel
 import com.itb.diabetify.presentation.home.counterfactual.CounterfactualResultScreen
 import com.itb.diabetify.presentation.home.counterfactual.CounterfactualScreen
+import com.itb.diabetify.presentation.chatbot.ChatbotScreen
 
 @SuppressLint("UnrememberedGetBackStackEntry")
 @Composable
@@ -117,7 +118,11 @@ fun MainNavGraph(
         }
     }
 
-    val shouldShowBottomBar = currentRoute !in listOf(Route.SurveyScreen.route, Route.SurveySuccessScreen.route)
+    val shouldShowBottomBar = currentRoute !in listOf(
+        Route.SurveyScreen.route,
+        Route.SurveySuccessScreen.route,
+        Route.ChatbotScreen.route,
+    )
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -214,6 +219,10 @@ fun MainNavGraph(
                     navController = mainNavController,
                     viewModel = homeViewModel
                 )
+            }
+
+            composable(route = Route.ChatbotScreen.route) {
+                ChatbotScreen(navController = mainNavController)
             }
 
             composable(route = Route.HistoryScreen.route) {

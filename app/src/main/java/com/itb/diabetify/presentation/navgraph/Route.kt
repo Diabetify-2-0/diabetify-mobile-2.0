@@ -20,6 +20,7 @@ sealed class Route(
     object RiskFactorDetailScreen: Route(route = "riskFactorDetailScreen")
     object CounterfactualScreen: Route(route = "counterfactualScreen")
     object CounterfactualResultScreen: Route(route = "counterfactualResultScreen")
+    object ChatbotScreen: Route(route = "chatbotScreen")
     object HistoryScreen: Route(route = "historyScreen")
     object GuideScreen: Route(route = "guideScreen")
     object GuideDetailScreen: Route(route = "guideDetail/{guideId}") {

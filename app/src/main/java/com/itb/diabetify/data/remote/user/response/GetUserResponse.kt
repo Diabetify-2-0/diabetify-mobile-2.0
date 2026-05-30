@@ -12,6 +12,8 @@ data class GetUserResponse (
 )
 
 data class UserData(
+    @SerializedName("id")
+    val id: Int? = null,
     @SerializedName("name")
     val name: String? = null,
     @SerializedName("email")
