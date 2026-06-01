@@ -6,8 +6,6 @@ import kotlinx.coroutines.flow.Flow
 interface PlannerGoalManager {
     suspend fun saveActiveGoal(goal: PlannerGoal)
     fun getActiveGoal(): Flow<PlannerGoal?>
-    fun getGoalHistory(): Flow<List<PlannerGoal>>
     suspend fun refreshActiveGoal()
-    suspend fun refreshGoalHistory()
-    suspend fun clearActiveGoal()
+    suspend fun deleteActiveGoal(goalId: String)
 }

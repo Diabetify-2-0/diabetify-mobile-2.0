@@ -51,7 +51,6 @@ import com.itb.diabetify.presentation.survey.SurveyViewModel
 import com.itb.diabetify.presentation.home.counterfactual.CounterfactualResultScreen
 import com.itb.diabetify.presentation.home.counterfactual.CounterfactualScreen
 import com.itb.diabetify.presentation.home.planner.PlannerGoalDetailScreen
-import com.itb.diabetify.presentation.home.planner.PlannerGoalHistoryScreen
 
 @SuppressLint("UnrememberedGetBackStackEntry")
 @Composable
@@ -67,6 +66,7 @@ fun MainNavGraph(
     var shouldNavigateToLogin by rememberSaveable { mutableStateOf(false) }
     val navigationHistory = remember { mutableListOf<String>() }
     val currentRoute = mainNavController.currentBackStackEntryAsState().value?.destination?.route
+    var shouldOpenAddPopupOnHome by rememberSaveable { mutableStateOf(false) }
 
     val systemUiController = rememberSystemUiController()
     val primaryColor = colorResource(id = R.color.primary)
@@ -90,6 +90,26 @@ fun MainNavGraph(
     }
 
     val homeRoute = Route.HomeScreen.route
+    fun returnToHomeAndOpenAddPopup() {
+        shouldOpenAddPopupOnHome = true
+        if (!mainNavController.popBackStack(homeRoute, inclusive = false)) {
+            mainNavController.navigate(homeRoute) {
+                popUpTo(mainNavController.graph.findStartDestination().id) {
+                    saveState = true
+                }
+                launchSingleTop = true
+                restoreState = true
+            }
+        }
+    }
+
+    LaunchedEffect(currentRoute, shouldOpenAddPopupOnHome) {
+        if (currentRoute == homeRoute && shouldOpenAddPopupOnHome) {
+            shouldOpenAddPopupOnHome = false
+            navigationViewModel.setShowPopUp(true)
+        }
+    }
+
     val settingsChildRoutes = setOf(
         Route.EditProfileScreen.route,
         Route.HealthProfileScreen.route
@@ -110,6 +130,9 @@ fun MainNavGraph(
                         launchSingleTop = true
                     }
                 }
+            }
+            Route.HealthProfileFromHomePopupScreen.route -> {
+                returnToHomeAndOpenAddPopup()
             }
             in guideChildRoutes -> {
                 if (!mainNavController.popBackStack(Route.GuideScreen.route, inclusive = false)) {
@@ -152,6 +175,7 @@ fun MainNavGraph(
         Route.PlannerGoalDetailScreen.route,
         Route.EditProfileScreen.route,
         Route.HealthProfileScreen.route,
+        Route.HealthProfileFromHomePopupScreen.route,
         Route.GuideDetailScreen.route,
         Route.TipsDetailScreen.route
     )
@@ -166,7 +190,12 @@ fun MainNavGraph(
                     viewModel = navigationViewModel,
                     addActivityViewModel = addActivityViewModel,
                     onOpenHealthProfile = {
-                        mainNavController.navigate(Route.HealthProfileScreen.route) {
+                        mainNavController.navigate(Route.HealthProfileFromHomePopupScreen.route) {
+                            launchSingleTop = true
+                        }
+                    },
+                    onCreatePlan = {
+                        mainNavController.navigate(Route.CounterfactualScreen.route) {
                             launchSingleTop = true
                         }
                     },
@@ -274,25 +303,10 @@ fun MainNavGraph(
                 )
             }
 
-            composable(route = Route.PlannerGoalHistoryScreen.route) {
-                val homeViewModel: HomeViewModel = hiltViewModel(
-                    mainNavController.getBackStackEntry(Route.HomeScreen.route)
-                )
-                PlannerGoalHistoryScreen(
-                    navController = mainNavController,
-                    viewModel = homeViewModel
-                )
-            }
-
             composable(route = Route.HistoryScreen.route) {
                 val historyViewModel: HistoryViewModel = hiltViewModel()
-                val homeViewModel: HomeViewModel = hiltViewModel(
-                    mainNavController.getBackStackEntry(Route.HomeScreen.route)
-                )
                 HistoryScreen(
-                    viewModel = historyViewModel,
-                    plannerViewModel = homeViewModel,
-                    navController = mainNavController
+                    viewModel = historyViewModel
                 )
             }
 
@@ -356,6 +370,17 @@ fun MainNavGraph(
                 HealthProfileScreen(
                     navController = mainNavController,
                     viewModel = settingsViewModel,
+                )
+            }
+
+            composable(route = Route.HealthProfileFromHomePopupScreen.route) {
+                val settingsViewModel: SettingsViewModel = hiltViewModel()
+                HealthProfileScreen(
+                    navController = mainNavController,
+                    viewModel = settingsViewModel,
+                    onBack = {
+                        returnToHomeAndOpenAddPopup()
+                    }
                 )
             }
 

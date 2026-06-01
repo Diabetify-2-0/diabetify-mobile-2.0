@@ -29,7 +29,6 @@ sealed class Route(
             }
         }
     }
-    object PlannerGoalHistoryScreen: Route(route = "plannerGoalHistoryScreen")
     object HistoryScreen: Route(route = "historyScreen")
     object GuideScreen: Route(route = "guideScreen")
     object GuideDetailScreen: Route(route = "guideDetail/{guideId}") {
@@ -38,6 +37,7 @@ sealed class Route(
     object SettingsScreen: Route(route = "settingsScreen")
     object EditProfileScreen: Route(route = "editProfileScreen")
     object HealthProfileScreen: Route(route = "healthProfileScreen")
+    object HealthProfileFromHomePopupScreen: Route(route = "healthProfileFromHomePopupScreen")
     object NoInternetScreen : Route(route = "noInternetScreen")
     object AppStartNavigation : Route(route = "appStartNavigation")
     object AuthNavigation : Route(route = "authNavigation")

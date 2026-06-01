@@ -19,13 +19,18 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -40,14 +45,13 @@ import androidx.navigation.NavController
 import com.itb.diabetify.R
 import com.itb.diabetify.data.remote.counterfactual.response.CounterfactualChangedFeature
 import com.itb.diabetify.data.remote.counterfactual.response.CounterfactualResultPayload
+import com.itb.diabetify.domain.model.planner.PlannerGoalStatus
 import com.itb.diabetify.presentation.common.PrimaryButton
 import com.itb.diabetify.presentation.home.HomeViewModel
 import com.itb.diabetify.presentation.home.components.HomeCard
 import com.itb.diabetify.ui.theme.poppinsFontFamily
 import kotlin.math.abs
-import kotlin.math.ceil
 import kotlin.math.max
-import kotlin.math.min
 
 @Composable
 fun CounterfactualResultScreen(
@@ -59,7 +63,62 @@ fun CounterfactualResultScreen(
     val submittedOptions by viewModel.counterfactualSubmittedOptions
     val submittedTarget by viewModel.counterfactualSubmittedTarget
     val activePlannerGoal by viewModel.activePlannerGoal
+    val replaceableActivePlannerGoal = activePlannerGoal?.takeIf { it.status == PlannerGoalStatus.ACTIVE }
     val scrollState = rememberScrollState()
+    var showReplaceGoalDialog by remember { mutableStateOf(false) }
+    val isCurrentResultSaved = replaceableActivePlannerGoal?.sourceJobId != null &&
+        replaceableActivePlannerGoal.sourceJobId == resultMeta?.jobId
+    val hasDifferentActiveGoal = replaceableActivePlannerGoal != null && !isCurrentResultSaved
+
+    if (showReplaceGoalDialog) {
+        AlertDialog(
+            onDismissRequest = { showReplaceGoalDialog = false },
+            title = {
+                Text(
+                    text = "Ganti Goal Aktif?",
+                    fontFamily = poppinsFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    color = colorResource(id = R.color.primary)
+                )
+            },
+            text = {
+                Text(
+                    text = "Goal aktif saat ini akan diarsipkan, lalu rencana baru ini akan menjadi goal aktif Anda.",
+                    fontFamily = poppinsFontFamily,
+                    fontSize = 13.sp,
+                    lineHeight = 20.sp,
+                    color = Color(0xFF4B5563)
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showReplaceGoalDialog = false
+                        viewModel.saveCounterfactualAsGoal(replaceActiveGoal = true)
+                    }
+                ) {
+                    Text(
+                        text = "Ganti Goal",
+                        fontFamily = poppinsFontFamily,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFFDC2626)
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showReplaceGoalDialog = false }
+                ) {
+                    Text(
+                        text = "Batal",
+                        fontFamily = poppinsFontFamily,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF6B7280)
+                    )
+                }
+            }
+        )
+    }
 
     Column(
         modifier = Modifier
@@ -158,10 +217,15 @@ fun CounterfactualResultScreen(
                         }
 
                         SaveGoalCard(
-                            isSaved = activePlannerGoal?.sourceJobId != null &&
-                                activePlannerGoal?.sourceJobId == resultMeta?.jobId,
+                            isSaved = isCurrentResultSaved,
                             targetRiskPercentage = submittedTarget.targetHighRiskPercentage,
-                            onSave = viewModel::saveCounterfactualAsGoal
+                            onSave = {
+                                if (hasDifferentActiveGoal) {
+                                    showReplaceGoalDialog = true
+                                } else {
+                                    viewModel.saveCounterfactualAsGoal()
+                                }
+                            }
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                     }
@@ -246,11 +310,6 @@ private data class CounterfactualDisplayFeature(
     val detailDescription: String? = null
 )
 
-private data class SmokingDailyRange(
-    val minDaily: Int,
-    val maxDaily: Int? = null
-)
-
 private data class CounterfactualDiagnosticGuidance(
     val title: String,
     val message: String,
@@ -314,7 +373,7 @@ private fun diagnosticGuidanceOf(
             message = "Planner belum menerima faktor yang dapat dieksplorasi, sehingga tidak ada ruang perubahan yang bisa dicoba.",
             suggestions = listOf(
                 "Pilih setidaknya satu faktor yang boleh dieksplorasi sebelum menjalankan counterfactual.",
-                "Mulai dari faktor yang lebih actionable seperti BMI, aktivitas fisik, atau kebiasaan merokok jika masih aktif.",
+                "Mulai dari faktor yang lebih actionable seperti berat badan, aktivitas fisik, atau kebiasaan merokok jika masih aktif.",
                 "Pastikan faktor yang tidak bisa diubah tetap berada di bagian yang terkunci."
             )
         )
@@ -345,7 +404,7 @@ private fun diagnosticGuidanceOf(
                 ?: "Dengan target di bawah $targetHighRiskPercentage% dan faktor yang dipilih sekarang, planner belum menemukan skenario yang cukup untuk mencapai hasil yang diinginkan.",
             suggestions = listOf(
                 "Izinkan lebih banyak faktor untuk dieksplorasi agar ruang solusi lebih luas.",
-                "Mulai dari faktor gaya hidup yang lebih actionable seperti BMI, aktivitas fisik, atau merokok.",
+                "Mulai dari faktor gaya hidup yang lebih actionable seperti berat badan, aktivitas fisik, atau merokok.",
                 "Jika perlu, gunakan target risiko yang sedikit lebih moderat sebagai langkah awal."
             )
         )
@@ -692,9 +751,9 @@ private fun displayMutableFeatureLabels(
     val labels = mutableListOf<String>()
     var smokingAdded = false
     rawFeatureNames.forEach { featureName ->
-        if (featureName == "smoking_status" || featureName == "brinkman_index") {
+        if (featureName == "smoking_status") {
             if (!smokingAdded) {
-                labels.add("Kebiasaan Merokok")
+                labels.add("Status Merokok")
                 smokingAdded = true
             }
         } else {
@@ -714,16 +773,14 @@ private fun buildDisplayFeatureChanges(
 
     val displayFeatures = mutableListOf<CounterfactualDisplayFeature>()
     val smokingStatusFeature = rawFeatures.firstOrNull { it.featureName == "smoking_status" }
-    val brinkmanFeature = rawFeatures.firstOrNull { it.featureName == "brinkman_index" }
     val handledFeatureNames = mutableSetOf<String>()
 
     buildSmokingDisplayFeature(
         smokingStatusFeature = smokingStatusFeature,
-        brinkmanFeature = brinkmanFeature,
         viewModel = viewModel
     )?.let { smokingFeature ->
         displayFeatures += smokingFeature
-        handledFeatureNames += listOf("smoking_status", "brinkman_index")
+        handledFeatureNames += "smoking_status"
     }
 
     rawFeatures.forEach { feature ->
@@ -743,7 +800,6 @@ private fun buildDisplayFeatureChanges(
 
 private fun buildSmokingDisplayFeature(
     smokingStatusFeature: CounterfactualChangedFeature?,
-    brinkmanFeature: CounterfactualChangedFeature?,
     viewModel: HomeViewModel
 ): CounterfactualDisplayFeature? {
     val baselineSmokingStatus = viewModel.smokingStatus.value.toIntOrNull() ?: 0
@@ -751,28 +807,15 @@ private fun buildSmokingDisplayFeature(
         return null
     }
 
-    val currentDailyCigarettes = currentSmokingDailyBaseline(viewModel)
-    val yearsOfSmoking = smokingYearsOfExposure(
-        currentAge = viewModel.baselineAge.value,
-        ageOfSmoking = viewModel.profileAgeOfSmoking.value
-    )
-    val baselineCategory = viewModel.brinkmanScore.value
-    val rangeMax = max(10, currentDailyCigarettes.coerceAtLeast(0)) + 10
-    val safeRange = 0.0 to rangeMax.toDouble()
-
     val smokingStatusTarget = smokingStatusFeature?.candidateValue?.toInt()
     if (smokingStatusTarget == 1) {
         return CounterfactualDisplayFeature(
-            label = "Kebiasaan Merokok",
-            baselineNumeric = currentDailyCigarettes.toDouble(),
+            label = "Status Merokok",
+            baselineNumeric = 2.0,
             candidateNumeric = 0.0,
-            range = safeRange,
-            baselineText = smokingBaselineDisplayText(
-                currentDailyCigarettes = currentDailyCigarettes,
-                baselineCategory = baselineCategory,
-                yearsOfSmoking = yearsOfSmoking
-            ),
-            candidateText = "0 batang per hari",
+            range = 0.0 to 2.0,
+            baselineText = "Masih aktif",
+            candidateText = "Sudah berhenti",
             chipText = "berhenti merokok",
             accentColor = Color(0xFF0F766E),
             detailTitle = "Interpretasi perubahan",
@@ -780,48 +823,7 @@ private fun buildSmokingDisplayFeature(
         )
     }
 
-    val targetBrinkmanCategory = brinkmanFeature?.candidateValue?.toInt() ?: return null
-    val targetRange = cigarettesRangeForBrinkmanCategory(
-        category = targetBrinkmanCategory,
-        yearsOfSmoking = yearsOfSmoking
-    ) ?: return null
-
-    val targetDailyCigarettes = derivePreferredSmokingDailyTarget(
-        currentDailyCigarettes = currentDailyCigarettes,
-        targetRange = targetRange
-    )
-    val candidateText = smokingTargetDisplayText(
-        currentDailyCigarettes = currentDailyCigarettes,
-        targetRange = targetRange,
-        preferredTarget = targetDailyCigarettes
-    ) ?: return null
-
-    val reductionChip = smokingReductionChip(
-        currentDailyCigarettes = currentDailyCigarettes,
-        targetRange = targetRange,
-        preferredTarget = targetDailyCigarettes
-    )
-    return CounterfactualDisplayFeature(
-        label = "Konsumsi Rokok Harian",
-        baselineNumeric = currentDailyCigarettes.toDouble(),
-        candidateNumeric = (targetDailyCigarettes ?: targetRange.maxDaily ?: targetRange.minDaily).toDouble(),
-        range = safeRange,
-        baselineText = smokingBaselineDisplayText(
-            currentDailyCigarettes = currentDailyCigarettes,
-            baselineCategory = baselineCategory,
-            yearsOfSmoking = yearsOfSmoking
-        ),
-        candidateText = candidateText,
-        chipText = reductionChip,
-        accentColor = Color(0xFF0F766E),
-        detailTitle = "Interpretasi perubahan",
-        detailDescription = buildSmokingReductionDescription(
-            currentDailyCigarettes = currentDailyCigarettes,
-            yearsOfSmoking = yearsOfSmoking,
-            targetRange = targetRange,
-            preferredTarget = targetDailyCigarettes
-        )
-    )
+    return null
 }
 
 private fun buildGenericDisplayFeature(
@@ -842,152 +844,17 @@ private fun buildGenericDisplayFeature(
     )
 
     return CounterfactualDisplayFeature(
-        label = featureLabel(feature.featureName),
+        label = if (feature.featureName == "BMI") "Berat Badan" else featureLabel(feature.featureName),
         baselineNumeric = baseline,
         candidateNumeric = candidate,
         range = featureRange(feature.featureName),
-        baselineText = formatFeatureValue(feature.featureName, baseline),
-        candidateText = formatFeatureValue(feature.featureName, candidate),
+        baselineText = bmiTranslation?.baselineText ?: formatFeatureValue(feature.featureName, baseline),
+        candidateText = bmiTranslation?.candidateText ?: formatFeatureValue(feature.featureName, candidate),
         chipText = bmiTranslation?.chipText ?: formatDeltaDescription(feature.featureName, delta),
         accentColor = accentColor,
-        detailTitle = bmiTranslation?.let { "Terjemahan BMI ke berat badan" },
-        detailDescription = bmiTranslation?.description
+        detailTitle = null,
+        detailDescription = null
     )
-}
-
-private fun currentSmokingDailyBaseline(viewModel: HomeViewModel): Int {
-    return viewModel.smokeAverage.value
-        .takeIf { it > 0 }
-        ?: viewModel.profileSmokeCount.value.coerceAtLeast(0)
-}
-
-private fun smokingYearsOfExposure(
-    currentAge: Int,
-    ageOfSmoking: Int
-): Int? {
-    if (currentAge <= 0 || ageOfSmoking <= 0) {
-        return null
-    }
-    return (currentAge - ageOfSmoking).coerceAtLeast(1)
-}
-
-private fun smokingBaselineDisplayText(
-    currentDailyCigarettes: Int,
-    baselineCategory: Int,
-    yearsOfSmoking: Int?
-): String {
-    if (currentDailyCigarettes > 0) {
-        return "$currentDailyCigarettes batang per hari"
-    }
-
-    val range = cigarettesRangeForBrinkmanCategory(
-        category = baselineCategory,
-        yearsOfSmoking = yearsOfSmoking
-    ) ?: return "Belum ada baseline batang per hari"
-
-    return quantityRangeText(range)
-}
-
-private fun derivePreferredSmokingDailyTarget(
-    currentDailyCigarettes: Int,
-    targetRange: SmokingDailyRange
-): Int? {
-    val upperBound = targetRange.maxDaily
-    if (currentDailyCigarettes <= 0 || upperBound == null) {
-        return upperBound
-    }
-
-    return min(currentDailyCigarettes - 1, upperBound.coerceAtLeast(1))
-        .takeIf { it > 0 }
-}
-
-private fun smokingTargetDisplayText(
-    currentDailyCigarettes: Int,
-    targetRange: SmokingDailyRange,
-    preferredTarget: Int?
-): String? {
-    if (preferredTarget != null && currentDailyCigarettes > 0 && preferredTarget < currentDailyCigarettes) {
-        return "sekitar $preferredTarget batang per hari"
-    }
-
-    return when {
-        targetRange.maxDaily == null -> "minimal ${targetRange.minDaily} batang per hari"
-        targetRange.minDaily == targetRange.maxDaily -> "${targetRange.minDaily} batang per hari"
-        else -> "${targetRange.minDaily}-${targetRange.maxDaily} batang per hari"
-    }
-}
-
-private fun smokingReductionChip(
-    currentDailyCigarettes: Int,
-    targetRange: SmokingDailyRange,
-    preferredTarget: Int?
-): String {
-    if (preferredTarget != null && currentDailyCigarettes > preferredTarget) {
-        return "kurangi ${currentDailyCigarettes - preferredTarget} batang/hari"
-    }
-
-    return targetRange.maxDaily?.let { "target maks. $it batang/hari" }
-        ?: "kurangi bertahap"
-}
-
-private fun buildSmokingReductionDescription(
-    currentDailyCigarettes: Int,
-    yearsOfSmoking: Int?,
-    targetRange: SmokingDailyRange,
-    preferredTarget: Int?
-): String {
-    val targetText = smokingTargetDisplayText(
-        currentDailyCigarettes = currentDailyCigarettes,
-        targetRange = targetRange,
-        preferredTarget = preferredTarget
-    )
-
-    val yearsContext = if (yearsOfSmoking != null) {
-        " Dengan riwayat merokok sekitar $yearsOfSmoking tahun, target kuantitas ini membantu menekan paparan rokok jangka panjang ke tingkat yang lebih aman."
-    } else {
-        " Target kuantitas ini dihitung dari baseline rokok yang tersedia."
-    }
-
-    return if (currentDailyCigarettes > 0) {
-        "Skenario ini tidak mengharuskan berhenti total. Fokus utamanya adalah mengurangi konsumsi dari $currentDailyCigarettes menjadi $targetText.$yearsContext"
-    } else {
-        "Skenario ini mengarahkan konsumsi rokok harian ke $targetText.$yearsContext"
-    }
-}
-
-private fun cigarettesRangeForBrinkmanCategory(
-    category: Int,
-    yearsOfSmoking: Int?
-): SmokingDailyRange? {
-    if (yearsOfSmoking == null || yearsOfSmoking <= 0) {
-        return null
-    }
-
-    return when (category) {
-        0 -> SmokingDailyRange(minDaily = 0, maxDaily = 0)
-        1 -> SmokingDailyRange(
-            minDaily = 1,
-            maxDaily = max(1, 199 / yearsOfSmoking)
-        )
-        2 -> {
-            val minDaily = max(1, ceil(200.0 / yearsOfSmoking).toInt())
-            val maxDaily = max(minDaily, 599 / yearsOfSmoking)
-            SmokingDailyRange(minDaily = minDaily, maxDaily = maxDaily)
-        }
-        3 -> SmokingDailyRange(
-            minDaily = max(1, ceil(600.0 / yearsOfSmoking).toInt()),
-            maxDaily = null
-        )
-        else -> null
-    }
-}
-
-private fun quantityRangeText(range: SmokingDailyRange): String {
-    return when {
-        range.maxDaily == null -> "sekitar ${range.minDaily}+ batang per hari"
-        range.minDaily == range.maxDaily -> "${range.minDaily} batang per hari"
-        else -> "${range.minDaily}-${range.maxDaily} batang per hari"
-    }
 }
 
 @Composable
@@ -1055,13 +922,12 @@ private fun SummaryText(text: String) {
 
 private fun featureLabel(name: String): String {
     return when (name) {
-        "BMI" -> "Indeks Massa Tubuh"
-        "smoking_behavior" -> "Kebiasaan Merokok"
+        "BMI" -> "Berat Badan"
         "smoking_status" -> "Status Merokok"
         "is_cholesterol" -> "Kolesterol"
         "is_hypertension" -> "Hipertensi"
         "moderate_physical_activity_frequency" -> "Aktivitas Fisik"
-        "brinkman_index" -> "Konsumsi Rokok Harian"
+        "brinkman_index" -> "Indeks Brinkman"
         "is_bloodline" -> "Riwayat Keluarga"
         "is_macrosomic_baby" -> "Riwayat Bayi Makrosomia"
         "age" -> "Usia"
@@ -1071,7 +937,7 @@ private fun featureLabel(name: String): String {
 
 private fun formatFeatureValue(name: String, value: Double): String {
     return when (name) {
-        "BMI" -> String.format("%.2f kg/m²", value)
+        "BMI" -> "Data berat belum lengkap"
         "age" -> "${value.toInt()} tahun"
         "moderate_physical_activity_frequency" -> "${value.toInt()} hari / minggu"
         "smoking_status" -> when (value.toInt()) {
@@ -1103,11 +969,7 @@ private fun formatFeatureValue(name: String, value: Double): String {
 
 private fun formatDeltaDescription(name: String, delta: Double): String {
     return when (name) {
-        "BMI" -> if (delta < 0) {
-            "turun ${String.format("%.2f", abs(delta))} kg/m²"
-        } else {
-            "naik ${String.format("%.2f", delta)} kg/m²"
-        }
+        "BMI" -> "target berat badan berubah"
 
         "moderate_physical_activity_frequency" -> if (delta < 0) {
             "berkurang ${abs(delta).toInt()} hari/minggu"
@@ -1144,7 +1006,9 @@ private fun formatPercentage(value: Double?): String {
 
 private data class BmiTranslation(
     val chipText: String,
-    val description: String
+    val description: String,
+    val baselineText: String,
+    val candidateText: String
 )
 
 private fun bmiTranslation(
@@ -1177,13 +1041,13 @@ private fun bmiTranslation(
 
     val description = buildString {
         append(
-            "Dengan tinggi badan $heightCm cm, BMI ${String.format("%.2f", baselineValue)} "
+            "Dengan tinggi badan $heightCm cm, kondisi awal "
         )
         append(
             "setara kira-kira dengan berat ${String.format("%.1f", baselineWeightFromBmi)} kg. "
         )
         append(
-            "Target BMI ${String.format("%.2f", candidateValue)} berarti berat badan "
+            "Target akhir berarti berat badan "
         )
         append(
             "sekitar ${String.format("%.1f", targetWeight)} kg"
@@ -1199,6 +1063,8 @@ private fun bmiTranslation(
 
     return BmiTranslation(
         chipText = chipText,
-        description = description
+        description = description,
+        baselineText = "${String.format("%.1f", baselineWeightFromBmi)} kg",
+        candidateText = "${String.format("%.1f", targetWeight)} kg"
     )
 }

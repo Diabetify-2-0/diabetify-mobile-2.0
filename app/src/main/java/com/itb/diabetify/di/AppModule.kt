@@ -73,17 +73,17 @@ import com.itb.diabetify.domain.usecases.prediction.PredictBackgroundUseCase
 import com.itb.diabetify.domain.usecases.prediction.PredictUseCase
 import com.itb.diabetify.domain.usecases.prediction.PredictionUseCases
 import com.itb.diabetify.domain.usecases.planner.ClearPlannerGoalUseCase
+import com.itb.diabetify.domain.usecases.planner.ClearPlannerCheckInsUseCase
+import com.itb.diabetify.domain.usecases.planner.CompletePlannerGoalUseCase
 import com.itb.diabetify.domain.usecases.planner.GetPlannerCheckInsUseCase
 import com.itb.diabetify.domain.usecases.planner.GetPlannerCheckInHistoryUseCase
 import com.itb.diabetify.domain.usecases.planner.GetActivePlannerGoalUseCase
-import com.itb.diabetify.domain.usecases.planner.GetPlannerGoalHistoryUseCase
 import com.itb.diabetify.domain.usecases.planner.MarkPlannerCheckInUseCase
 import com.itb.diabetify.domain.usecases.planner.PlannerGoalUseCases
 import com.itb.diabetify.domain.usecases.planner.RecordPlannerCheckInUseCase
 import com.itb.diabetify.domain.usecases.planner.RefreshPlannerCheckInHistoryUseCase
 import com.itb.diabetify.domain.usecases.planner.RefreshPlannerCheckInsUseCase
 import com.itb.diabetify.domain.usecases.planner.RefreshPlannerGoalUseCase
-import com.itb.diabetify.domain.usecases.planner.RefreshPlannerGoalHistoryUseCase
 import com.itb.diabetify.domain.usecases.planner.SavePlannerGoalUseCase
 import com.itb.diabetify.domain.usecases.profile.AddProfileUseCase
 import com.itb.diabetify.domain.usecases.profile.GetProfileUseCase
@@ -111,14 +111,29 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import javax.inject.Qualifier
 import javax.inject.Singleton
+
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class ApplicationScope
 
 @Module
 @InstallIn(SingletonComponent::class)
 object AppModule {
+    @Provides
+    @Singleton
+    @ApplicationScope
+    fun providesApplicationScope(): CoroutineScope {
+        return CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    }
+
     @Provides
     @Singleton
     fun providesLocalUserManager(
@@ -357,12 +372,12 @@ object AppModule {
         return PlannerGoalUseCases(
             savePlannerGoal = SavePlannerGoalUseCase(plannerGoalManager),
             getActivePlannerGoal = GetActivePlannerGoalUseCase(plannerGoalManager),
-            getPlannerGoalHistory = GetPlannerGoalHistoryUseCase(plannerGoalManager),
             refreshPlannerGoal = RefreshPlannerGoalUseCase(plannerGoalManager),
-            refreshPlannerGoalHistory = RefreshPlannerGoalHistoryUseCase(plannerGoalManager),
+            completePlannerGoal = CompletePlannerGoalUseCase(plannerGoalManager),
             clearPlannerGoal = ClearPlannerGoalUseCase(plannerGoalManager),
             markPlannerCheckIn = MarkPlannerCheckInUseCase(plannerCheckInManager),
             getPlannerCheckIns = GetPlannerCheckInsUseCase(plannerCheckInManager),
+            clearPlannerCheckIns = ClearPlannerCheckInsUseCase(plannerCheckInManager),
             refreshPlannerCheckIns = RefreshPlannerCheckInsUseCase(plannerCheckInManager),
             refreshPlannerCheckInHistory = RefreshPlannerCheckInHistoryUseCase(plannerCheckInManager),
             recordPlannerCheckIn = RecordPlannerCheckInUseCase(plannerCheckInManager),
@@ -418,6 +433,7 @@ object AppModule {
     @Singleton
     fun providesPredictionUseCases(
         repository: PredictionRepository,
+        @ApplicationScope applicationScope: CoroutineScope
     ): PredictionUseCases {
         return PredictionUseCases(
             getLatestPredictionRepository = GetLatestPredictionRepositoryUseCase(repository),
@@ -426,7 +442,7 @@ object AppModule {
             getPredictionScoreByDate = GetPredictionScoreByDateUseCase(repository),
             predict = PredictUseCase(repository),
             predictAsync = PredictAsyncUseCase(repository),
-            predictBackground = PredictBackgroundUseCase(repository),
+            predictBackground = PredictBackgroundUseCase(repository, applicationScope),
             explainPrediction = ExplainPredictionUseCase(repository)
         )
     }

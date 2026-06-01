@@ -25,9 +25,8 @@ class AddActivityUseCase(
             } -> "Format tanggal tidak valid. Gunakan format ISO 8601"
             else -> null
         }
-        val activityTypeError: String? = if (activityType != "workout" && activityType != "smoke") "Jenis aktivitas harus 'workout' atau 'smoke'" else null
+        val activityTypeError: String? = if (activityType != "workout") "Jenis aktivitas harus 'workout'" else null
         val valueError: String? = when {
-            activityType == "smoke" && (value < 0 || value > 60) -> "Nilai untuk aktivitas 'smoke' harus antara 0 dan 60"
             activityType == "workout" && (value < 0 || value > 1) -> "Nilai untuk aktivitas 'workout' harus 0 atau 1"
             else -> null
         }

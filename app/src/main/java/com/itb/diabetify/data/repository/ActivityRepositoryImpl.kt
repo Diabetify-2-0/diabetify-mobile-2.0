@@ -58,14 +58,11 @@ class ActivityRepositoryImpl(
             val startDate = currentDate.toString()
             val response = activityApiService.getActivityByDate(startDate, startDate)
             response.data?.let { activities ->
-                val smokingActivity = activities.smoke.firstOrNull()
                 val workoutActivity = activities.workout.firstOrNull()
 
                 activityManager.saveActivity(
                     Activity(
-                        smokingId = smokingActivity?.id,
                         workoutId = workoutActivity?.id,
-                        smokingValue = smokingActivity?.value ?: 0,
                         workoutValue = workoutActivity?.value ?: 0
                     )
                 )

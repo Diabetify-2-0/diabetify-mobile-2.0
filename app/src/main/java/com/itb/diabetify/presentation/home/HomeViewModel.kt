@@ -21,7 +21,6 @@ import com.itb.diabetify.data.remote.counterfactual.response.CounterfactualResul
 import com.itb.diabetify.domain.model.planner.PlannerCheckInEntry
 import com.itb.diabetify.domain.model.planner.PlannerGoal
 import com.itb.diabetify.domain.model.planner.PlannerGoalFeature
-import com.itb.diabetify.domain.model.planner.PlannerGoalStatus
 import com.itb.diabetify.domain.repository.PredictionRepository
 import com.itb.diabetify.domain.usecases.counterfactual.CounterfactualUseCases
 import com.itb.diabetify.domain.usecases.activity.ActivityUseCases
@@ -31,6 +30,7 @@ import com.itb.diabetify.domain.usecases.profile.ProfileUseCases
 import com.itb.diabetify.domain.usecases.user.UserUseCases
 import com.itb.diabetify.util.handleAsyncCounterfactual
 import com.itb.diabetify.util.DataState
+import com.itb.diabetify.util.PredictionUpdateNotifier
 import com.itb.diabetify.util.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.launchIn
@@ -89,6 +89,9 @@ class HomeViewModel @Inject constructor(
 
     private val _latestPredictionScore = mutableDoubleStateOf(0.0)
     val latestPredictionScore: State<Double> = _latestPredictionScore
+
+    private val _isPredictionRefreshing = mutableStateOf(PredictionUpdateNotifier.isPredictionUpdating)
+    val isPredictionRefreshing: State<Boolean> = _isPredictionRefreshing
 
     data class RiskFactor(
         val name: String,
@@ -249,9 +252,6 @@ class HomeViewModel @Inject constructor(
     private val _physicalActivityAverage = mutableIntStateOf(0)
     val physicalActivityAverage: State<Int> = _physicalActivityAverage
 
-    private val _smokeToday = mutableIntStateOf(0)
-    val smoke: State<Int> = _smokeToday
-
     private val _physicalActivityToday = mutableIntStateOf(0)
     val physicalActivityToday: State<Int> = _physicalActivityToday
 
@@ -262,15 +262,9 @@ class HomeViewModel @Inject constructor(
     data class CounterfactualOption(
         val key: String,
         val label: String,
-        val description: String,
+
         val iconResId: Int,
         val isSelected: Boolean = true,
-        val supportingText: String? = null,
-        val idealDirectionLabel: String,
-        val effortLabel: String? = null,
-        val impactLabel: String? = null,
-        val categoryLabel: String,
-        val needsClinicalReview: Boolean = false
     )
 
     data class CounterfactualRiskTarget(
@@ -306,9 +300,6 @@ class HomeViewModel @Inject constructor(
     private val _activePlannerGoal = mutableStateOf<PlannerGoal?>(null)
     val activePlannerGoal: State<PlannerGoal?> = _activePlannerGoal
 
-    private val _plannerGoalHistory = mutableStateOf<List<PlannerGoal>>(emptyList())
-    val plannerGoalHistory: State<List<PlannerGoal>> = _plannerGoalHistory
-
     private val _plannerCheckInHistory = mutableStateOf<List<PlannerCheckInEntry>>(emptyList())
     val plannerCheckInHistory: State<List<PlannerCheckInEntry>> = _plannerCheckInHistory
 
@@ -322,19 +313,27 @@ class HomeViewModel @Inject constructor(
     private var isPredictionDataLoaded = false
     private var isActivityDataLoaded = false
     private var isProfileDataLoaded = false
+    private var isCollectingLatestPrediction = false
+    private val predictionUpdateListener = {
+        _successMessage.value = "Prediksi risiko telah diperbaharui"
+        loadLatestPredictionData()
+    }
+    private val predictionUpdatingListener: (Boolean) -> Unit = { isUpdating ->
+        _isPredictionRefreshing.value = isUpdating
+    }
 
     // Initialization
     init {
+        PredictionUpdateNotifier.addListener(predictionUpdateListener)
+        PredictionUpdateNotifier.addUpdatingListener(predictionUpdatingListener)
         _loadingMessage.value = "Memuat data..."
         loadUserData()
         loadLatestPredictionData()
         loadActivityTodayData()
         loadProfileData()
         collectActivePlannerGoal()
-        collectPlannerGoalHistory()
         collectPlannerCheckInHistory()
         refreshPlannerGoal()
-        refreshPlannerGoalHistory()
     }
 
     // Use Case Calls
@@ -422,6 +421,11 @@ class HomeViewModel @Inject constructor(
 
     @SuppressLint("DefaultLocale")
     private fun collectLatestPredictionData() {
+        if (isCollectingLatestPrediction) {
+            return
+        }
+        isCollectingLatestPrediction = true
+
         viewModelScope.launch {
             _latestPredictionState.value = latestPredictionState.value.copy(isLoading = true)
 
@@ -562,6 +566,12 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    override fun onCleared() {
+        PredictionUpdateNotifier.removeListener(predictionUpdateListener)
+        PredictionUpdateNotifier.removeUpdatingListener(predictionUpdatingListener)
+        super.onCleared()
+    }
+
     private fun loadProfileData() {
         viewModelScope.launch {
             _profileState.value = profileState.value.copy(isLoading = true)
@@ -668,7 +678,6 @@ class HomeViewModel @Inject constructor(
                 _activityTodayState.value = activityTodayState.value.copy(isLoading = false)
 
                 activity?.let { todayActivity ->
-                    _smokeToday.intValue = todayActivity.smokingValue
                     _physicalActivityToday.intValue = todayActivity.workoutValue
                 }
             }.launchIn(viewModelScope)
@@ -717,7 +726,6 @@ class HomeViewModel @Inject constructor(
         _profileSmokeCount.intValue = 0
         _profileAgeOfSmoking.intValue = 0
         _profileAgeOfStopSmoking.intValue = 0
-        _smokeToday.intValue = 0
         _physicalActivityToday.intValue = 0
         _brinkmanScore.intValue = 0
 
@@ -750,65 +758,51 @@ class HomeViewModel @Inject constructor(
         isProfileDataLoaded = false
     }
 
-    private fun defaultCounterfactualOptions(smokingStatus: String = _smokingStatus.value): List<CounterfactualOption> {
-        val options = mutableListOf(
-            CounterfactualOption(
-                key = "BMI",
-                label = "Indeks Massa Tubuh",
-                description = "Eksplorasi perubahan berat badan untuk melihat dampaknya pada risiko.",
-                iconResId = R.drawable.ic_weight,
-                idealDirectionLabel = "Cenderung diturunkan",
-                effortLabel = "Bertahap",
-                impactLabel = "Dampak utama",
-                categoryLabel = "Gaya hidup"
-            ),
-            CounterfactualOption(
-                key = "moderate_physical_activity_frequency",
-                label = "Aktivitas Fisik",
-                description = "Gunakan frekuensi aktivitas fisik mingguan sebagai faktor yang boleh diubah.",
-                iconResId = R.drawable.ic_walk,
-                idealDirectionLabel = "Cenderung ditingkatkan",
-                effortLabel = "Menengah",
-                impactLabel = "Sangat realistis",
-                categoryLabel = "Gaya hidup"
-            ),
-            CounterfactualOption(
-                key = "is_hypertension",
-                label = "Hipertensi",
-                description = "Gunakan faktor ini untuk melihat arah pengendalian tekanan darah, bukan sebagai perubahan instan yang dilakukan sendiri.",
-                iconResId = R.drawable.ic_hypertension,
-                idealDirectionLabel = "Cenderung dikendalikan",
-                categoryLabel = "Kondisi kesehatan",
-                needsClinicalReview = true
-            ),
-            CounterfactualOption(
-                key = "is_cholesterol",
-                label = "Kolesterol",
-                description = "Gunakan faktor ini untuk melihat arah pengendalian kolesterol, bukan sebagai target obat atau tindakan mandiri.",
-                iconResId = R.drawable.ic_cholesterol,
-                idealDirectionLabel = "Cenderung dikendalikan",
-                categoryLabel = "Kondisi kesehatan",
-                needsClinicalReview = true
-            )
-        )
+    private fun defaultCounterfactualOptions(): List<CounterfactualOption> {
+        return buildList {
+            if (_smokingStatus.value == "2") {
+                add(
+                    CounterfactualOption(
+                        key = "smoking_status",
+                        label = "Status Merokok",
+                        iconResId = R.drawable.ic_smoking,
 
-        if (smokingStatus == "2") {
-            options.add(
-                2,
+
+                    )
+                )
+            }
+
+            add(
                 CounterfactualOption(
-                    key = "smoking_behavior",
-                    label = "Kebiasaan Merokok",
-                    description = "Planner dapat mengeksplorasi dua skenario: berhenti merokok sepenuhnya atau mengurangi konsumsi rokok harian secara bertahap.",
-                    iconResId = R.drawable.ic_smoking,
-                    idealDirectionLabel = "Cenderung dikurangi",
-                    effortLabel = "Menantang",
-                    impactLabel = "Dampak besar",
-                    categoryLabel = "Perilaku"
+                    key = "BMI",
+                    label = "Berat Badan",
+                    iconResId = R.drawable.ic_weight,
+
+                )
+            )
+            add(
+                CounterfactualOption(
+                    key = "moderate_physical_activity_frequency",
+                    label = "Aktivitas Fisik",
+                    iconResId = R.drawable.ic_walk,
+
+                )
+            )
+            add(
+                CounterfactualOption(
+                    key = "is_hypertension",
+                    label = "Hipertensi",
+                    iconResId = R.drawable.ic_hypertension,
+                )
+            )
+            add(
+                CounterfactualOption(
+                    key = "is_cholesterol",
+                    label = "Kolesterol",
+                    iconResId = R.drawable.ic_cholesterol,
                 )
             )
         }
-
-        return options
     }
 
     private fun defaultCounterfactualRiskTarget(): CounterfactualRiskTarget {
@@ -818,7 +812,6 @@ class HomeViewModel @Inject constructor(
     private fun checkAllDataLoaded() {
         if (isUserDataLoaded && isPredictionDataLoaded && isActivityDataLoaded && isProfileDataLoaded) {
             _loadingMessage.value = null
-            _successMessage.value = "Data berhasil dimuat"
         }
     }
 
@@ -850,14 +843,6 @@ class HomeViewModel @Inject constructor(
             .launchIn(viewModelScope)
     }
 
-    private fun collectPlannerGoalHistory() {
-        plannerGoalUseCases.getPlannerGoalHistory()
-            .onEach { history ->
-                _plannerGoalHistory.value = history
-            }
-            .launchIn(viewModelScope)
-    }
-
     private fun filterPlannerCheckInHistory() {
         val goalId = activePlannerGoal.value?.id
         _plannerCheckInHistory.value = if (goalId == null) {
@@ -872,12 +857,6 @@ class HomeViewModel @Inject constructor(
     private fun refreshPlannerGoal() {
         viewModelScope.launch {
             plannerGoalUseCases.refreshPlannerGoal()
-        }
-    }
-
-    fun refreshPlannerGoalHistory() {
-        viewModelScope.launch {
-            plannerGoalUseCases.refreshPlannerGoalHistory()
         }
     }
 
@@ -1010,10 +989,7 @@ class HomeViewModel @Inject constructor(
     private fun mutableKeysForCounterfactualOption(
         option: CounterfactualOption
     ): List<String> {
-        return when (option.key) {
-            "smoking_behavior" -> listOf("smoking_status", "brinkman_index")
-            else -> listOf(option.key)
-        }
+        return listOf(option.key)
     }
 
     private fun refreshCounterfactualOptions() {
@@ -1082,7 +1058,7 @@ class HomeViewModel @Inject constructor(
         currentCounterfactualJobId = null
     }
 
-    fun saveCounterfactualAsGoal() {
+    fun saveCounterfactualAsGoal(replaceActiveGoal: Boolean = false) {
         val result = counterfactualResult.value
         if (result == null || result.status != "FEASIBLE" || result.candidates.isEmpty()) {
             _errorMessage.value = "Belum ada rencana feasible yang bisa disimpan sebagai goal"
@@ -1091,15 +1067,30 @@ class HomeViewModel @Inject constructor(
 
         val goal = buildPlannerGoalFromCounterfactual(result)
         viewModelScope.launch {
+            val existingGoal = activePlannerGoal.value
+            if (
+                replaceActiveGoal &&
+                existingGoal != null &&
+                existingGoal.sourceJobId != goal.sourceJobId
+            ) {
+                plannerGoalUseCases.clearPlannerGoal(existingGoal.id)
+            }
             plannerGoalUseCases.savePlannerGoal(goal)
             _successMessage.value = "Rencana berhasil disimpan sebagai goal aktif"
         }
     }
 
     fun clearActivePlannerGoal() {
+        val goal = activePlannerGoal.value
+        if (goal == null) {
+            _errorMessage.value = "Tidak ada goal aktif yang bisa dihapus"
+            return
+        }
+
         viewModelScope.launch {
-            plannerGoalUseCases.clearPlannerGoal()
-            _successMessage.value = "Goal aktif berhasil diarsipkan"
+            plannerGoalUseCases.clearPlannerGoal(goal.id)
+            plannerGoalUseCases.clearPlannerCheckIns()
+            _successMessage.value = "Goal aktif berhasil dihapus"
         }
     }
 
@@ -1110,16 +1101,10 @@ class HomeViewModel @Inject constructor(
             return
         }
 
-        if (goal.status == PlannerGoalStatus.COMPLETED) {
-            _successMessage.value = "Goal ini sudah ditandai selesai"
-            return
-        }
-
         viewModelScope.launch {
-            plannerGoalUseCases.savePlannerGoal(
-                goal.copy(status = PlannerGoalStatus.COMPLETED)
-            )
-            _successMessage.value = "Goal berhasil ditandai selesai"
+            plannerGoalUseCases.completePlannerGoal(goal.id)
+            plannerGoalUseCases.clearPlannerCheckIns()
+            _successMessage.value = "Goal selesai dan berhasil dihapus"
         }
     }
 
@@ -1143,7 +1128,6 @@ class HomeViewModel @Inject constructor(
             createdAtMillis = System.currentTimeMillis(),
             summary = result.prescriptivePlan?.summary ?: result.message,
             actionSteps = result.prescriptivePlan?.actionSteps.orEmpty(),
-            monitoringPlan = result.prescriptivePlan?.monitoringPlan.orEmpty(),
             features = goalFeatures
         )
     }
@@ -1177,11 +1161,18 @@ class HomeViewModel @Inject constructor(
 
         return when (feature.featureName) {
             "BMI" -> {
-                val absDelta = abs(delta ?: 0.0)
-                if ((delta ?: 0.0) < 0) {
-                    "Turunkan BMI sekitar ${String.format("%.2f", absDelta)} kg/m2"
+                val baselineWeight = feature.baselineValue?.let(::bmiToWeight)
+                val targetWeight = feature.candidateValue?.let(::bmiToWeight)
+                val weightDelta = if (baselineWeight != null && targetWeight != null) {
+                    targetWeight - baselineWeight
                 } else {
-                    "Naikkan BMI sekitar ${String.format("%.2f", absDelta)} kg/m2"
+                    null
+                }
+                val absDelta = abs(weightDelta ?: 0.0)
+                if ((weightDelta ?: 0.0) < 0) {
+                    "Turunkan berat sekitar ${String.format("%.1f", absDelta)} kg"
+                } else {
+                    "Naikkan berat sekitar ${String.format("%.1f", absDelta)} kg"
                 }
             }
             "moderate_physical_activity_frequency" -> {
@@ -1193,7 +1184,7 @@ class HomeViewModel @Inject constructor(
                 }
             }
             "smoking_status" -> "Ubah status merokok sesuai skenario"
-            "brinkman_index" -> "Kurangi paparan rokok secara bertahap"
+            "brinkman_index" -> "Indeks Brinkman merupakan faktor historis dan tidak digunakan sebagai target aksi"
             "is_hypertension" -> "Kendalikan hipertensi dengan pendampingan klinis"
             "is_cholesterol" -> "Kendalikan kolesterol dengan pendampingan klinis"
             else -> "Ubah dari ${formatPlannerFeatureValue(feature.featureName, feature.baselineValue)} ke ${formatPlannerFeatureValue(feature.featureName, feature.candidateValue)}"
@@ -1202,7 +1193,7 @@ class HomeViewModel @Inject constructor(
 
     private fun plannerFeatureLabel(name: String): String {
         return when (name) {
-            "BMI" -> "Indeks Massa Tubuh"
+            "BMI" -> "Berat Badan"
             "smoking_status" -> "Status Merokok"
             "brinkman_index" -> "Paparan Rokok"
             "is_cholesterol" -> "Kolesterol"
@@ -1221,7 +1212,7 @@ class HomeViewModel @Inject constructor(
         }
 
         return when (name) {
-            "BMI" -> String.format("%.2f kg/m2", value)
+            "BMI" -> bmiToWeight(value)?.let { "${String.format("%.1f", it)} kg" } ?: "-"
             "age" -> "${value.toInt()} tahun"
             "moderate_physical_activity_frequency" -> "${value.toInt()} hari/minggu"
             "smoking_status" -> when (value.toInt()) {
@@ -1246,6 +1237,14 @@ class HomeViewModel @Inject constructor(
             }
             else -> String.format("%.2f", value)
         }
+    }
+
+    private fun bmiToWeight(bmi: Double): Double? {
+        val heightMeters = _height.intValue / 100.0
+        if (heightMeters <= 0.0) {
+            return null
+        }
+        return bmi * heightMeters * heightMeters
     }
 
     private fun toHighRiskPercentage(lowRiskProbability: Double): Double {

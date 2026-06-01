@@ -23,22 +23,34 @@ class PlannerCheckInManagerImpl @Inject constructor(
     private val lastCheckIns = MutableStateFlow(readLastCheckIns())
     private val checkInHistory = MutableStateFlow(readHistory())
 
-    override suspend fun markCheckedIn(type: String, timestampMillis: Long) {
+    private var activeGoalId: String? = null
+
+    override suspend fun markCheckedIn(goalId: String, type: String, timestampMillis: Long) {
         sharedPreferences.edit()
-            .putLong(keyFor(type), timestampMillis)
+            .putLong(keyFor(goalId, type), timestampMillis)
             .apply()
-        lastCheckIns.value = readLastCheckIns()
+        if (activeGoalId == goalId) {
+            lastCheckIns.value = readLastCheckIns(goalId)
+        }
     }
 
     override fun getLastCheckIns(): Flow<Map<String, Long>> {
         return lastCheckIns.asStateFlow()
     }
 
+    override suspend fun clearLastCheckIns() {
+        activeGoalId = null
+        lastCheckIns.value = emptyMap()
+    }
+
     override suspend fun refreshCheckIns(goalId: String) {
+        activeGoalId = goalId
         runCatching {
             plannerApiService.getLastCheckIns(goalId).data.orEmpty()
         }.onSuccess { remoteLastCheckIns ->
-            saveLastCheckIns(remoteLastCheckIns)
+            saveLastCheckIns(goalId, remoteLastCheckIns)
+        }.onFailure {
+            lastCheckIns.value = readLastCheckIns(goalId)
         }
 
         runCatching {
@@ -73,27 +85,32 @@ class PlannerCheckInManagerImpl @Inject constructor(
         return checkInHistory.asStateFlow()
     }
 
-    private fun readLastCheckIns(): Map<String, Long> {
+    private fun readLastCheckIns(goalId: String? = activeGoalId): Map<String, Long> {
+        if (goalId.isNullOrBlank()) {
+            return emptyMap()
+        }
         return CHECK_IN_TYPES.mapNotNull { type ->
-            val value = sharedPreferences.getLong(keyFor(type), 0L)
+            val value = sharedPreferences.getLong(keyFor(goalId, type), 0L)
             if (value > 0L) type to value else null
         }.toMap()
     }
 
-    private fun keyFor(type: String): String = "last_check_in_$type"
+    private fun keyFor(goalId: String, type: String): String = "last_check_in_${goalId}_$type"
 
-    private fun saveLastCheckIns(values: Map<String, Long>) {
+    private fun saveLastCheckIns(goalId: String, values: Map<String, Long>) {
         val editor = sharedPreferences.edit()
         CHECK_IN_TYPES.forEach { type ->
-            editor.remove(keyFor(type))
+            editor.remove(keyFor(goalId, type))
         }
         values.forEach { (type, timestamp) ->
             if (timestamp > 0L) {
-                editor.putLong(keyFor(type), timestamp)
+                editor.putLong(keyFor(goalId, type), timestamp)
             }
         }
         editor.apply()
-        lastCheckIns.value = readLastCheckIns()
+        if (activeGoalId == goalId) {
+            lastCheckIns.value = readLastCheckIns(goalId)
+        }
     }
 
     private fun saveHistory(history: List<PlannerCheckInEntry>) {

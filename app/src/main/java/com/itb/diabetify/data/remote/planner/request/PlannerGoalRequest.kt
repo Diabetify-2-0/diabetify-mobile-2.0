@@ -26,8 +26,6 @@ data class PlannerGoalRequest(
     val summary: String?,
     @SerializedName("action_steps")
     val actionSteps: List<String>?,
-    @SerializedName("monitoring_plan")
-    val monitoringPlan: List<String>?,
     @SerializedName("features")
     val features: List<PlannerGoalFeatureRequest>?
 ) {
@@ -43,7 +41,6 @@ data class PlannerGoalRequest(
             createdAtMillis = createdAtMillis,
             summary = summary,
             actionSteps = actionSteps.orEmpty(),
-            monitoringPlan = monitoringPlan.orEmpty(),
             features = features.orEmpty().map { it.toDomain() }
         )
     }
@@ -61,7 +58,6 @@ data class PlannerGoalRequest(
                 createdAtMillis = goal.createdAtMillis,
                 summary = goal.summary,
                 actionSteps = goal.actionSteps,
-                monitoringPlan = goal.monitoringPlan,
                 features = goal.features.map(PlannerGoalFeatureRequest::fromDomain)
             )
         }

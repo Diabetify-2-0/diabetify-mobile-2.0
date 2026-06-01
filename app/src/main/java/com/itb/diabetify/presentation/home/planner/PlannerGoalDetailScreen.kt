@@ -39,11 +39,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import com.itb.diabetify.R
 import com.itb.diabetify.domain.model.planner.PlannerCheckInEntry
 import com.itb.diabetify.domain.model.planner.PlannerGoal
 import com.itb.diabetify.domain.model.planner.PlannerGoalFeature
-import com.itb.diabetify.domain.model.planner.PlannerGoalStatus
 import com.itb.diabetify.presentation.common.CustomizableButton
 import com.itb.diabetify.presentation.common.PrimaryButton
 import com.itb.diabetify.presentation.home.HomeViewModel
@@ -63,17 +63,25 @@ fun PlannerGoalDetailScreen(
     goalId: String? = null
 ) {
     val activeGoal by viewModel.activePlannerGoal
-    val goalHistory by viewModel.plannerGoalHistory
     val latestRisk by viewModel.latestPredictionScore
     val activeCheckInHistory by viewModel.plannerCheckInHistory
     val allCheckInHistory by viewModel.allPlannerCheckInHistory
     val scrollState = rememberScrollState()
-    val goal = goalId
-        ?.let { id -> goalHistory.firstOrNull { it.id == id } }
-        ?: activeGoal
+    val goal = activeGoal?.takeIf { goalId.isNullOrBlank() || it.id == goalId }
     val checkInHistory = goalId
         ?.let { id -> allCheckInHistory.filter { it.goalId == id }.sortedByDescending { it.createdAtMillis } }
         ?: activeCheckInHistory
+    val navigateBackToHome: () -> Unit = {
+        if (!navController.popBackStack(Route.HomeScreen.route, inclusive = false)) {
+            navController.navigate(Route.HomeScreen.route) {
+                popUpTo(navController.graph.findStartDestination().id) {
+                    saveState = true
+                }
+                launchSingleTop = true
+                restoreState = true
+            }
+        }
+    }
 
     LaunchedEffect(goalId) {
         if (!goalId.isNullOrBlank()) {
@@ -87,7 +95,7 @@ fun PlannerGoalDetailScreen(
             .background(Color.White)
     ) {
         PlannerGoalHeader(
-            onBack = { navController.popBackStack() }
+            onBack = navigateBackToHome
         )
 
         if (goal == null) {
@@ -103,7 +111,8 @@ fun PlannerGoalDetailScreen(
         val featureProgress = safeGoal.features.map { feature ->
             buildFeatureProgress(
                 feature = feature,
-                currentValue = currentFeatureValue(feature.featureName, viewModel)
+                currentValue = currentFeatureValue(feature.featureName, viewModel),
+                heightCm = viewModel.height.value
             )
         }
         val completionState = buildGoalCompletionState(
@@ -116,7 +125,8 @@ fun PlannerGoalDetailScreen(
             buildWeeklyMilestone(
                 feature = feature,
                 currentValue = currentFeatureValue(feature.featureName, viewModel),
-                currentWeek = currentMilestoneWeek
+                currentWeek = currentMilestoneWeek,
+                heightCm = viewModel.height.value
             )
         }
         val adaptiveRecommendation = if (completionState.isCompleted) {
@@ -138,9 +148,6 @@ fun PlannerGoalDetailScreen(
                 .verticalScroll(scrollState)
                 .padding(horizontal = 16.dp)
         ) {
-            GoalHeroCard(goal = safeGoal)
-            Spacer(modifier = Modifier.height(16.dp))
-
             RiskProgressCard(
                 goal = safeGoal,
                 latestRisk = latestRisk.takeIf { it > 0.0 }
@@ -205,13 +212,6 @@ fun PlannerGoalDetailScreen(
             )
             Spacer(modifier = Modifier.height(16.dp))
 
-            GoalListSection(
-                title = "Monitoring",
-                emptyText = "Rencana monitoring belum tersedia dari planner.",
-                items = safeGoal.monitoringPlan
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-
             PrimaryButton(
                 text = if (completionState.isCompleted) "Buat Rencana Baru" else "Perbarui Data Kesehatan",
                 onClick = {
@@ -228,15 +228,13 @@ fun PlannerGoalDetailScreen(
             Spacer(modifier = Modifier.height(12.dp))
 
             CustomizableButton(
-                text = if (completionState.isCompleted) "Tutup Rekap Goal" else "Arsipkan Goal",
+                text = if (completionState.isCompleted) "Tutup Goal" else "Hapus Goal",
                 onClick = {
-                    if (!completionState.isCompleted) {
-                        viewModel.clearActivePlannerGoal()
-                    }
-                    navController.popBackStack()
+                    viewModel.clearActivePlannerGoal()
+                    navigateBackToHome()
                 },
-                backgroundColor = if (completionState.isCompleted) Color(0xFF64748B) else Color(0xFFEF4444),
-                backgroundColorSecondary = if (completionState.isCompleted) Color(0xFF475569) else Color(0xFFDC2626),
+                backgroundColor = Color(0xFFEF4444),
+                backgroundColorSecondary = Color(0xFFDC2626),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp)
@@ -671,8 +669,11 @@ private fun WeeklyCoachSection(
 }
 
 private data class PlannerFeatureProgress(
-    val feature: PlannerGoalFeature,
+    val label: String,
+    val baselineText: String,
     val currentText: String,
+    val targetText: String,
+    val actionText: String,
     val progressFraction: Float,
     val statusText: String,
     val isTargetReached: Boolean
@@ -835,7 +836,7 @@ private fun GoalHeroCard(goal: PlannerGoal) {
 
                 goal.summary?.takeIf { it.isNotBlank() }?.let { summary ->
                     Text(
-                        text = summary,
+                        text = sanitizePlannerText(summary),
                         fontFamily = poppinsFontFamily,
                         fontSize = 13.sp,
                         lineHeight = 20.sp,
@@ -886,26 +887,6 @@ private fun RiskProgressCard(
 
             HorizontalDivider(color = Color(0xFFE5E7EB))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.Info,
-                    contentDescription = null,
-                    tint = Color(0xFF2563EB),
-                    modifier = Modifier.size(18.dp)
-                )
-                Text(
-                    text = "Risiko terbaru: ${formatRisk(latestRisk)}. Nilai ini akan berubah setelah data profil/aktivitas diperbarui dan prediksi baru tersedia.",
-                    fontFamily = poppinsFontFamily,
-                    fontSize = 12.sp,
-                    lineHeight = 18.sp,
-                    color = Color(0xFF4B5563),
-                    modifier = Modifier.weight(1f)
-                )
-            }
         }
     }
 }
@@ -946,7 +927,6 @@ private fun RiskMetricPanel(
 
 @Composable
 private fun GoalFeatureProgressRow(progress: PlannerFeatureProgress) {
-    val feature = progress.feature
     val statusColor = if (progress.isTargetReached) Color(0xFF059669) else Color(0xFF2563EB)
 
     Column(
@@ -963,7 +943,7 @@ private fun GoalFeatureProgressRow(progress: PlannerFeatureProgress) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = feature.label,
+            text = progress.label,
                 fontFamily = poppinsFontFamily,
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 13.sp,
@@ -985,7 +965,7 @@ private fun GoalFeatureProgressRow(progress: PlannerFeatureProgress) {
             FeatureValuePanel(
                 modifier = Modifier.weight(1f),
                 label = "Awal",
-                value = feature.baselineText
+                value = progress.baselineText
             )
             FeatureValuePanel(
                 modifier = Modifier.weight(1f),
@@ -995,7 +975,7 @@ private fun GoalFeatureProgressRow(progress: PlannerFeatureProgress) {
             FeatureValuePanel(
                 modifier = Modifier.weight(1f),
                 label = "Target",
-                value = feature.targetText
+                value = progress.targetText
             )
         }
 
@@ -1014,7 +994,7 @@ private fun GoalFeatureProgressRow(progress: PlannerFeatureProgress) {
         )
 
         Text(
-            text = feature.actionLabel,
+            text = progress.actionText,
             fontFamily = poppinsFontFamily,
             fontSize = 12.sp,
             lineHeight = 18.sp,
@@ -1097,7 +1077,7 @@ private fun GoalListSection(
                 items.forEachIndexed { index, item ->
                     GoalListItem(
                         number = index + 1,
-                        text = item
+                        text = sanitizePlannerText(item)
                     )
                     if (index != items.lastIndex) {
                         HorizontalDivider(color = Color(0xFFE5E7EB))
@@ -1157,13 +1137,12 @@ private fun buildGoalCompletionState(
         latestRisk <= goal.targetRiskPercentage + COMPLETION_RISK_BUFFER_PERCENTAGE
     val featureTargetsReached = featureProgress.isNotEmpty() &&
         featureProgress.all { it.isTargetReached }
-    val isCompleted = goal.status == PlannerGoalStatus.COMPLETED
-    val isEligible = !isCompleted && (riskReached || featureTargetsReached)
+    val isEligible = riskReached || featureTargetsReached
 
     val reason = when {
         riskReached -> "Risiko terbaru sudah berada di sekitar target planner (${formatRisk(latestRisk)} dari target <${goal.targetRiskPercentage}%)."
         featureTargetsReached -> "Semua faktor yang dipilih sudah mencapai target perubahan pada rencana ini."
-        else -> "Goal ini sudah ditandai selesai dan bisa digunakan sebagai rekap rencana."
+        else -> "Goal masih berjalan dan belum memenuhi target penutupan."
     }
     val completedFeatureCount = featureProgress.count { it.isTargetReached }
     val highlights = buildList {
@@ -1177,18 +1156,10 @@ private fun buildGoalCompletionState(
     }
 
     return GoalCompletionState(
-        isCompleted = isCompleted,
+        isCompleted = false,
         isEligible = isEligible,
-        title = if (isCompleted) {
-            "Goal ini sudah selesai"
-        } else {
-            "Progres sudah cukup untuk menutup goal"
-        },
-        message = if (isCompleted) {
-            "Planner menyimpan rekap goal ini agar Anda tetap bisa melihat perjalanan, target, dan check-in yang sudah tercatat."
-        } else {
-            "Anda bisa menandai goal ini selesai. Setelah selesai, planner tidak lagi menampilkan check-in rutin untuk goal ini."
-        },
+        title = "Progres sudah cukup untuk menutup goal",
+        message = "Anda bisa menandai goal ini selesai. Setelah dikonfirmasi, goal akan dihapus dari planner aktif.",
         highlights = highlights.distinct().take(3)
     )
 }
@@ -1202,12 +1173,13 @@ private fun currentMilestoneWeek(createdAtMillis: Long): Int {
 private fun buildWeeklyMilestone(
     feature: PlannerGoalFeature,
     currentValue: Double?,
-    currentWeek: Int
+    currentWeek: Int,
+    heightCm: Int
 ): PlannerWeeklyMilestone? {
     val baseline = feature.baselineValue ?: return null
     val target = feature.targetValue ?: return null
-    val currentText = formatFeatureValue(feature.featureName, currentValue)
-    val finalTargetText = feature.targetText
+    val currentText = formatFeatureValue(feature.featureName, currentValue, heightCm)
+    val finalTargetText = formatFeatureValue(feature.featureName, target, heightCm)
 
     if (isCategoricalFeature(feature.featureName)) {
         val reached = isTargetReached(
@@ -1217,7 +1189,7 @@ private fun buildWeeklyMilestone(
             current = currentValue
         )
         return PlannerWeeklyMilestone(
-            label = feature.label,
+            label = displayFeatureLabel(feature),
             currentText = currentText,
             expectedText = if (currentWeek >= MILESTONE_TOTAL_WEEKS) finalTargetText else "Pantau",
             finalTargetText = finalTargetText,
@@ -1259,9 +1231,9 @@ private fun buildWeeklyMilestone(
     }
 
     return PlannerWeeklyMilestone(
-        label = feature.label,
+        label = displayFeatureLabel(feature),
         currentText = currentText,
-        expectedText = formatFeatureValue(feature.featureName, expectedValue),
+        expectedText = formatFeatureValue(feature.featureName, expectedValue, heightCm),
         finalTargetText = finalTargetText,
         progressFraction = if (reached) 1f else progressFraction,
         statusText = statusText,
@@ -1289,8 +1261,8 @@ private fun buildAdaptiveRecommendation(
         actions += "Untuk aktivitas, mulai dari target kecil yang konsisten sebelum mengejar frekuensi akhir."
     }
 
-    if (behindMilestones.any { it.label.contains("Massa Tubuh", ignoreCase = true) }) {
-        actions += "Untuk BMI, gunakan update berat mingguan agar progres tidak bias oleh fluktuasi harian."
+    if (behindMilestones.any { it.label.contains("Berat Badan", ignoreCase = true) }) {
+        actions += "Untuk berat badan, gunakan update berat mingguan agar progres tidak bias oleh fluktuasi harian."
     }
 
     return AdaptivePlannerRecommendation(
@@ -1307,22 +1279,6 @@ private fun buildWeeklyCoachNote(
     latestRisk: Double?,
     adaptiveRecommendation: AdaptivePlannerRecommendation?
 ): WeeklyCoachNote {
-    if (goal.status == PlannerGoalStatus.COMPLETED) {
-        val suggestions = buildList {
-            add("Gunakan rekap ini sebagai baseline kebiasaan yang perlu dipertahankan.")
-            if (history.isNotEmpty()) {
-                add("Review ${history.size} check-in yang sudah tercatat untuk melihat pola yang paling membantu.")
-            }
-            add("Jika kondisi kesehatan berubah, buat rencana baru dari counterfactual terbaru.")
-        }
-        return WeeklyCoachNote(
-            headline = "Goal sudah ditutup sebagai capaian planner",
-            message = "Planner tidak lagi meminta check-in rutin untuk goal ini. Fokus berikutnya adalah mempertahankan perubahan dan membuat rencana baru bila data terbaru menunjukkan kebutuhan berbeda.",
-            suggestions = suggestions.take(3),
-            disclaimer = "Rekap ini bersifat pendamping perilaku dan bukan pengganti evaluasi tenaga kesehatan."
-        )
-    }
-
     val achievedCount = milestones.count { it.status == MilestoneStatus.ACHIEVED }
     val behindMilestones = milestones.filter { it.status == MilestoneStatus.BEHIND }
     val onTrackMilestones = milestones.filter { it.status == MilestoneStatus.ON_TRACK }
@@ -1342,7 +1298,7 @@ private fun buildWeeklyCoachNote(
         adaptiveRecommendation != null -> "Ada milestone yang tertinggal dari lintasan minggu ini. Validasi data terbaru lebih dulu, lalu pertimbangkan membuat ulang rencana jika pola ini berulang."
         recentCheckIn == null -> "Goal sudah tersimpan, tetapi planner belum memiliki catatan check-in. Satu check-in sederhana sudah cukup untuk mulai membangun timeline progres."
         latestRisk != null -> "Risiko terbaru Anda tercatat ${formatRisk(latestRisk)}. Gunakan angka ini sebagai arah umum, lalu lihat perubahan faktor untuk mengetahui tindakan yang paling berdampak."
-        else -> goal.summary?.takeIf { it.isNotBlank() }
+        else -> goal.summary?.takeIf { it.isNotBlank() }?.let(::sanitizePlannerText)
             ?: "Planner akan lebih berguna setelah Anda melakukan check-in dan prediksi terbaru tersedia."
     }
 
@@ -1370,7 +1326,8 @@ private fun buildWeeklyCoachNote(
 
 private fun buildFeatureProgress(
     feature: PlannerGoalFeature,
-    currentValue: Double?
+    currentValue: Double?,
+    heightCm: Int
 ): PlannerFeatureProgress {
     val baseline = feature.baselineValue
     val target = feature.targetValue
@@ -1388,8 +1345,11 @@ private fun buildFeatureProgress(
     val progressPercentage = (progressFraction * 100).roundToInt()
 
     return PlannerFeatureProgress(
-        feature = feature,
-        currentText = formatFeatureValue(feature.featureName, currentValue),
+        label = displayFeatureLabel(feature),
+        baselineText = formatFeatureValue(feature.featureName, baseline, heightCm),
+        currentText = formatFeatureValue(feature.featureName, currentValue, heightCm),
+        targetText = formatFeatureValue(feature.featureName, target, heightCm),
+        actionText = displayFeatureActionText(feature, heightCm),
         progressFraction = if (isReached) 1f else progressFraction,
         statusText = when {
             isReached -> "Target tercapai"
@@ -1429,7 +1389,6 @@ private fun isTargetReached(
 
     return when (featureName) {
         "smoking_status",
-        "brinkman_index",
         "is_hypertension",
         "is_cholesterol",
         "is_bloodline",
@@ -1465,7 +1424,6 @@ private fun currentFeatureValue(
         "BMI" -> viewModel.bmi.value.takeIf { it > 0.0 }
         "moderate_physical_activity_frequency" -> viewModel.physicalActivityAverage.value.toDouble()
         "smoking_status" -> viewModel.smokingStatus.value.toDoubleOrNull()
-        "brinkman_index" -> viewModel.brinkmanScore.value.toDouble()
         "is_hypertension" -> if (viewModel.isHypertension.value) 1.0 else 0.0
         "is_cholesterol" -> if (viewModel.isCholesterol.value) 1.0 else 0.0
         "is_bloodline" -> if (viewModel.isBloodline.value) 1.0 else 0.0
@@ -1476,12 +1434,50 @@ private fun currentFeatureValue(
 }
 
 private fun formatFeatureValue(name: String, value: Double?): String {
+    return formatFeatureValue(name, value, 0)
+}
+
+private fun displayFeatureLabel(feature: PlannerGoalFeature): String {
+    return if (feature.featureName == "BMI") {
+        "Berat Badan"
+    } else {
+        sanitizePlannerText(feature.label)
+    }
+}
+
+private fun displayFeatureActionText(
+    feature: PlannerGoalFeature,
+    heightCm: Int
+): String {
+    if (feature.featureName != "BMI") {
+        return sanitizePlannerText(feature.actionLabel)
+    }
+
+    val baselineWeight = feature.baselineValue?.let { bmiToWeight(it, heightCm) }
+    val targetWeight = feature.targetValue?.let { bmiToWeight(it, heightCm) }
+    if (baselineWeight == null || targetWeight == null) {
+        return "Pantau perubahan berat badan secara bertahap sesuai target planner."
+    }
+
+    val delta = targetWeight - baselineWeight
+    return if (delta < 0) {
+        "Turunkan berat sekitar ${String.format("%.1f", kotlin.math.abs(delta))} kg dari baseline."
+    } else {
+        "Naikkan berat sekitar ${String.format("%.1f", delta)} kg dari baseline."
+    }
+}
+
+private fun formatFeatureValue(
+    name: String,
+    value: Double?,
+    heightCm: Int
+): String {
     if (value == null) {
         return "-"
     }
 
     return when (name) {
-        "BMI" -> String.format("%.2f kg/m2", value)
+        "BMI" -> bmiToWeightText(value, heightCm)
         "age" -> "${value.toInt()} tahun"
         "moderate_physical_activity_frequency" -> "${value.toInt()} hari/minggu"
         "smoking_status" -> when (value.toInt()) {
@@ -1506,6 +1502,25 @@ private fun formatFeatureValue(name: String, value: Double?): String {
         }
         else -> String.format("%.2f", value)
     }
+}
+
+private fun bmiToWeightText(bmi: Double, heightCm: Int): String {
+    val weight = bmiToWeight(bmi, heightCm) ?: return "-"
+    return "${String.format("%.1f", weight)} kg"
+}
+
+private fun bmiToWeight(bmi: Double, heightCm: Int): Double? {
+    val heightMeters = heightCm / 100.0
+    if (heightMeters <= 0.0) {
+        return null
+    }
+    return bmi * heightMeters * heightMeters
+}
+
+private fun sanitizePlannerText(text: String): String {
+    return text
+        .replace(Regex("\\bBMI\\b", RegexOption.IGNORE_CASE), "berat badan")
+        .replace(Regex("\\bIMT\\b", RegexOption.IGNORE_CASE), "berat badan")
 }
 
 private fun formatCreatedDate(timestamp: Long): String {

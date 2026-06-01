@@ -58,13 +58,6 @@ val questions = listOf(
         )
     ),
     DataInputQuestion(
-        id = "cigarette",
-        category = "Kebiasaan Merokok",
-        questionText = "Berapa batang rokok yang Anda konsumsi hari ini?",
-        questionType = DataInputQuestionType.Numeric,
-        numericUnit = "batang"
-    ),
-    DataInputQuestion(
         id = "activity",
         category = "Aktivitas Fisik",
         questionText = "Apakah Anda melakukan aktivitas fisik hari ini?",

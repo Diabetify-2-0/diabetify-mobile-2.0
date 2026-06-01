@@ -13,15 +13,6 @@ data class PlannerGoalResponse(
     val status: String?
 )
 
-data class PlannerGoalHistoryResponse(
-    @SerializedName("data")
-    val data: List<PlannerGoalRequest>?,
-    @SerializedName("message")
-    val message: String?,
-    @SerializedName("status")
-    val status: String?
-)
-
 data class PlannerCheckInHistoryResponse(
     @SerializedName("data")
     val data: List<PlannerCheckInRequest>?,

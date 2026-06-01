@@ -53,6 +53,7 @@ import com.itb.diabetify.presentation.common.PrimaryButton
 import com.itb.diabetify.presentation.common.SecondaryButton
 import com.itb.diabetify.presentation.common.SuccessNotification
 import com.itb.diabetify.presentation.navgraph.Route
+import com.itb.diabetify.presentation.settings.HealthProfileSaveSection
 import com.itb.diabetify.presentation.settings.HealthProfileUiState
 import com.itb.diabetify.presentation.settings.SettingsViewModel
 import com.itb.diabetify.ui.theme.poppinsFontFamily
@@ -60,7 +61,8 @@ import com.itb.diabetify.ui.theme.poppinsFontFamily
 @Composable
 fun HealthProfileScreen(
     navController: NavController,
-    viewModel: SettingsViewModel
+    viewModel: SettingsViewModel,
+    onBack: (() -> Unit)? = null
 ) {
     val healthProfile by viewModel.healthProfile
     val isLoading = viewModel.profileState.value.isLoading
@@ -98,7 +100,9 @@ fun HealthProfileScreen(
                 IconButton(
                     modifier = Modifier.align(Alignment.CenterStart),
                     onClick = {
-                        if (!navController.popBackStack(Route.SettingsScreen.route, inclusive = false)) {
+                        if (onBack != null) {
+                            onBack()
+                        } else if (!navController.popBackStack(Route.SettingsScreen.route, inclusive = false)) {
                             navController.navigate(Route.SettingsScreen.route) {
                                 launchSingleTop = true
                             }
@@ -152,7 +156,7 @@ fun HealthProfileScreen(
                             heightError = heightField.error,
                             onEditClick = { editingSection = HealthProfileSection.Body },
                             onSave = {
-                                viewModel.saveHealthProfile {
+                                viewModel.saveHealthProfile(HealthProfileSaveSection.BODY) {
                                     editingSection = null
                                 }
                             },
@@ -185,7 +189,7 @@ fun HealthProfileScreen(
                             macrosomicError = macrosomicField.error,
                             onEditClick = { editingSection = HealthProfileSection.Clinical },
                             onSave = {
-                                viewModel.saveHealthProfile {
+                                viewModel.saveHealthProfile(HealthProfileSaveSection.CLINICAL) {
                                     editingSection = null
                                 }
                             },
@@ -211,7 +215,7 @@ fun HealthProfileScreen(
                             smokingBaselineError = smokingBaselineField.error,
                             onEditClick = { editingSection = HealthProfileSection.Smoking },
                             onSave = {
-                                viewModel.saveHealthProfile {
+                                viewModel.saveHealthProfile(HealthProfileSaveSection.SMOKING) {
                                     editingSection = null
                                 }
                             },

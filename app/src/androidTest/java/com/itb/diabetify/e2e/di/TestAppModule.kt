@@ -24,6 +24,7 @@ import com.itb.diabetify.data.repository.CounterfactualRepositoryImpl
 import com.itb.diabetify.data.repository.PredictionRepositoryImpl
 import com.itb.diabetify.data.repository.ProfileRepositoryImpl
 import com.itb.diabetify.data.repository.UserRepositoryImpl
+import com.itb.diabetify.di.ApplicationScope
 import com.itb.diabetify.domain.manager.ActivityManager
 import com.itb.diabetify.domain.manager.ConnectivityManager
 import com.itb.diabetify.domain.manager.CounterfactualJobManager
@@ -94,6 +95,9 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
@@ -102,6 +106,13 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object TestAppModule {
+    @Provides
+    @Singleton
+    @ApplicationScope
+    fun providesApplicationScope(): CoroutineScope {
+        return CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    }
+
     @Provides
     @Singleton
     fun providesLocalUserManager(
@@ -311,6 +322,7 @@ object TestAppModule {
     @Singleton
     fun providesPredictionUseCases(
         repository: PredictionRepository,
+        @ApplicationScope applicationScope: CoroutineScope,
     ): PredictionUseCases {
         return PredictionUseCases(
             getLatestPredictionRepository = GetLatestPredictionRepositoryUseCase(repository),
@@ -319,7 +331,7 @@ object TestAppModule {
             getPredictionScoreByDate = GetPredictionScoreByDateUseCase(repository),
             predict = PredictUseCase(repository),
             predictAsync = PredictAsyncUseCase(repository),
-            predictBackground = PredictBackgroundUseCase(repository),
+            predictBackground = PredictBackgroundUseCase(repository, applicationScope),
             explainPrediction = ExplainPredictionUseCase(repository)
         )
     }

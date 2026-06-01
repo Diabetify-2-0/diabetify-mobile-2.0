@@ -6,7 +6,11 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.itb.diabetify.domain.model.planner.PlannerCheckInEntry
+import com.itb.diabetify.domain.model.planner.PlannerGoal
+import com.itb.diabetify.domain.model.planner.PlannerGoalStatus
 import com.itb.diabetify.domain.usecases.auth.AuthUseCases
+import com.itb.diabetify.domain.usecases.planner.PlannerGoalUseCases
 import com.itb.diabetify.domain.usecases.prediction.PredictionUseCases
 import com.itb.diabetify.domain.usecases.profile.ProfileUseCases
 import com.itb.diabetify.domain.usecases.user.UserUseCases
@@ -30,7 +34,8 @@ class SettingsViewModel @Inject constructor(
     private val authUseCases: AuthUseCases,
     private val notificationUseCases: NotificationUseCases,
     private val profileUseCases: ProfileUseCases,
-    private val predictionUseCases: PredictionUseCases
+    private val predictionUseCases: PredictionUseCases,
+    private val plannerGoalUseCases: PlannerGoalUseCases
 ): ViewModel() {
     // Navigation, Error, and Success States
     private val _navigationEvent = mutableStateOf<String?>(null)
@@ -123,9 +128,13 @@ class SettingsViewModel @Inject constructor(
     private val _healthSmokingBaselineFieldState = mutableStateOf(FieldState())
     val healthSmokingBaselineFieldState: State<FieldState> = _healthSmokingBaselineFieldState
 
+    private val _activePlannerGoal = mutableStateOf<PlannerGoal?>(null)
+    private var savedDobDisplay: String = ""
+
     // Initialization
     init {
         collectUserData()
+        collectActivePlannerGoal()
         loadNotificationPreferences()
         loadProfileData()
     }
@@ -410,6 +419,7 @@ class SettingsViewModel @Inject constructor(
                         text = it.dob,
                         error = null
                     )
+                    savedDobDisplay = it.dob
                 }
             }.launchIn(viewModelScope)
         }
@@ -502,6 +512,8 @@ class SettingsViewModel @Inject constructor(
 
             val gender = genderFieldState.value.text
             val genderFormatted = if (gender == "Laki-laki") { "male" } else { "female" }
+            val previousAge = ageFromDisplayDob(savedDobDisplay)
+            val updatedAge = ageFromDisplayDob(dobFieldState.value.text)
 
             val editUserResult = userUseCases.editUser(
                 name = nameFieldState.value.text,
@@ -530,6 +542,9 @@ class SettingsViewModel @Inject constructor(
 
             when (editUserResult.result) {
                 is Resource.Success -> {
+                    if (previousAge != null && updatedAge != null && previousAge != updatedAge) {
+                        triggerPredictionUpdate()
+                    }
                     _successMessage.value = "Profil berhasil diperbarui"
                     Log.d("SettingsViewModel", "Profile updated successfully")
                 }
@@ -565,7 +580,10 @@ class SettingsViewModel @Inject constructor(
     }
 
     private fun currentUserAge(): Int? {
-        val dob = dobFieldState.value.text
+        return ageFromDisplayDob(dobFieldState.value.text)
+    }
+
+    private fun ageFromDisplayDob(dob: String): Int? {
         if (dob.isBlank()) return null
 
         return try {
@@ -588,42 +606,53 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    fun saveHealthProfile(onSuccess: (() -> Unit)? = null) {
+    fun saveHealthProfile(
+        section: HealthProfileSaveSection,
+        onSuccess: (() -> Unit)? = null
+    ) {
         if (!validateHealthProfileFields()) {
             return
         }
 
         viewModelScope.launch {
             _updateHealthProfileState.value = updateHealthProfileState.value.copy(isLoading = true)
+            val updatedWeight = healthWeightFieldState.value.text.toInt()
+            val updatedHeight = healthHeightFieldState.value.text.toInt()
+            val updatedHypertension = healthHypertensionFieldState.value.text == "Ya"
+            val updatedCholesterol = healthCholesterolFieldState.value.text == "Ya"
+            val updatedSmoking = when (healthSmokingStatusFieldState.value.text) {
+                "Tidak Pernah" -> 0
+                "Sudah Berhenti" -> 1
+                else -> 2
+            }
+            val updatedAgeOfSmoking = when (healthSmokingStatusFieldState.value.text) {
+                "Tidak Pernah" -> 0
+                else -> healthSmokingStartAgeFieldState.value.text.toInt()
+            }
+            val updatedAgeOfStopSmoking = when (healthSmokingStatusFieldState.value.text) {
+                "Sudah Berhenti" -> healthSmokingStopAgeFieldState.value.text.toInt()
+                else -> 0
+            }
+            val updatedSmokeCount = when (healthSmokingStatusFieldState.value.text) {
+                "Masih Merokok" -> healthSmokingBaselineFieldState.value.text.toInt()
+                else -> 0
+            }
 
             val updateProfileResult = profileUseCases.updateProfile(
-                weight = healthWeightFieldState.value.text.toInt(),
-                height = healthHeightFieldState.value.text.toInt(),
-                hypertension = healthHypertensionFieldState.value.text == "Ya",
+                weight = updatedWeight,
+                height = updatedHeight,
+                hypertension = updatedHypertension,
                 macrosomicBaby = when (healthMacrosomicFieldState.value.text) {
                     "Tidak" -> 0
                     "Pernah" -> 1
                     else -> 2
                 },
                 bloodline = healthBloodlineFieldState.value.text == "Ya",
-                cholesterol = healthCholesterolFieldState.value.text == "Ya",
-                smoking = when (healthSmokingStatusFieldState.value.text) {
-                    "Tidak Pernah" -> 0
-                    "Sudah Berhenti" -> 1
-                    else -> 2
-                },
-                ageOfSmoking = when (healthSmokingStatusFieldState.value.text) {
-                    "Tidak Pernah" -> 0
-                    else -> healthSmokingStartAgeFieldState.value.text.toInt()
-                },
-                ageOfStopSmoking = when (healthSmokingStatusFieldState.value.text) {
-                    "Sudah Berhenti" -> healthSmokingStopAgeFieldState.value.text.toInt()
-                    else -> 0
-                },
-                smokeCount = when (healthSmokingStatusFieldState.value.text) {
-                    "Masih Merokok" -> healthSmokingBaselineFieldState.value.text.toInt()
-                    else -> 0
-                }
+                cholesterol = updatedCholesterol,
+                smoking = updatedSmoking,
+                ageOfSmoking = updatedAgeOfSmoking,
+                ageOfStopSmoking = updatedAgeOfStopSmoking,
+                smokeCount = updatedSmokeCount
             )
 
             _updateHealthProfileState.value = updateHealthProfileState.value.copy(isLoading = false)
@@ -659,7 +688,13 @@ class SettingsViewModel @Inject constructor(
             when (updateProfileResult.result) {
                 is Resource.Success -> {
                     triggerPredictionUpdate()
-                    _successMessage.value = "Profil kesehatan berhasil diperbarui. Prediksi akan menyesuaikan dalam beberapa saat."
+                    markHealthProfilePlannerCheckIns(
+                        section = section,
+                        updatedWeight = updatedWeight,
+                        updatedHypertension = updatedHypertension,
+                        updatedCholesterol = updatedCholesterol
+                    )
+                    _successMessage.value = "Profil kesehatan berhasil diperbaharui"
                     _isEditingHealthProfile.value = false
                     onSuccess?.invoke()
                 }
@@ -676,9 +711,79 @@ class SettingsViewModel @Inject constructor(
     }
 
     private fun triggerPredictionUpdate() {
-        viewModelScope.launch {
-            predictionUseCases.predictBackground(viewModelScope, pollingIntervalMs = 5000L)
+        predictionUseCases.predictBackground(pollingIntervalMs = 5000L)
+    }
+
+    private fun collectActivePlannerGoal() {
+        plannerGoalUseCases.getActivePlannerGoal()
+            .onEach { goal ->
+                _activePlannerGoal.value = goal
+            }
+            .launchIn(viewModelScope)
+    }
+
+    private suspend fun markHealthProfilePlannerCheckIns(
+        section: HealthProfileSaveSection,
+        updatedWeight: Int,
+        updatedHypertension: Boolean,
+        updatedCholesterol: Boolean
+    ) {
+        val goal = _activePlannerGoal.value
+            ?.takeIf { it.status == PlannerGoalStatus.ACTIVE }
+            ?: return
+        val featureNames = goal.features.map { it.featureName }.toSet()
+
+        if (section == HealthProfileSaveSection.BODY && "BMI" in featureNames) {
+            recordPlannerCheckIn(
+                goal = goal,
+                checkInType = CHECK_IN_WEIGHT,
+                label = "Berat",
+                valueText = "$updatedWeight kg",
+                note = "Data berat diperbarui dari profil kesehatan untuk memantau progres target berat badan."
+            )
         }
+
+        if (section == HealthProfileSaveSection.CLINICAL && "is_hypertension" in featureNames) {
+            recordPlannerCheckIn(
+                goal = goal,
+                checkInType = CHECK_IN_HYPERTENSION,
+                label = "Hipertensi",
+                valueText = if (updatedHypertension) "Ya" else "Tidak",
+                note = "Status hipertensi diperbarui dari profil kesehatan."
+            )
+        }
+
+        if (section == HealthProfileSaveSection.CLINICAL && "is_cholesterol" in featureNames) {
+            recordPlannerCheckIn(
+                goal = goal,
+                checkInType = CHECK_IN_CHOLESTEROL,
+                label = "Kolesterol",
+                valueText = if (updatedCholesterol) "Ya" else "Tidak",
+                note = "Status kolesterol diperbarui dari profil kesehatan."
+            )
+        }
+    }
+
+    private suspend fun recordPlannerCheckIn(
+        goal: PlannerGoal,
+        checkInType: String,
+        label: String,
+        valueText: String,
+        note: String
+    ) {
+        val timestampMillis = System.currentTimeMillis()
+        plannerGoalUseCases.markPlannerCheckIn(goal.id, checkInType)
+        plannerGoalUseCases.recordPlannerCheckIn(
+            PlannerCheckInEntry(
+                id = "${goal.id}-$checkInType-$timestampMillis",
+                goalId = goal.id,
+                type = checkInType,
+                label = label,
+                valueText = valueText,
+                note = note,
+                createdAtMillis = timestampMillis
+            )
+        )
     }
 
     fun determineHypertensionFromBloodPressure(): Boolean {
@@ -746,6 +851,18 @@ class SettingsViewModel @Inject constructor(
     fun onSuccessShown() {
         _successMessage.value = null
     }
+
+    private companion object {
+        const val CHECK_IN_WEIGHT = "weight"
+        const val CHECK_IN_HYPERTENSION = "hypertension"
+        const val CHECK_IN_CHOLESTEROL = "cholesterol"
+    }
+}
+
+enum class HealthProfileSaveSection {
+    BODY,
+    CLINICAL,
+    SMOKING
 }
 
 data class HealthProfileUiState(

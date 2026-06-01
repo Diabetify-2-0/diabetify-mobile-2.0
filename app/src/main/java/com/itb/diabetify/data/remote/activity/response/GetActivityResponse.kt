@@ -12,8 +12,6 @@ data class GetActivityResponse (
 )
 
 data class ActivityType(
-    @SerializedName("smoke")
-    val smoke: List<ActivityData>,
     @SerializedName("workout")
     val workout: List<ActivityData>
 )

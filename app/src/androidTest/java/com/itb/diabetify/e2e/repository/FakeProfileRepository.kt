@@ -36,6 +36,7 @@ class FakeProfileRepository @Inject constructor() : ProfileRepository {
                 height = 180,
                 bmi = 24.7,
                 smoking = 0,
+                smokeCount = 0,
                 ageOfSmoking = 15,
                 ageOfStopSmoking = 16,
                 macrosomicBaby = 0

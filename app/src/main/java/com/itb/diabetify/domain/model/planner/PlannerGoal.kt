@@ -11,7 +11,6 @@ data class PlannerGoal(
     val createdAtMillis: Long,
     val summary: String?,
     val actionSteps: List<String> = emptyList(),
-    val monitoringPlan: List<String> = emptyList(),
     val features: List<PlannerGoalFeature> = emptyList()
 )
 
@@ -26,7 +25,5 @@ data class PlannerGoalFeature(
 )
 
 enum class PlannerGoalStatus {
-    ACTIVE,
-    COMPLETED,
-    ARCHIVED
+    ACTIVE
 }
