@@ -6,19 +6,20 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -29,10 +30,10 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -42,17 +43,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.times
 import androidx.compose.ui.zIndex
 import androidx.navigation.NavController
-import androidx.compose.ui.text.input.KeyboardType
 import com.itb.diabetify.R
 import com.itb.diabetify.presentation.common.ErrorNotification
 import com.itb.diabetify.presentation.common.LoadingNotification
@@ -183,7 +186,7 @@ fun CounterfactualScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Text(
-                            text = "Data berikut adalah riwayat kesehatan dan kondisi bawaan Anda yang nilainya akan tetap sama dalam simulasi ini",
+                            text = "Data berikut adalah riwayat kesehatan dan kondisi bawaan Anda yang nilainya akan tetap sama dalam simulasi ini.",
                             fontFamily = poppinsFontFamily,
                             fontSize = 13.sp,
                             color = Color(0xFF6B7280),
@@ -218,7 +221,7 @@ fun CounterfactualScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Text(
-                            text = "Pilih kebiasaan atau kondisi kesehatan yang siap Anda perbaiki. Sistem akan merancang rencana yang paling realistis berdasarkan pilihan Anda",
+                            text = "Pilih kebiasaan atau kondisi kesehatan yang siap Anda perbaiki.",
                             fontFamily = poppinsFontFamily,
                             fontSize = 13.sp,
                             color = Color(0xFF6B7280),
@@ -235,65 +238,17 @@ fun CounterfactualScreen(
                     }
                 }
 
-                HomeCard(title = "Target Risiko Akhir") {
+                HomeCard(title = "Tentukan Target Risiko Anda") {
                     Column(
                         modifier = Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Text(
-                            text = "Tentukan batas risiko yang ingin dicapai. Planner akan mencari skenario realistis dengan risiko di bawah angka ini",
-                            fontFamily = poppinsFontFamily,
-                            fontSize = 13.sp,
-                            color = Color(0xFF6B7280),
-                            lineHeight = 19.sp
-                        )
-
-                        OutlinedTextField(
-                            value = riskTargetInput,
-                            onValueChange = viewModel::updateCounterfactualRiskTargetInput,
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(16.dp),
-                            singleLine = true,
-                            label = {
-                                Text(
-                                    text = "Target risiko akhir (%)",
-                                    fontFamily = poppinsFontFamily
-                                )
-                            },
-                            placeholder = {
-                                Text(
-                                    text = "Contoh: 45",
-                                    fontFamily = poppinsFontFamily,
-                                    color = Color(0xFF94A3B8)
-                                )
-                            },
-                            suffix = {
-                                Text(
-                                    text = "%",
-                                    fontFamily = poppinsFontFamily,
-                                    color = colorResource(id = R.color.primary)
-                                )
-                            },
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedTextColor = colorResource(id = R.color.primary),
-                                unfocusedTextColor = colorResource(id = R.color.primary),
-                                cursorColor = colorResource(id = R.color.primary),
-                                focusedBorderColor = colorResource(id = R.color.primary),
-                                unfocusedBorderColor = Color(0xFFE5E7EB),
-                                focusedLabelColor = colorResource(id = R.color.primary),
-                                unfocusedLabelColor = Color(0xFF6B7280),
-                                focusedContainerColor = Color.White,
-                                unfocusedContainerColor = Color.White
-                            ),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                        )
-
-                        Text(
-                            text = "Contoh: isi 45 berarti planner akan mencari skenario dengan risiko akhir di bawah 45% ",
-                            fontFamily = poppinsFontFamily,
-                            fontSize = 12.sp,
-                            color = Color(0xFF94A3B8),
-                            lineHeight = 18.sp
+                        RiskTargetThresholdSelector(
+                            currentRiskPercentage = latestRisk,
+                            targetInput = riskTargetInput,
+                            onTargetChange = { value ->
+                                viewModel.updateCounterfactualRiskTargetInput(value.toString())
+                            }
                         )
                     }
                 }
@@ -476,6 +431,242 @@ private fun RiskOverviewBanner(riskPercentage: Double) {
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun RiskTargetThresholdSelector(
+    currentRiskPercentage: Double,
+    targetInput: String,
+    onTargetChange: (Int) -> Unit
+) {
+    val targetPercentage = targetInput.toIntOrNull()?.coerceIn(1, 100) ?: 45
+    val targetCategory = riskCategoryText(targetPercentage.toDouble())
+    val targetColor = riskCategoryColor(targetPercentage.toDouble())
+
+    val isTargetBelowCurrent = targetPercentage < currentRiskPercentage
+
+    Column(
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy((-4).dp)
+            ) {
+                Text(
+                    text = "<$targetPercentage%",
+                    fontFamily = poppinsFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 34.sp,
+                    lineHeight = 36.sp,
+                    color = targetColor,
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    text = targetCategory,
+                    fontFamily = poppinsFontFamily,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 20.sp,
+                    lineHeight = 22.sp,
+                    color = targetColor,
+                    textAlign = TextAlign.Center
+                )
+            }
+
+            RiskTargetGradientSlider(
+                value = targetPercentage,
+                onValueChange = onTargetChange,
+                modifier = Modifier.offset(y = (-8).dp)
+            )
+
+            Text(
+                text = if (isTargetBelowCurrent) {
+                    "Pilihan yang sangat baik! Kami akan menyusun skenario realistis agar risiko Anda turun di bawah $targetPercentage%."
+                } else {
+                    "Target ini masih lebih tinggi dari risiko Anda saat ini. Geser terus ke kiri untuk merencanakan target kesehatan yang lebih baik"
+                },
+                fontFamily = poppinsFontFamily,
+                fontWeight = FontWeight.Medium,
+                fontSize = 11.sp,
+                color = if (isTargetBelowCurrent) Color(0xFF475569) else Color(0xFFB45309),
+                lineHeight = 18.sp,
+                textAlign = TextAlign.Justify
+            )
+        }
+    }
+}
+
+@Composable
+@OptIn(ExperimentalMaterial3Api::class)
+private fun RiskTargetGradientSlider(
+    value: Int,
+    onValueChange: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val thumbSize = 24.dp
+    val scaleLabelWidth = 42.dp
+    val scaleLabels = listOf(
+        RiskScaleMarker(value = 1, label = "1%", color = Color(0xFF8BC34A)),
+        RiskScaleMarker(value = 35, label = "35%", color = Color(0xFFFFC107)),
+        RiskScaleMarker(value = 55, label = "55%", color = Color(0xFFFA821F)),
+        RiskScaleMarker(value = 70, label = "70%", color = Color(0xFFF44336)),
+        RiskScaleMarker(value = 100, label = "100%", color = Color(0xFFF44336))
+    )
+
+    BoxWithConstraints(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(58.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        val travelWidth = maxWidth - thumbSize
+
+        Slider(
+            value = value.toFloat(),
+            onValueChange = { onValueChange(it.toInt().coerceIn(1, 100)) },
+            valueRange = 1f..100f,
+            steps = 98,
+            thumb = {
+                Box(
+                    modifier = Modifier
+                        .size(thumbSize)
+                        .background(colorResource(id = R.color.primary), CircleShape)
+                        .border(3.dp, Color.White, CircleShape)
+                )
+            },
+            track = {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(16.dp)
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(riskGradientBrush())
+                )
+            },
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        scaleLabels.forEach { marker ->
+            RiskTargetScaleLabel(
+                text = marker.label,
+                color = marker.color,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .width(scaleLabelWidth)
+                    .offset(
+                        x = riskScaleLabelOffset(
+                            travelWidth = travelWidth,
+                            value = marker.value,
+                            labelWidth = scaleLabelWidth,
+                            thumbSize = thumbSize,
+                            containerWidth = maxWidth
+                        ),
+                        y = 42.dp
+                    )
+            )
+        }
+    }
+}
+
+@Composable
+private fun RiskTargetScaleLabel(
+    text: String,
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    Text(
+        text = text,
+        fontFamily = poppinsFontFamily,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 10.sp,
+        color = color,
+        textAlign = TextAlign.Center,
+        modifier = modifier
+    )
+}
+
+private fun riskMarkerOffset(
+    travelWidth: Dp,
+    value: Int,
+    markerWidth: Dp,
+    thumbSize: Dp,
+    containerWidth: Dp
+): Dp {
+    return riskPositionOffset(
+        travelWidth = travelWidth,
+        value = value,
+        itemWidth = markerWidth,
+        thumbSize = thumbSize,
+        containerWidth = containerWidth
+    )
+}
+
+private fun riskScaleLabelOffset(
+    travelWidth: Dp,
+    value: Int,
+    labelWidth: Dp,
+    thumbSize: Dp,
+    containerWidth: Dp
+): Dp {
+    return riskPositionOffset(
+        travelWidth = travelWidth,
+        value = value,
+        itemWidth = labelWidth,
+        thumbSize = thumbSize,
+        containerWidth = containerWidth
+    )
+}
+
+private fun riskPositionOffset(
+    travelWidth: Dp,
+    value: Int,
+    itemWidth: Dp,
+    thumbSize: Dp,
+    containerWidth: Dp
+): Dp {
+    val positionFraction = ((value - 1) / 99f).coerceIn(0f, 1f)
+    val centerPosition = (thumbSize / 2) + (positionFraction * travelWidth)
+    return (centerPosition - (itemWidth / 2)).coerceIn(0.dp, containerWidth - itemWidth)
+}
+
+private data class RiskScaleMarker(
+    val value: Int,
+    val label: String,
+    val color: Color
+)
+
+private fun riskGradientBrush(): Brush {
+    return Brush.horizontalGradient(
+        colorStops = arrayOf(
+            0.0f to Color(0xFF8BC34A),
+            0.35f to Color(0xFFFFC107),
+            0.55f to Color(0xFFFA821F),
+            0.70f to Color(0xFFF44336),
+            1.0f to Color(0xFFF44336)
+        )
+    )
+}
+
+private fun riskCategoryText(riskPercentage: Double): String {
+    return when {
+        riskPercentage <= 35 -> "Rendah"
+        riskPercentage <= 55 -> "Sedang"
+        riskPercentage <= 70 -> "Tinggi"
+        else -> "Sangat tinggi"
+    }
+}
+
+private fun riskCategoryColor(riskPercentage: Double): Color {
+    return when {
+        riskPercentage <= 35 -> Color(0xFF0F9D58)
+        riskPercentage <= 55 -> Color(0xFFEA9A00)
+        riskPercentage <= 70 -> Color(0xFFFA821F)
+        else -> Color(0xFFE53935)
     }
 }
 
