@@ -29,6 +29,11 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -56,7 +61,8 @@ fun ChatbotScreen(
     navController: NavController,
     viewModel: ChatbotViewModel = hiltViewModel(),
 ) {
-    val messages = viewModel.messages
+    val messages = viewModel.messagesList
+    val streamTexts = viewModel.streamTexts
     val inputText by viewModel.inputText
     val isSending by viewModel.isSending
     val isLoadingHistory by viewModel.isLoadingHistory
@@ -65,7 +71,11 @@ fun ChatbotScreen(
     val errorMessage by viewModel.errorMessage
     val listState = rememberLazyListState()
 
-    LaunchedEffect(messages.size, isSending) {
+    val lastMessage = messages.lastOrNull()
+    val lastDisplayText = lastMessage?.let { message ->
+        if (message.isStreaming) streamTexts[message.id].orEmpty() else message.text
+    }
+    LaunchedEffect(messages.size, lastDisplayText, isSending) {
         if (messages.isNotEmpty()) {
             listState.animateScrollToItem(messages.lastIndex)
         }
@@ -142,10 +152,24 @@ fun ChatbotScreen(
                     state = listState,
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    items(messages, key = { it.id }) { message ->
-                        ChatBubble(message = message)
+                    items(
+                        count = messages.size,
+                        key = { index -> messages[index].id },
+                    ) { index ->
+                        val message = messages[index]
+                        val displayText = if (message.isStreaming) {
+                            streamTexts[message.id].orEmpty()
+                        } else {
+                            message.text
+                        }
+                        ChatBubble(
+                            message = message,
+                            displayText = displayText,
+                        )
                     }
-                    if (isSending) {
+                    val showTypingIndicator = isSending &&
+                        messages.none { !it.isFromUser && it.isStreaming }
+                    if (showTypingIndicator) {
                         item(key = "typing") {
                             TypingIndicator()
                         }
@@ -235,7 +259,10 @@ fun ChatbotScreen(
 }
 
 @Composable
-private fun ChatBubble(message: ChatMessage) {
+private fun ChatBubble(
+    message: ChatMessage,
+    displayText: String,
+) {
     val alignment = if (message.isFromUser) Alignment.CenterEnd else Alignment.CenterStart
     val bubbleColor = if (message.isFromUser) {
         colorResource(id = R.color.primary)
@@ -259,16 +286,65 @@ private fun ChatBubble(message: ChatMessage) {
             colors = CardDefaults.cardColors(containerColor = bubbleColor),
             elevation = CardDefaults.cardElevation(0.dp),
         ) {
-            Text(
-                text = message.text,
+            Row(
                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                fontFamily = poppinsFontFamily,
-                fontSize = 14.sp,
-                color = textColor,
-                lineHeight = 20.sp,
-            )
+            ) {
+                if (displayText.isNotEmpty()) {
+                    Text(
+                        text = displayText,
+                        fontFamily = poppinsFontFamily,
+                        fontSize = 14.sp,
+                        color = textColor,
+                        lineHeight = 20.sp,
+                    )
+                } else if (message.isStreaming) {
+                    StreamingPlaceholder(color = textColor)
+                }
+                if (message.isStreaming && displayText.isNotEmpty()) {
+                    StreamingCursor(color = textColor)
+                }
+            }
         }
     }
+}
+
+@Composable
+private fun StreamingPlaceholder(color: Color) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        CircularProgressIndicator(
+            modifier = Modifier.size(14.dp),
+            strokeWidth = 2.dp,
+            color = color,
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = "Mengetik...",
+            fontFamily = poppinsFontFamily,
+            fontSize = 13.sp,
+            color = color,
+        )
+    }
+}
+
+@Composable
+private fun StreamingCursor(color: Color) {
+    val transition = rememberInfiniteTransition(label = "stream_cursor")
+    val alpha by transition.animateFloat(
+        initialValue = 1f,
+        targetValue = 0.2f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(500),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "cursor_alpha",
+    )
+    Text(
+        text = "▍",
+        modifier = Modifier.padding(start = 2.dp),
+        fontFamily = poppinsFontFamily,
+        fontSize = 14.sp,
+        color = color.copy(alpha = alpha),
+    )
 }
 
 @Composable

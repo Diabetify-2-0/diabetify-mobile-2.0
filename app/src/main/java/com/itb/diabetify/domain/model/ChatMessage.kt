@@ -4,4 +4,5 @@ data class ChatMessage(
     val id: String,
     val text: String,
     val isFromUser: Boolean,
+    val isStreaming: Boolean = false,
 )

@@ -54,6 +54,7 @@ import com.itb.diabetify.domain.usecases.chatbot.ChatbotUseCases
 import com.itb.diabetify.domain.usecases.chatbot.LoadChatHistoryUseCase
 import com.itb.diabetify.domain.usecases.chatbot.LoadRecommendationsUseCase
 import com.itb.diabetify.domain.usecases.chatbot.RefreshRecommendationsUseCase
+import com.itb.diabetify.domain.usecases.chatbot.SendChatMessageStreamUseCase
 import com.itb.diabetify.domain.usecases.chatbot.SendChatMessageUseCase
 import com.itb.diabetify.domain.usecases.auth.ChangePasswordUseCase
 import com.itb.diabetify.domain.usecases.auth.CreateAccountUseCase
@@ -480,8 +481,14 @@ object AppModule {
     @Singleton
     fun providesChatbotRepository(
         chatbotApiService: ChatbotApiService,
+        okHttpClient: OkHttpClient,
+        gson: Gson,
     ): ChatbotRepository {
-        return ChatbotRepositoryImpl(chatbotApiService = chatbotApiService)
+        return ChatbotRepositoryImpl(
+            chatbotApiService = chatbotApiService,
+            okHttpClient = okHttpClient,
+            gson = gson,
+        )
     }
 
     @Provides
@@ -491,6 +498,7 @@ object AppModule {
     ): ChatbotUseCases {
         return ChatbotUseCases(
             sendChatMessage = SendChatMessageUseCase(repository),
+            sendChatMessageStream = SendChatMessageStreamUseCase(repository),
             loadChatHistory = LoadChatHistoryUseCase(repository),
             loadRecommendations = LoadRecommendationsUseCase(repository),
             refreshRecommendations = RefreshRecommendationsUseCase(repository),

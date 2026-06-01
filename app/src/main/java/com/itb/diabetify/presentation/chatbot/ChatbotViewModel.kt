@@ -2,16 +2,24 @@ package com.itb.diabetify.presentation.chatbot
 
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.itb.diabetify.domain.model.ChatMessage
+import com.itb.diabetify.domain.model.ChatStreamEvent
 import com.itb.diabetify.domain.usecases.chatbot.ChatbotUseCases
 import com.itb.diabetify.domain.usecases.user.UserUseCases
 import com.itb.diabetify.util.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.yield
 import java.util.UUID
 import javax.inject.Inject
 
@@ -22,7 +30,11 @@ class ChatbotViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val _messages = mutableStateListOf<ChatMessage>()
-    val messages: List<ChatMessage> = _messages
+    val messagesList: SnapshotStateList<ChatMessage> get() = _messages
+
+    /** Live token buffer per streaming bot message id — drives Compose recomposition. */
+    private val _streamTexts = mutableStateMapOf<String, String>()
+    val streamTexts: SnapshotStateMap<String, String> get() = _streamTexts
 
     private val _inputText = mutableStateOf("")
     val inputText: State<String> = _inputText
@@ -84,25 +96,82 @@ class ChatbotViewModel @Inject constructor(
         _messages.add(userMessage)
         _inputText.value = ""
         _isSending.value = true
+        _recommendedQuestions.value = emptyList()
+        _isLoadingRecommendations.value = true
+
+        val botMessageId = UUID.randomUUID().toString()
+        _messages.add(
+            ChatMessage(
+                id = botMessageId,
+                text = "",
+                isFromUser = false,
+                isStreaming = true,
+            ),
+        )
 
         viewModelScope.launch {
-            when (val result = chatbotUseCases.sendChatMessage(currentUserId, text)) {
-                is Resource.Success -> {
-                    _messages.add(
-                        ChatMessage(
-                            id = UUID.randomUUID().toString(),
-                            text = result.data ?: "",
-                            isFromUser = false,
-                        )
-                    )
-                    refreshRecommendations(currentUserId)
+            chatbotUseCases.sendChatMessageStream(currentUserId, text)
+                .flowOn(Dispatchers.IO)
+                .catch { throwable ->
+                    clearStreamText(botMessageId)
+                    removeBotPlaceholder(botMessageId)
+                    _errorMessage.value =
+                        throwable.message ?: "Terjadi kesalahan pada layanan chatbot"
+                    _isSending.value = false
                 }
-                is Resource.Error -> {
-                    _errorMessage.value = result.message
+                .collect { event ->
+                    when (event) {
+                        is ChatStreamEvent.Chunk -> {
+                            appendStreamDelta(botMessageId, event.delta)
+                            yield()
+                        }
+                        is ChatStreamEvent.Done -> {
+                            finishBotMessage(botMessageId)
+                            _isSending.value = false
+                            refreshRecommendations(currentUserId)
+                        }
+                        is ChatStreamEvent.Error -> {
+                            clearStreamText(botMessageId)
+                            removeBotPlaceholder(botMessageId)
+                            _errorMessage.value = event.message
+                            _isSending.value = false
+                            _isLoadingRecommendations.value = false
+                        }
+                    }
                 }
-                is Resource.Loading -> Unit
-            }
-            _isSending.value = false
+        }
+    }
+
+    private fun appendStreamDelta(messageId: String, delta: String) {
+        if (delta.isEmpty()) return
+        _streamTexts[messageId] = _streamTexts.getOrDefault(messageId, "") + delta
+        val index = _messages.indexOfFirst { it.id == messageId }
+        if (index < 0) return
+        val current = _messages[index]
+        val updatedText = _streamTexts[messageId].orEmpty()
+        _messages[index] = current.copy(text = updatedText)
+    }
+
+    private fun finishBotMessage(messageId: String) {
+        val index = _messages.indexOfFirst { it.id == messageId }
+        if (index < 0) return
+        val finalText = _streamTexts.remove(messageId)
+            ?: _messages[index].text
+        _messages[index] = _messages[index].copy(
+            text = finalText,
+            isStreaming = false,
+        )
+    }
+
+    private fun clearStreamText(messageId: String) {
+        _streamTexts.remove(messageId)
+    }
+
+    private fun removeBotPlaceholder(messageId: String) {
+        clearStreamText(messageId)
+        val index = _messages.indexOfFirst { it.id == messageId }
+        if (index >= 0) {
+            _messages.removeAt(index)
         }
     }
 
@@ -168,16 +237,17 @@ class ChatbotViewModel @Inject constructor(
 
     private fun refreshRecommendations(userId: String) {
         viewModelScope.launch {
+            _isLoadingRecommendations.value = true
             when (val result = chatbotUseCases.refreshRecommendations(userId)) {
                 is Resource.Success -> {
-                    val questions = result.data?.questions.orEmpty()
-                    if (questions.isNotEmpty()) {
-                        _recommendedQuestions.value = questions
-                    }
+                    _recommendedQuestions.value = result.data?.questions.orEmpty()
                 }
-                is Resource.Error -> Unit
+                is Resource.Error -> {
+                    _recommendedQuestions.value = emptyList()
+                }
                 is Resource.Loading -> Unit
             }
+            _isLoadingRecommendations.value = false
         }
     }
 }

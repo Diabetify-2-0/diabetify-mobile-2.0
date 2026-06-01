@@ -18,6 +18,8 @@ data class ChatHistoryEntry(
     val userId: String,
     @SerializedName("message")
     val message: String,
+    @SerializedName("response")
+    val response: String?,
     @SerializedName("summary")
     val summary: String?,
     @SerializedName("timestamp")
