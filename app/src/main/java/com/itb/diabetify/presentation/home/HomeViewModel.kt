@@ -17,6 +17,7 @@ import com.itb.diabetify.data.remote.counterfactual.request.CounterfactualReques
 import com.itb.diabetify.data.remote.counterfactual.request.CounterfactualTarget
 import com.itb.diabetify.data.remote.counterfactual.response.CounterfactualJobResultData
 import com.itb.diabetify.data.remote.counterfactual.response.CounterfactualChangedFeature
+import com.itb.diabetify.data.remote.counterfactual.response.CounterfactualPredictionInfo
 import com.itb.diabetify.data.remote.counterfactual.response.CounterfactualResultPayload
 import com.itb.diabetify.domain.model.planner.PlannerCheckInEntry
 import com.itb.diabetify.domain.model.planner.PlannerGoal
@@ -918,11 +919,17 @@ class HomeViewModel @Inject constructor(
             return
         }
 
+        _counterfactualSubmittedOptions.value = selectedOptions
+        _counterfactualSubmittedTarget.value = parsedRiskTarget
+
+        if (isRiskTargetAlreadySatisfied(parsedRiskTarget)) {
+            showTargetAlreadySatisfiedResult()
+            return
+        }
+
         val request = buildCounterfactualRequest(
             selectedKeys = selectedOptions.flatMap(::mutableKeysForCounterfactualOption).distinct()
         )
-        _counterfactualSubmittedOptions.value = selectedOptions
-        _counterfactualSubmittedTarget.value = parsedRiskTarget
         _counterfactualResult.value = null
         _counterfactualJobResultMeta.value = null
         currentCounterfactualJobId = null
@@ -984,6 +991,44 @@ class HomeViewModel @Inject constructor(
                 totalCfs = 3
             )
         )
+    }
+
+    private fun isRiskTargetAlreadySatisfied(target: CounterfactualRiskTarget): Boolean {
+        if (lastPredictionAt.value == NO_PREDICTION_TIMESTAMP) {
+            return false
+        }
+
+        return latestPredictionScore.value <= target.targetHighRiskPercentage.toDouble()
+    }
+
+    private fun showTargetAlreadySatisfiedResult() {
+        val lowRiskProbability = (1 - (latestPredictionScore.value / 100.0)).coerceIn(0.0, 1.0)
+        val localJobId = "local-target-satisfied-${System.currentTimeMillis()}"
+
+        _counterfactualResult.value = CounterfactualResultPayload(
+            candidates = emptyList(),
+            inputPrediction = CounterfactualPredictionInfo(
+                className = if (lowRiskProbability >= 0.5) "low_risk" else "high_risk",
+                probabilityLowRisk = lowRiskProbability
+            ),
+            message = "Kondisi Anda saat ini sudah memenuhi target risiko yang dipilih, sehingga belum diperlukan perubahan tambahan.",
+            reasonCode = "TARGET_ALREADY_SATISFIED",
+            status = "FEASIBLE"
+        )
+        _counterfactualJobResultMeta.value = CounterfactualJobResultData(
+            jobId = localJobId,
+            jobStatus = "completed",
+            reasonCode = "TARGET_ALREADY_SATISFIED",
+            result = _counterfactualResult.value
+        )
+        _counterfactualState.value = counterfactualState.value.copy(isLoading = false)
+        _loadingMessage.value = null
+        currentCounterfactualJobId = null
+
+        if (!_isNavigating.value) {
+            _isNavigating.value = true
+            _navigationEvent.value = "COUNTERFACTUAL_RESULT_SCREEN"
+        }
     }
 
     private fun mutableKeysForCounterfactualOption(

@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.times
 import androidx.navigation.NavController
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import com.itb.diabetify.R
 import com.itb.diabetify.data.remote.counterfactual.response.CounterfactualChangedFeature
 import com.itb.diabetify.data.remote.counterfactual.response.CounterfactualResultPayload
@@ -49,6 +50,7 @@ import com.itb.diabetify.domain.model.planner.PlannerGoalStatus
 import com.itb.diabetify.presentation.common.PrimaryButton
 import com.itb.diabetify.presentation.home.HomeViewModel
 import com.itb.diabetify.presentation.home.components.HomeCard
+import com.itb.diabetify.presentation.navgraph.Route
 import com.itb.diabetify.ui.theme.poppinsFontFamily
 import kotlin.math.abs
 import kotlin.math.max
@@ -69,6 +71,17 @@ fun CounterfactualResultScreen(
     val isCurrentResultSaved = replaceableActivePlannerGoal?.sourceJobId != null &&
         replaceableActivePlannerGoal.sourceJobId == resultMeta?.jobId
     val hasDifferentActiveGoal = replaceableActivePlannerGoal != null && !isCurrentResultSaved
+    val navigateBackToHome: () -> Unit = {
+        if (!navController.popBackStack(Route.HomeScreen.route, inclusive = false)) {
+            navController.navigate(Route.HomeScreen.route) {
+                popUpTo(navController.graph.findStartDestination().id) {
+                    saveState = true
+                }
+                launchSingleTop = true
+                restoreState = true
+            }
+        }
+    }
 
     if (showReplaceGoalDialog) {
         AlertDialog(
@@ -132,7 +145,7 @@ fun CounterfactualResultScreen(
         ) {
             IconButton(
                 modifier = Modifier.align(Alignment.CenterStart),
-                onClick = { navController.popBackStack() }
+                onClick = navigateBackToHome
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
@@ -194,7 +207,7 @@ fun CounterfactualResultScreen(
                     safeResult.reasonCode == "TARGET_ALREADY_SATISFIED" -> {
                         HomeCard(title = "Kesimpulan") {
                             SummaryText(
-                                text = "Kondisi Anda saat ini sudah memenuhi target low risk untuk skenario yang dipilih. Planner tidak menemukan kebutuhan perubahan tambahan."
+                                text = "Kondisi Anda saat ini sudah memenuhi target risiko untuk skenario yang dipilih. Planner tidak menemukan kebutuhan perubahan tambahan."
                             )
                         }
                     }

@@ -31,7 +31,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.text.font.FontWeight
@@ -39,7 +38,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import androidx.navigation.NavGraph.Companion.findStartDestination
 import com.itb.diabetify.R
 import com.itb.diabetify.domain.model.planner.PlannerCheckInEntry
 import com.itb.diabetify.domain.model.planner.PlannerGoal
@@ -72,15 +70,19 @@ fun PlannerGoalDetailScreen(
         ?.let { id -> allCheckInHistory.filter { it.goalId == id }.sortedByDescending { it.createdAtMillis } }
         ?: activeCheckInHistory
     val navigateBackToHome: () -> Unit = {
-        if (!navController.popBackStack(Route.HomeScreen.route, inclusive = false)) {
+        if (!navController.popBackStack()) {
             navController.navigate(Route.HomeScreen.route) {
-                popUpTo(navController.graph.findStartDestination().id) {
-                    saveState = true
-                }
                 launchSingleTop = true
-                restoreState = true
             }
         }
+    }
+    val removeGoalAndReturnHome: () -> Unit = {
+        navigateBackToHome()
+        viewModel.clearActivePlannerGoal()
+    }
+    val completeGoalAndReturnHome: () -> Unit = {
+        navigateBackToHome()
+        viewModel.completeActivePlannerGoal()
     }
 
     LaunchedEffect(goalId) {
@@ -99,147 +101,121 @@ fun PlannerGoalDetailScreen(
         )
 
         if (goal == null) {
-            EmptyGoalContent(
-                onCreatePlan = {
-                    navController.navigate(Route.CounterfactualScreen.route)
-                }
-            )
-            return@Column
-        }
-
-        val safeGoal = goal
-        val featureProgress = safeGoal.features.map { feature ->
-            buildFeatureProgress(
-                feature = feature,
-                currentValue = currentFeatureValue(feature.featureName, viewModel),
-                heightCm = viewModel.height.value
-            )
-        }
-        val completionState = buildGoalCompletionState(
-            goal = safeGoal,
-            featureProgress = featureProgress,
-            latestRisk = latestRisk.takeIf { it > 0.0 }
-        )
-        val currentMilestoneWeek = currentMilestoneWeek(safeGoal.createdAtMillis)
-        val milestones = safeGoal.features.mapNotNull { feature ->
-            buildWeeklyMilestone(
-                feature = feature,
-                currentValue = currentFeatureValue(feature.featureName, viewModel),
-                currentWeek = currentMilestoneWeek,
-                heightCm = viewModel.height.value
-            )
-        }
-        val adaptiveRecommendation = if (completionState.isCompleted) {
-            null
+            Spacer(modifier = Modifier.weight(1f))
         } else {
-            buildAdaptiveRecommendation(milestones)
-        }
-        val coachNote = buildWeeklyCoachNote(
-            goal = safeGoal,
-            milestones = milestones,
-            history = checkInHistory,
-            latestRisk = latestRisk.takeIf { it > 0.0 },
-            adaptiveRecommendation = adaptiveRecommendation
-        )
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
-                .verticalScroll(scrollState)
-                .padding(horizontal = 16.dp)
-        ) {
-            RiskProgressCard(
+            val safeGoal = goal
+            val featureProgress = safeGoal.features.map { feature ->
+                buildFeatureProgress(
+                    feature = feature,
+                    currentValue = currentFeatureValue(feature.featureName, viewModel),
+                    heightCm = viewModel.height.value
+                )
+            }
+            val completionState = buildGoalCompletionState(
                 goal = safeGoal,
+                featureProgress = featureProgress,
                 latestRisk = latestRisk.takeIf { it > 0.0 }
             )
-            Spacer(modifier = Modifier.height(16.dp))
-
-            if (completionState.shouldShow) {
-                GoalCompletionSection(
-                    completionState = completionState,
-                    onCompleteGoal = viewModel::completeActivePlannerGoal
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-            }
-
-            WeeklyCoachSection(coachNote = coachNote)
-            Spacer(modifier = Modifier.height(16.dp))
-
-            if (milestones.isNotEmpty()) {
-                WeeklyMilestoneSection(
+            val currentMilestoneWeek = currentMilestoneWeek(safeGoal.createdAtMillis)
+            val milestones = safeGoal.features.mapNotNull { feature ->
+                buildWeeklyMilestone(
+                    feature = feature,
+                    currentValue = currentFeatureValue(feature.featureName, viewModel),
                     currentWeek = currentMilestoneWeek,
-                    milestones = milestones
+                    heightCm = viewModel.height.value
                 )
-                Spacer(modifier = Modifier.height(16.dp))
             }
 
-            adaptiveRecommendation?.let { recommendation ->
-                AdaptivePlannerSection(
-                    recommendation = recommendation,
-                    onUpdateData = {
-                        navController.navigate(Route.HealthProfileScreen.route)
-                    },
-                    onReplan = {
-                        navController.navigate(Route.CounterfactualScreen.route)
-                    }
+            val coachNote = buildWeeklyCoachNote(
+                goal = safeGoal,
+                milestones = milestones,
+                history = checkInHistory,
+                latestRisk = latestRisk.takeIf { it > 0.0 },
+            )
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .verticalScroll(scrollState)
+                    .padding(horizontal = 16.dp)
+            ) {
+                RiskProgressCard(
+                    goal = safeGoal,
+                    latestRisk = latestRisk.takeIf { it > 0.0 }
                 )
                 Spacer(modifier = Modifier.height(16.dp))
-            }
 
-            if (safeGoal.features.isNotEmpty()) {
-                HomeCard(title = "Progress Target") {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        featureProgress.forEach { progress ->
-                            GoalFeatureProgressRow(progress = progress)
+                if (completionState.shouldShow) {
+                    GoalCompletionSection(
+                        completionState = completionState,
+                        onCompleteGoal = completeGoalAndReturnHome
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+
+                WeeklyCoachSection(coachNote = coachNote)
+                Spacer(modifier = Modifier.height(16.dp))
+
+                if (milestones.isNotEmpty()) {
+                    WeeklyMilestoneSection(
+                        currentWeek = currentMilestoneWeek,
+                        milestones = milestones
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+
+                if (safeGoal.features.isNotEmpty()) {
+                    HomeCard(title = "Progress Target") {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            featureProgress.forEach { progress ->
+                                GoalFeatureProgressRow(progress = progress)
+                            }
                         }
                     }
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
+
+                CheckInTimelineSection(
+                    history = checkInHistory
+                )
                 Spacer(modifier = Modifier.height(16.dp))
+
+                GoalListSection(
+                    title = "Langkah Aksi",
+                    emptyText = "Langkah aksi belum tersedia dari planner.",
+                    items = safeGoal.actionSteps
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+
+                PrimaryButton(
+                    text = if (completionState.isCompleted) "Buat Rencana Baru" else "Perbarui Data Kesehatan",
+                    onClick = {
+                        if (completionState.isCompleted) {
+                            navController.navigate(Route.CounterfactualScreen.route)
+                        } else {
+                            navController.navigate(Route.HealthProfileScreen.route)
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp)
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+
+                CustomizableButton(
+                    text = if (completionState.isCompleted) "Tutup Goal" else "Hapus Goal",
+                    onClick = removeGoalAndReturnHome,
+                    backgroundColor = Color(0xFFEF4444),
+                    backgroundColorSecondary = Color(0xFFDC2626),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp)
+                )
+                Spacer(modifier = Modifier.height(24.dp))
             }
-
-            CheckInTimelineSection(
-                history = checkInHistory
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-
-            GoalListSection(
-                title = "Langkah Aksi",
-                emptyText = "Langkah aksi belum tersedia dari planner.",
-                items = safeGoal.actionSteps
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-
-            PrimaryButton(
-                text = if (completionState.isCompleted) "Buat Rencana Baru" else "Perbarui Data Kesehatan",
-                onClick = {
-                    if (completionState.isCompleted) {
-                        navController.navigate(Route.CounterfactualScreen.route)
-                    } else {
-                        navController.navigate(Route.HealthProfileScreen.route)
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp)
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-
-            CustomizableButton(
-                text = if (completionState.isCompleted) "Tutup Goal" else "Hapus Goal",
-                onClick = {
-                    viewModel.clearActivePlannerGoal()
-                    navigateBackToHome()
-                },
-                backgroundColor = Color(0xFFEF4444),
-                backgroundColorSecondary = Color(0xFFDC2626),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp)
-            )
-            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }
@@ -530,87 +506,6 @@ private fun WeeklyMilestoneItem(
 }
 
 @Composable
-private fun AdaptivePlannerSection(
-    recommendation: AdaptivePlannerRecommendation,
-    onUpdateData: () -> Unit,
-    onReplan: () -> Unit
-) {
-    HomeCard(title = "Penyesuaian Rencana") {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF7ED))
-            ) {
-                Row(
-                    modifier = Modifier.padding(14.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.Top
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.Info,
-                        contentDescription = null,
-                        tint = Color(0xFFEA580C),
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text(
-                            text = recommendation.title,
-                            fontFamily = poppinsFontFamily,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp,
-                            color = colorResource(id = R.color.primary)
-                        )
-                        Text(
-                            text = recommendation.message,
-                            fontFamily = poppinsFontFamily,
-                            fontSize = 12.sp,
-                            lineHeight = 18.sp,
-                            color = Color(0xFF4B5563)
-                        )
-                    }
-                }
-            }
-
-            Column(
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                recommendation.actions.forEachIndexed { index, action ->
-                    GoalListItem(
-                        number = index + 1,
-                        text = action
-                    )
-                }
-            }
-
-            PrimaryButton(
-                text = "Update Data Dulu",
-                onClick = onUpdateData,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp)
-            )
-
-            CustomizableButton(
-                text = "Buat Ulang Rencana",
-                onClick = onReplan,
-                backgroundColor = Color(0xFF2563EB),
-                backgroundColorSecondary = Color(0xFF1D4ED8),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp)
-            )
-        }
-    }
-}
-
-@Composable
 private fun WeeklyCoachSection(
     coachNote: WeeklyCoachNote
 ) {
@@ -697,12 +592,6 @@ private enum class MilestoneStatus {
     MONITOR
 }
 
-private data class AdaptivePlannerRecommendation(
-    val title: String,
-    val message: String,
-    val actions: List<String>
-)
-
 private data class WeeklyCoachNote(
     val headline: String,
     val message: String,
@@ -751,102 +640,6 @@ private fun PlannerGoalHeader(
     }
 }
 
-@Composable
-private fun EmptyGoalContent(
-    onCreatePlan: () -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        HomeCard(title = "Belum Ada Goal Aktif") {
-            Text(
-                text = "Simpan hasil planner counterfactual sebagai goal agar rencana Anda bisa dilanjutkan di sini.",
-                fontFamily = poppinsFontFamily,
-                fontSize = 13.sp,
-                lineHeight = 20.sp,
-                color = Color(0xFF4B5563),
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(16.dp)
-            )
-        }
-        PrimaryButton(
-            text = "Buat Rencana",
-            onClick = onCreatePlan,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(50.dp)
-        )
-    }
-}
-
-@Composable
-private fun GoalHeroCard(goal: PlannerGoal) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    brush = Brush.horizontalGradient(
-                        listOf(Color(0xFF0F766E), Color(0xFF14B8A6))
-                    )
-                )
-                .padding(18.dp)
-        ) {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text(
-                            text = goal.title,
-                            fontFamily = poppinsFontFamily,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 19.sp,
-                            lineHeight = 25.sp,
-                            color = Color.White
-                        )
-                        Text(
-                            text = "Dibuat ${formatCreatedDate(goal.createdAtMillis)}",
-                            fontFamily = poppinsFontFamily,
-                            fontSize = 12.sp,
-                            color = Color.White.copy(alpha = 0.82f)
-                        )
-                    }
-                    Icon(
-                        imageVector = Icons.Outlined.Info,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(28.dp)
-                    )
-                }
-
-                goal.summary?.takeIf { it.isNotBlank() }?.let { summary ->
-                    Text(
-                        text = sanitizePlannerText(summary),
-                        fontFamily = poppinsFontFamily,
-                        fontSize = 13.sp,
-                        lineHeight = 20.sp,
-                        color = Color.White.copy(alpha = 0.94f)
-                    )
-                }
-            }
-        }
-    }
-}
 
 @Composable
 private fun RiskProgressCard(
@@ -871,18 +664,12 @@ private fun RiskProgressCard(
                 )
                 RiskMetricPanel(
                     modifier = Modifier.weight(1f),
-                    label = "Skenario",
+                    label = "Target",
                     value = formatRisk(goal.projectedRiskPercentage),
                     containerColor = Color(0xFFECFDF5),
                     valueColor = Color(0xFF059669)
                 )
-                RiskMetricPanel(
-                    modifier = Modifier.weight(1f),
-                    label = "Target",
-                    value = "<${goal.targetRiskPercentage}%",
-                    containerColor = Color(0xFFEFF6FF),
-                    valueColor = Color(0xFF2563EB)
-                )
+
             }
 
             HorizontalDivider(color = Color(0xFFE5E7EB))
@@ -1242,42 +1029,11 @@ private fun buildWeeklyMilestone(
     )
 }
 
-private fun buildAdaptiveRecommendation(
-    milestones: List<PlannerWeeklyMilestone>
-): AdaptivePlannerRecommendation? {
-    val behindMilestones = milestones.filter { it.status == MilestoneStatus.BEHIND }
-    if (behindMilestones.isEmpty()) {
-        return null
-    }
-
-    val labels = behindMilestones.joinToString(", ") { it.label }
-    val actions = mutableListOf(
-        "Lakukan check-in ulang untuk memastikan data saat ini sudah paling baru.",
-        "Fokus pada satu perubahan paling actionable minggu ini: ${behindMilestones.first().label}.",
-        "Jika dua minggu berturut-turut tetap tertinggal, buat ulang rencana dengan target risiko yang lebih moderat."
-    )
-
-    if (behindMilestones.any { it.label.contains("Aktivitas", ignoreCase = true) }) {
-        actions += "Untuk aktivitas, mulai dari target kecil yang konsisten sebelum mengejar frekuensi akhir."
-    }
-
-    if (behindMilestones.any { it.label.contains("Berat Badan", ignoreCase = true) }) {
-        actions += "Untuk berat badan, gunakan update berat mingguan agar progres tidak bias oleh fluktuasi harian."
-    }
-
-    return AdaptivePlannerRecommendation(
-        title = "Milestone perlu disesuaikan",
-        message = "Target minggu ini untuk $labels belum bergerak sesuai lintasan rencana. Planner menyarankan validasi data terbaru sebelum membuat ulang rencana.",
-        actions = actions.distinct().take(4)
-    )
-}
-
 private fun buildWeeklyCoachNote(
     goal: PlannerGoal,
     milestones: List<PlannerWeeklyMilestone>,
     history: List<PlannerCheckInEntry>,
     latestRisk: Double?,
-    adaptiveRecommendation: AdaptivePlannerRecommendation?
 ): WeeklyCoachNote {
     val achievedCount = milestones.count { it.status == MilestoneStatus.ACHIEVED }
     val behindMilestones = milestones.filter { it.status == MilestoneStatus.BEHIND }
@@ -1295,7 +1051,6 @@ private fun buildWeeklyCoachNote(
     }
 
     val message = when {
-        adaptiveRecommendation != null -> "Ada milestone yang tertinggal dari lintasan minggu ini. Validasi data terbaru lebih dulu, lalu pertimbangkan membuat ulang rencana jika pola ini berulang."
         recentCheckIn == null -> "Goal sudah tersimpan, tetapi planner belum memiliki catatan check-in. Satu check-in sederhana sudah cukup untuk mulai membangun timeline progres."
         latestRisk != null -> "Risiko terbaru Anda tercatat ${formatRisk(latestRisk)}. Gunakan angka ini sebagai arah umum, lalu lihat perubahan faktor untuk mengetahui tindakan yang paling berdampak."
         else -> goal.summary?.takeIf { it.isNotBlank() }?.let(::sanitizePlannerText)

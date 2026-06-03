@@ -444,7 +444,8 @@ private fun RiskTargetThresholdSelector(
     val targetCategory = riskCategoryText(targetPercentage.toDouble())
     val targetColor = riskCategoryColor(targetPercentage.toDouble())
 
-    val isTargetBelowCurrent = targetPercentage < currentRiskPercentage
+    val isTargetAlreadySatisfied = currentRiskPercentage <= targetPercentage
+    val shouldSearchCounterfactual = currentRiskPercentage > targetPercentage
 
     Column(
         verticalArrangement = Arrangement.spacedBy(14.dp)
@@ -485,15 +486,21 @@ private fun RiskTargetThresholdSelector(
             )
 
             Text(
-                text = if (isTargetBelowCurrent) {
+                text = if (isTargetAlreadySatisfied) {
+                    "Risiko Anda saat ini sudah memenuhi target ini. Anda akan langsung diarahkan ke hasil tanpa pencarian skenario tambahan."
+                } else if (shouldSearchCounterfactual) {
                     "Pilihan yang sangat baik! Kami akan menyusun skenario realistis agar risiko Anda turun di bawah $targetPercentage%."
                 } else {
-                    "Target ini masih lebih tinggi dari risiko Anda saat ini. Geser terus ke kiri untuk merencanakan target kesehatan yang lebih baik"
+                    "Target ini masih lebih tinggi dari risiko Anda saat ini. Geser terus ke kiri untuk merencanakan target kesehatan yang lebih baik."
                 },
                 fontFamily = poppinsFontFamily,
                 fontWeight = FontWeight.Medium,
                 fontSize = 11.sp,
-                color = if (isTargetBelowCurrent) Color(0xFF475569) else Color(0xFFB45309),
+                color = if (isTargetAlreadySatisfied || shouldSearchCounterfactual) {
+                    Color(0xFF475569)
+                } else {
+                    Color(0xFFB45309)
+                },
                 lineHeight = 18.sp,
                 textAlign = TextAlign.Justify
             )

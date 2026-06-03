@@ -134,6 +134,17 @@ fun MainNavGraph(
             Route.HealthProfileFromHomePopupScreen.route -> {
                 returnToHomeAndOpenAddPopup()
             }
+            Route.CounterfactualResultScreen.route -> {
+                if (!mainNavController.popBackStack(homeRoute, inclusive = false)) {
+                    mainNavController.navigate(homeRoute) {
+                        popUpTo(mainNavController.graph.findStartDestination().id) {
+                            saveState = true
+                        }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                }
+            }
             in guideChildRoutes -> {
                 if (!mainNavController.popBackStack(Route.GuideScreen.route, inclusive = false)) {
                     mainNavController.navigate(Route.GuideScreen.route) {
