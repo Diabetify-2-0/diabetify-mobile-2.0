@@ -29,6 +29,51 @@ sealed class Route(
             }
         }
     }
+    object PlannerMilestoneScreen: Route(route = "plannerMilestoneScreen?goalId={goalId}") {
+        fun createRoute(goalId: String? = null): String {
+            return if (goalId.isNullOrBlank()) {
+                "plannerMilestoneScreen"
+            } else {
+                "plannerMilestoneScreen?goalId=$goalId"
+            }
+        }
+    }
+    object PlannerActionScreen: Route(route = "plannerActionScreen?goalId={goalId}") {
+        fun createRoute(goalId: String? = null): String {
+            return if (goalId.isNullOrBlank()) {
+                "plannerActionScreen"
+            } else {
+                "plannerActionScreen?goalId=$goalId"
+            }
+        }
+    }
+    object PlannerCoachScreen: Route(route = "plannerCoachScreen?goalId={goalId}") {
+        fun createRoute(goalId: String? = null): String {
+            return if (goalId.isNullOrBlank()) {
+                "plannerCoachScreen"
+            } else {
+                "plannerCoachScreen?goalId=$goalId"
+            }
+        }
+    }
+    object PlannerCheckInScreen: Route(route = "plannerCheckInScreen?goalId={goalId}") {
+        fun createRoute(goalId: String? = null): String {
+            return if (goalId.isNullOrBlank()) {
+                "plannerCheckInScreen"
+            } else {
+                "plannerCheckInScreen?goalId=$goalId"
+            }
+        }
+    }
+    object PlannerChatbotScreen: Route(route = "plannerChatbotScreen?goalId={goalId}") {
+        fun createRoute(goalId: String? = null): String {
+            return if (goalId.isNullOrBlank()) {
+                "plannerChatbotScreen"
+            } else {
+                "plannerChatbotScreen?goalId=$goalId"
+            }
+        }
+    }
     object HistoryScreen: Route(route = "historyScreen")
     object GuideScreen: Route(route = "guideScreen")
     object GuideDetailScreen: Route(route = "guideDetail/{guideId}") {
