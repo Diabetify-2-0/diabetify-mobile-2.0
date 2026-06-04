@@ -193,17 +193,20 @@ private fun PlannerHeroSection(
         ) {
             PlannerRiskMetric(
                 title = "Risiko Awal",
-                value = formatRisk(baselineRisk)
+                value = formatRisk(baselineRisk),
+                valueColor = Color(0xFFF09595)
             )
             PlannerRiskMetricDivider()
             PlannerRiskMetric(
                 title = "Risiko Saat Ini",
-                value = formatRisk(currentRisk)
+                value = formatRisk(currentRisk),
+                valueColor = Color(0xFF5DCAA5)
             )
             PlannerRiskMetricDivider()
             PlannerRiskMetric(
                 title = "Risiko Target",
-                value = formatRisk(targetRisk)
+                value = formatRisk(targetRisk),
+                valueColor = Color.White
             )
         }
 
@@ -221,7 +224,7 @@ private fun PlannerHeroSection(
                     .fillMaxWidth(progressFraction.coerceIn(0f, 1f))
                     .height(22.dp)
                     .clip(RoundedCornerShape(999.dp))
-                    .background(Color(0xFFA7E2BF))
+                    .background(Color(0xFF5DCAA5))
             )
         }
 
@@ -252,7 +255,8 @@ private fun PlannerHeroSection(
 @Composable
 private fun RowScope.PlannerRiskMetric(
     title: String,
-    value: String
+    value: String,
+    valueColor: Color
 ) {
     Column(
         modifier = Modifier.weight(1f)
@@ -260,9 +264,9 @@ private fun RowScope.PlannerRiskMetric(
         Text(
             text = title,
             fontFamily = poppinsFontFamily,
-            fontWeight = FontWeight.SemiBold,
+            fontWeight = FontWeight.Medium,
             fontSize = 11.sp,
-            color = Color.White.copy(alpha = 0.92f),
+            color = Color(0xFF8AACC8),
             maxLines = 1,
             softWrap = false,
             overflow = TextOverflow.Clip
@@ -273,7 +277,7 @@ private fun RowScope.PlannerRiskMetric(
             fontWeight = FontWeight.Bold,
             fontSize = 26.sp,
             lineHeight = 30.sp,
-            color = Color.White
+            color = valueColor
         )
     }
 }

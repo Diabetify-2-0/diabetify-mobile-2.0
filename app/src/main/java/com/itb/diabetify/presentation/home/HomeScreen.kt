@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -23,7 +24,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.Card
@@ -44,6 +44,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
@@ -1184,109 +1185,171 @@ private fun ActivePlannerGoalCard(
         latestRisk = latestRisk,
         projectedRisk = projectedRisk
     )
-    val statusColor = colorResource(id = R.color.primary)
-    val accentColor = Color(0xFF10B981)
-    val trackColor = Color(0xFFE5E7EB)
-    val baselineRiskColor = baselineRisk?.let { getRiskCategoryColor(it) } ?: Color(0xFF94A3B8)
+    val cardColor = Color(0xFF2D475B)
+    val accentColor = Color(0xFF5DCAA5)
+    val trackColor = Color.White.copy(alpha = 0.96f)
+    val dividerColor = Color.White.copy(alpha = 0.16f)
+    val baselineText = baselineRisk?.let { String.format("%.1f%%", it) } ?: "-"
+    val latestRiskValue = latestRisk ?: 0.0
+    val reductionValue = if (baselineRisk != null && latestRisk != null) {
+        (baselineRisk - latestRisk).coerceAtLeast(0.0)
+    } else {
+        0.0
+    }
 
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .border(
-                width = 1.dp,
-                color = Color(0xFFE5E7EB),
-                shape = RoundedCornerShape(16.dp)
-            )
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = cardColor),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 15.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            Text(
+                text = "Goal Aktif",
+                fontFamily = poppinsFontFamily,
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp,
+                color = Color.White
+            )
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.Top
             ) {
-                Text(
-                    text = "Goal Aktif",
-                    fontFamily = poppinsFontFamily,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 12.sp,
-                    color = statusColor
+                GoalPlannerMetric(
+                    modifier = Modifier.weight(1f),
+                    label = "Risiko Saat Ini",
+                    value = String.format("%.1f%%", latestRiskValue),
+                    valueColor = accentColor
                 )
-                Icon(
-                    imageVector = Icons.Outlined.CheckCircle,
-                    contentDescription = null,
-                    tint = accentColor,
-                    modifier = Modifier.size(24.dp)
+                GoalPlannerMetricDivider(color = dividerColor)
+                GoalPlannerMetric(
+                    modifier = Modifier.weight(1f),
+                    label = "Target Risiko",
+                    value = String.format("%.1f%%", projectedRisk),
+                    valueColor = Color.White
+                )
+                GoalPlannerMetricDivider(color = dividerColor)
+                GoalPlannerMetric(
+                    modifier = Modifier.weight(1f),
+                    label = "Penurunan",
+                    value = "↓ ${String.format("%.1f%%", reductionValue)}",
+                    valueColor = accentColor
                 )
             }
 
             Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(24.dp)
+                        .height(20.dp)
                         .clip(RoundedCornerShape(999.dp))
                         .background(trackColor)
                 ) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth(progress)
-                            .height(24.dp)
+                            .height(20.dp)
                             .clip(RoundedCornerShape(999.dp))
                             .background(accentColor)
                     )
                 }
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = baselineRisk?.let { String.format("%.1f%%", it) } ?: "-",
+                        text = baselineText,
                         fontFamily = poppinsFontFamily,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 12.sp,
-                        color = baselineRiskColor
+                        color = Color.White
                     )
                     Text(
                         text = String.format("%.1f%%", projectedRisk),
                         fontFamily = poppinsFontFamily,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 12.sp,
-                        color = statusColor
+                        color = Color.White
                     )
                 }
             }
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Lihat progress",
+                    text = "Lihat Progress",
                     fontFamily = poppinsFontFamily,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 13.sp,
-                    color = statusColor
+                    color = accentColor
                 )
+                Spacer(modifier = Modifier.width(6.dp))
                 Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                    painter = painterResource(id = R.drawable.ic_arrow_narrow_right),
                     contentDescription = null,
-                    tint = statusColor,
+                    tint = accentColor,
                     modifier = Modifier.size(18.dp)
                 )
             }
         }
     }
+}
+
+@Composable
+private fun RowScope.GoalPlannerMetric(
+    label: String,
+    value: String,
+    valueColor: Color,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+    ) {
+        Text(
+            text = label,
+            fontFamily = poppinsFontFamily,
+            fontWeight = FontWeight.Medium,
+            fontSize = 10.sp,
+            color = Color(0xFF8AACC8),
+            maxLines = 1
+        )
+        Text(
+            text = value,
+            fontFamily = poppinsFontFamily,
+            fontWeight = FontWeight.Bold,
+            fontSize = 18.sp,
+            color = valueColor,
+            maxLines = 1
+        )
+    }
+}
+
+@Composable
+private fun GoalPlannerMetricDivider(
+    color: Color
+) {
+    Box(
+        modifier = Modifier
+            .padding(horizontal = 10.dp, vertical = 2.dp)
+            .width(1.dp)
+            .height(44.dp)
+            .background(color)
+    )
 }
 
 private fun calculateGoalProgress(
