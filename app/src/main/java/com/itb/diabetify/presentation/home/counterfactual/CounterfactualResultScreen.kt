@@ -1,9 +1,9 @@
 package com.itb.diabetify.presentation.home.counterfactual
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -12,9 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -22,6 +20,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -34,26 +33,28 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.colorResource
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.unit.times
 import androidx.navigation.NavController
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import com.itb.diabetify.R
 import com.itb.diabetify.data.remote.counterfactual.response.CounterfactualChangedFeature
 import com.itb.diabetify.data.remote.counterfactual.response.CounterfactualResultPayload
 import com.itb.diabetify.domain.model.planner.PlannerGoalStatus
+import com.itb.diabetify.presentation.common.CustomizableButton
 import com.itb.diabetify.presentation.common.PrimaryButton
 import com.itb.diabetify.presentation.home.HomeViewModel
 import com.itb.diabetify.presentation.home.components.HomeCard
 import com.itb.diabetify.presentation.navgraph.Route
 import com.itb.diabetify.ui.theme.poppinsFontFamily
 import kotlin.math.abs
-import kotlin.math.max
 
 @Composable
 fun CounterfactualResultScreen(
@@ -62,15 +63,14 @@ fun CounterfactualResultScreen(
 ) {
     val result by viewModel.counterfactualResult
     val resultMeta by viewModel.counterfactualJobResultMeta
-    val submittedOptions by viewModel.counterfactualSubmittedOptions
     val submittedTarget by viewModel.counterfactualSubmittedTarget
     val activePlannerGoal by viewModel.activePlannerGoal
     val replaceableActivePlannerGoal = activePlannerGoal?.takeIf { it.status == PlannerGoalStatus.ACTIVE }
-    val scrollState = rememberScrollState()
     var showReplaceGoalDialog by remember { mutableStateOf(false) }
     val isCurrentResultSaved = replaceableActivePlannerGoal?.sourceJobId != null &&
         replaceableActivePlannerGoal.sourceJobId == resultMeta?.jobId
     val hasDifferentActiveGoal = replaceableActivePlannerGoal != null && !isCurrentResultSaved
+
     val navigateBackToHome: () -> Unit = {
         if (!navController.popBackStack(Route.HomeScreen.route, inclusive = false)) {
             navController.navigate(Route.HomeScreen.route) {
@@ -79,6 +79,13 @@ fun CounterfactualResultScreen(
                 }
                 launchSingleTop = true
                 restoreState = true
+            }
+        }
+    }
+    val navigateBackToPlannerSetup: () -> Unit = {
+        if (!navController.popBackStack()) {
+            navController.navigate(Route.CounterfactualScreen.route) {
+                launchSingleTop = true
             }
         }
     }
@@ -133,6 +140,80 @@ fun CounterfactualResultScreen(
         )
     }
 
+    when {
+        result == null || resultMeta == null -> {
+            CounterfactualFullStateScreen(
+                backgroundResId = R.drawable.bg_no_scenario_state,
+                iconResId = R.drawable.ic_no_scenario_state,
+                title = "Skenario realistis belum ditemukan untuk target dan batasan faktor ini",
+                buttonLabel = "Pilih Target Baru",
+                buttonContainerColor = Color.White,
+                buttonContentColor = Color.Black,
+                onButtonClick = navigateBackToPlannerSetup
+            )
+        }
+
+        result?.reasonCode == "TARGET_ALREADY_SATISFIED" -> {
+            CounterfactualFullStateScreen(
+                backgroundResId = R.drawable.bg_already_satisfied_state,
+                iconResId = R.drawable.ic_already_satisfied_state,
+                title = "Kondisi Anda saat ini sudah memenuhi target risiko yang dipilih",
+                buttonLabel = "Pilih Target Baru",
+                buttonContainerColor = Color(0xFFD9ECE7),
+                buttonContentColor = Color(0xFF0F5A55),
+                onButtonClick = navigateBackToPlannerSetup
+            )
+        }
+
+        result?.status == "FEASIBLE" && !result?.candidates.isNullOrEmpty() -> {
+            val safeResult = result!!
+            val displayFeatures = buildDisplayFeatureChanges(
+                rawFeatures = safeResult.plannerInput?.changedFeatures.orEmpty(),
+                viewModel = viewModel
+            )
+            FeasibleCounterfactualResultScreen(
+                result = safeResult,
+                displayFeatures = displayFeatures,
+                targetRiskPercentage = submittedTarget.targetHighRiskPercentage,
+                isSaved = isCurrentResultSaved,
+                hasDifferentActiveGoal = hasDifferentActiveGoal,
+                onBack = navigateBackToHome,
+                onSave = {
+                    if (hasDifferentActiveGoal) {
+                        showReplaceGoalDialog = true
+                    } else {
+                        viewModel.saveCounterfactualAsGoal()
+                    }
+                }
+            )
+        }
+
+        else -> {
+            CounterfactualFullStateScreen(
+                backgroundResId = R.drawable.bg_no_scenario_state,
+                iconResId = R.drawable.ic_no_scenario_state,
+                title = "Skenario realistis belum ditemukan untuk target dan batasan faktor ini",
+                buttonLabel = "Pilih Target Baru",
+                buttonContainerColor = Color.White,
+                buttonContentColor = Color.Black,
+                onButtonClick = navigateBackToPlannerSetup
+            )
+        }
+    }
+}
+
+@Composable
+private fun FeasibleCounterfactualResultScreen(
+    result: CounterfactualResultPayload,
+    displayFeatures: List<CounterfactualDisplayFeature>,
+    targetRiskPercentage: Int,
+    isSaved: Boolean,
+    hasDifferentActiveGoal: Boolean,
+    onBack: () -> Unit,
+    onSave: () -> Unit
+) {
+    val scrollState = rememberScrollState()
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -145,7 +226,7 @@ fun CounterfactualResultScreen(
         ) {
             IconButton(
                 modifier = Modifier.align(Alignment.CenterStart),
-                onClick = navigateBackToHome
+                onClick = onBack
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
@@ -171,109 +252,390 @@ fun CounterfactualResultScreen(
                 .verticalScroll(scrollState)
                 .padding(horizontal = 16.dp)
         ) {
-            if (result == null || resultMeta == null) {
-                EmptyResultCard()
-            } else {
-                val safeResult = result!!
-                val state = counterfactualStateOf(safeResult)
-                val selectedLabels = displayMutableFeatureLabels(
-                    rawFeatureNames = safeResult.plannerInput?.mutableAllowed.orEmpty(),
-                    fallbackLabels = submittedOptions.filter { it.isSelected }.map { it.label }
-                )
-                val displayFeatures = buildDisplayFeatureChanges(
-                    rawFeatures = safeResult.plannerInput?.changedFeatures.orEmpty(),
-                    viewModel = viewModel
-                )
+            FeasibleHeroCard(result = result)
 
-                StatusHeroCard(
-                    title = state.title,
-                    message = heroMessageOf(safeResult, state),
-                    backgroundColors = state.backgroundColors
-                )
+            Spacer(modifier = Modifier.height(16.dp))
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                RiskComparisonCard(result = safeResult)
-                Spacer(modifier = Modifier.height(16.dp))
-
-                if (selectedLabels.isNotEmpty()) {
-                    HomeCard(title = "Faktor Yang Dieksplorasi") {
-                        BulletSection(items = selectedLabels)
-                    }
-                    Spacer(modifier = Modifier.height(16.dp))
-                }
-
-                when {
-                    safeResult.reasonCode == "TARGET_ALREADY_SATISFIED" -> {
-                        HomeCard(title = "Kesimpulan") {
-                            SummaryText(
-                                text = "Kondisi Anda saat ini sudah memenuhi target risiko untuk skenario yang dipilih. Planner tidak menemukan kebutuhan perubahan tambahan."
-                            )
-                        }
-                    }
-
-                    safeResult.status == "FEASIBLE" && safeResult.candidates.isNotEmpty() -> {
-                        if (displayFeatures.isNotEmpty()) {
-                            HomeCard(title = "Visualisasi Perubahan Fitur") {
-                                Column(
-                                    modifier = Modifier.padding(16.dp),
-                                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                                ) {
-                                    displayFeatures.forEach { feature ->
-                                        FeatureTransitionCard(
-                                            feature = feature
-                                        )
-                                    }
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(16.dp))
-                        }
-
-                        SaveGoalCard(
-                            isSaved = isCurrentResultSaved,
-                            targetRiskPercentage = submittedTarget.targetHighRiskPercentage,
-                            onSave = {
-                                if (hasDifferentActiveGoal) {
-                                    showReplaceGoalDialog = true
-                                } else {
-                                    viewModel.saveCounterfactualAsGoal()
-                                }
-                            }
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                    }
-
-                    else -> {
-                        val guidance = diagnosticGuidanceOf(
-                            result = safeResult,
-                            targetHighRiskPercentage = submittedTarget.targetHighRiskPercentage
-                        )
-                        HomeCard(title = "Mengapa Belum Ada Skenario") {
-                            Column(
-                                modifier = Modifier.padding(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                Text(
-                                    text = guidance.title,
-                                    fontFamily = poppinsFontFamily,
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 15.sp,
-                                    color = colorResource(id = R.color.primary)
-                                )
-                                SummaryText(
-                                    text = guidance.message
-                                )
-                                BulletSection(
-                                    items = guidance.suggestions
+            if (displayFeatures.isNotEmpty()) {
+                HomeCard(title = "Visualisasi Perubahan Fitur") {
+                    Column(
+                        modifier = Modifier.padding(vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(0.dp)
+                    ) {
+                        displayFeatures.forEachIndexed { index, feature ->
+                            FeatureVisualizationRow(feature = feature)
+                            if (index < displayFeatures.lastIndex) {
+                                HorizontalDivider(
+                                    color = Color(0xFFE8EDF2),
+                                    thickness = 1.dp,
+                                    modifier = Modifier.padding(horizontal = 16.dp)
                                 )
                             }
                         }
                     }
                 }
+
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
+            SaveGoalCard(
+                isSaved = isSaved,
+                targetRiskPercentage = targetRiskPercentage,
+                onSave = onSave
+            )
+
+            if (hasDifferentActiveGoal) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Menyimpan rencana ini akan menggantikan goal aktif sebelumnya.",
+                    fontFamily = poppinsFontFamily,
+                    fontSize = 12.sp,
+                    color = Color(0xFF6B7280),
+                    modifier = Modifier.padding(horizontal = 8.dp)
+                )
             }
 
             Spacer(modifier = Modifier.height(16.dp))
         }
+    }
+}
+
+@Composable
+private fun CounterfactualFullStateScreen(
+    backgroundResId: Int,
+    iconResId: Int,
+    title: String,
+    buttonLabel: String,
+    buttonContainerColor: Color,
+    buttonContentColor: Color,
+    onButtonClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier.fillMaxSize()
+    ) {
+        Image(
+            modifier = Modifier
+                .fillMaxSize(),
+            painter = painterResource(id = backgroundResId),
+            contentDescription = null,
+            contentScale = ContentScale.FillBounds
+        )
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 28.dp, vertical = 36.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(28.dp)
+            ) {
+                Icon(
+                    painter = painterResource(id = iconResId),
+                    contentDescription = null,
+                    tint = Color.Unspecified,
+                    modifier = Modifier.size(148.dp)
+                )
+
+                Text(
+                    text = title,
+                    fontFamily = poppinsFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    lineHeight = 28.sp,
+                    textAlign = TextAlign.Center,
+                    color = Color.White,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            CustomizableButton(
+                text = buttonLabel,
+                onClick = onButtonClick,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                backgroundColor = buttonContainerColor,
+                textColor = buttonContentColor
+            )
+        }
+    }
+}
+
+@Composable
+private fun FeasibleHeroCard(result: CounterfactualResultPayload) {
+    val currentRisk = result.inputPrediction?.probabilityLowRisk?.let(::toHighRiskPercentage)
+    val projectedRisk = result.candidates.firstOrNull()?.prediction?.probabilityLowRisk?.let(::toHighRiskPercentage)
+    val reduction = if (currentRisk != null && projectedRisk != null) {
+        (currentRisk - projectedRisk).coerceAtLeast(0.0)
+    } else {
+        null
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(26.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color(0xFF274254))
+                .padding(16.dp)
+        ) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_rosette_discount_check),
+                        contentDescription = null,
+                        tint = Color.Unspecified,
+                        modifier = Modifier.size(52.dp)
+                    )
+
+                    Column {
+                        Text(
+                            text = "Skenario ditemukan!",
+                            fontFamily = poppinsFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp,
+                            color = Color.White
+                        )
+                        Text(
+                            text = "Rencana realistis berhasil disusun",
+                            fontFamily = poppinsFontFamily,
+                            fontSize = 12.sp,
+                            color = Color(0xFF8AACC8)
+                        )
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    RiskHighlightCard(
+                        modifier = Modifier.weight(1f),
+                        title = "Risiko saat ini",
+                        value = formatPercentage(currentRisk),
+                        subtitle = riskLevelLabel(currentRisk),
+                        valueColor = riskLevelColor(currentRisk),
+                        subtitleColor = riskLevelColor(currentRisk)
+                    )
+                    RiskHighlightCard(
+                        modifier = Modifier.weight(1f),
+                        title = "Setelah skenario",
+                        value = formatPercentage(projectedRisk),
+                        subtitle = riskLevelLabel(projectedRisk),
+                        valueColor = riskLevelColor(projectedRisk),
+                        subtitleColor = riskLevelColor(projectedRisk)
+                    )
+                }
+
+                reduction?.let {
+                    Row(
+                        modifier = Modifier
+                            .padding(horizontal = 14.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_trending_down),
+                            contentDescription = null,
+                            tint = Color(0xFF8AACC8),
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            text = "Turun ${String.format("%.1f", it)}% dari risiko awal",
+                            fontFamily = poppinsFontFamily,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 12.sp,
+                            color = Color(0xFF8AACC8)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RiskHighlightCard(
+    modifier: Modifier = Modifier,
+    title: String,
+    value: String,
+    subtitle: String,
+    valueColor: Color,
+    subtitleColor: Color
+) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF3E5A70))
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = title,
+                fontFamily = poppinsFontFamily,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 12.sp,
+                color = Color.White,
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = value,
+                fontFamily = poppinsFontFamily,
+                fontWeight = FontWeight.Bold,
+                fontSize = 24.sp,
+                color = valueColor
+            )
+            Text(
+                text = subtitle,
+                fontFamily = poppinsFontFamily,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 12.sp,
+                color = subtitleColor
+            )
+        }
+    }
+}
+
+@Composable
+private fun FeatureVisualizationRow(
+    feature: CounterfactualDisplayFeature
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(64.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(Color(0xFF2E475A)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                painter = painterResource(id = feature.iconResId),
+                contentDescription = feature.label,
+                tint = Color.White,
+                modifier = Modifier.size(28.dp)
+            )
+        }
+
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Text(
+                    text = feature.label,
+                    fontFamily = poppinsFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    color = Color(0xFF111827),
+                    modifier = Modifier.weight(1f)
+                )
+                FeatureChip(text = feature.chipText)
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                FeatureValueCard(
+                    modifier = Modifier.weight(1f),
+                    label = "Saat ini",
+                    value = feature.baselineText,
+                    containerColor = Color(0xFFF7F7F7),
+                    valueColor = Color(0xFF121212)
+                )
+                Text(
+                    text = "→",
+                    fontFamily = poppinsFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 22.sp,
+                    color = Color(0xFF64748B)
+                )
+                FeatureValueCard(
+                    modifier = Modifier.weight(1f),
+                    label = "Skenario",
+                    value = feature.candidateText,
+                    containerColor = Color(0xFFD3EFE5),
+                    valueColor = Color(0xFF0F5132)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun FeatureValueCard(
+    modifier: Modifier = Modifier,
+    label: String,
+    value: String,
+    containerColor: Color,
+    valueColor: Color
+) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(14.dp))
+            .background(containerColor)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Text(
+            text = label,
+            fontFamily = poppinsFontFamily,
+            fontSize = 10.sp,
+            color = Color(0xFF9CA3AF)
+        )
+        Text(
+            text = value,
+            fontFamily = poppinsFontFamily,
+            fontWeight = FontWeight.Bold,
+            fontSize = 13.sp,
+            color = valueColor
+        )
+    }
+}
+
+@Composable
+private fun FeatureChip(text: String) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(999.dp))
+            .background(Color(0xFFE9F7F0))
+            .padding(horizontal = 8.dp, vertical = 4.dp)
+    ) {
+        Text(
+            text = text,
+            fontFamily = poppinsFontFamily,
+            fontWeight = FontWeight.Medium,
+            fontSize = 10.sp,
+            color = Color(0xFF2F7D68)
+        )
     }
 }
 
@@ -303,478 +665,16 @@ private fun SaveGoalCard(
     }
 }
 
-private data class CounterfactualScreenState(
-    val title: String,
-    val fallbackMessage: String,
-    val backgroundColors: List<Color>,
-    val accentColor: Color
-)
-
 private data class CounterfactualDisplayFeature(
+    val featureName: String,
     val label: String,
     val baselineNumeric: Double,
     val candidateNumeric: Double,
-    val range: Pair<Double, Double>,
     val baselineText: String,
     val candidateText: String,
     val chipText: String,
-    val accentColor: Color,
-    val detailTitle: String? = null,
-    val detailDescription: String? = null
+    val iconResId: Int
 )
-
-private data class CounterfactualDiagnosticGuidance(
-    val title: String,
-    val message: String,
-    val suggestions: List<String>
-)
-
-private fun counterfactualStateOf(result: CounterfactualResultPayload): CounterfactualScreenState {
-    return when {
-        result.reasonCode == "TARGET_ALREADY_SATISFIED" -> CounterfactualScreenState(
-            title = "Sudah Memenuhi Target",
-            fallbackMessage = "Kondisi Anda saat ini sudah berada pada target yang dipilih.",
-            backgroundColors = listOf(Color(0xFF0F766E), Color(0xFF14B8A6)),
-            accentColor = Color(0xFFD1FAE5)
-        )
-
-        result.status == "FEASIBLE" && result.candidates.isNotEmpty() -> CounterfactualScreenState(
-            title = "Rekomendasi Berhasil Ditemukan",
-            fallbackMessage = "Sistem menemukan rencana perubahan yang paling mungkin membantu menurunkan risiko Anda.",
-            backgroundColors = listOf(
-                Color(0xFF274254),
-                Color(0xFF648C9C)
-            ),
-            accentColor = Color(0xFFE0F2FE)
-        )
-
-        else -> CounterfactualScreenState(
-            title = "Belum Ditemukan Skenario Yang Cocok",
-            fallbackMessage = "Dengan faktor yang dipilih, sistem belum menemukan perubahan yang cukup untuk mencapai target.",
-            backgroundColors = listOf(Color(0xFFC2410C), Color(0xFFFB923C)),
-            accentColor = Color(0xFFFFEDD5)
-        )
-    }
-}
-
-private fun heroMessageOf(
-    result: CounterfactualResultPayload,
-    state: CounterfactualScreenState
-): String {
-    if (result.reasonCode == "TARGET_ALREADY_SATISFIED") {
-        return "Kondisi Anda saat ini sudah memenuhi target risiko yang dipilih, sehingga belum diperlukan perubahan tambahan."
-    }
-
-    val rawMessage = result.message?.trim().orEmpty()
-    if (rawMessage.isBlank()) {
-        return state.fallbackMessage
-    }
-
-    val looksLikeEngineMessage = rawMessage.startsWith("Generated ", ignoreCase = true) &&
-        rawMessage.contains("feasible counterfactual candidate", ignoreCase = true)
-
-    return if (looksLikeEngineMessage) state.fallbackMessage else rawMessage
-}
-
-private fun diagnosticGuidanceOf(
-    result: CounterfactualResultPayload,
-    targetHighRiskPercentage: Int
-): CounterfactualDiagnosticGuidance {
-    return when (result.reasonCode) {
-        "NO_MUTABLE_FEATURE" -> CounterfactualDiagnosticGuidance(
-            title = "Belum Ada Faktor Yang Bisa Diubah",
-            message = "Planner belum menerima faktor yang dapat dieksplorasi, sehingga tidak ada ruang perubahan yang bisa dicoba.",
-            suggestions = listOf(
-                "Pilih setidaknya satu faktor yang boleh dieksplorasi sebelum menjalankan counterfactual.",
-                "Mulai dari faktor yang lebih actionable seperti berat badan, aktivitas fisik, atau kebiasaan merokok jika masih aktif.",
-                "Pastikan faktor yang tidak bisa diubah tetap berada di bagian yang terkunci."
-            )
-        )
-
-        "MEDICAL_RULE_VIOLATION_ONLY" -> CounterfactualDiagnosticGuidance(
-            title = "Skenario Yang Muncul Belum Cukup Masuk Akal",
-            message = "Ada kandidat awal yang sempat ditemukan, tetapi semuanya gugur setelah pemeriksaan plausibilitas dan batas medis yang berlaku.",
-            suggestions = listOf(
-                "Mulai dari kombinasi perubahan yang lebih sederhana dan lebih dekat ke kondisi Anda saat ini.",
-                "Prioritaskan faktor gaya hidup lebih dulu sebelum menambahkan terlalu banyak faktor klinis sekaligus.",
-                "Perbarui profil kesehatan jika ada data dasar yang sudah berubah agar planner memakai baseline terbaru."
-            )
-        )
-
-        "TIMEOUT_NO_FEASIBLE_SOLUTION" -> CounterfactualDiagnosticGuidance(
-            title = "Pencarian Belum Selesai Tepat Waktu",
-            message = "Planner belum menyelesaikan pencarian skenario yang valid dalam batas waktu yang tersedia.",
-            suggestions = listOf(
-                "Coba lagi dengan jumlah faktor yang lebih fokus agar ruang pencarian lebih ringan.",
-                "Gunakan target risiko yang lebih moderat sebagai langkah awal.",
-                "Jika hasilnya tetap sama, gunakan skenario ini sebagai sinyal bahwa perubahan yang diminta masih terlalu berat."
-            )
-        )
-
-        else -> CounterfactualDiagnosticGuidance(
-            title = "Target Belum Tercapai Dalam Batas Saat Ini",
-            message = result.message
-                ?: "Dengan target di bawah $targetHighRiskPercentage% dan faktor yang dipilih sekarang, planner belum menemukan skenario yang cukup untuk mencapai hasil yang diinginkan.",
-            suggestions = listOf(
-                "Izinkan lebih banyak faktor untuk dieksplorasi agar ruang solusi lebih luas.",
-                "Mulai dari faktor gaya hidup yang lebih actionable seperti berat badan, aktivitas fisik, atau merokok.",
-                "Jika perlu, gunakan target risiko yang sedikit lebih moderat sebagai langkah awal."
-            )
-        )
-    }
-}
-
-@Composable
-private fun EmptyResultCard() {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF9FAFB))
-    ) {
-        Text(
-            text = "Hasil counterfactual belum tersedia.",
-            fontFamily = poppinsFontFamily,
-            fontSize = 14.sp,
-            color = Color(0xFF6B7280),
-            modifier = Modifier.padding(16.dp)
-        )
-    }
-}
-
-@Composable
-private fun StatusHeroCard(
-    title: String,
-    message: String,
-    backgroundColors: List<Color>
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    brush = Brush.horizontalGradient(backgroundColors)
-                )
-                .padding(18.dp)
-        ) {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = title,
-                        fontFamily = poppinsFontFamily,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 19.sp,
-                        color = Color.White
-                    )
-                }
-
-                Text(
-                    text = message,
-                    fontFamily = poppinsFontFamily,
-                    fontSize = 13.sp,
-                    color = Color.White.copy(alpha = 0.94f),
-                    lineHeight = 20.sp
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun RiskComparisonCard(result: CounterfactualResultPayload) {
-    val currentRisk = result.inputPrediction?.probabilityLowRisk?.let(::toHighRiskPercentage)
-    val projectedRisk = result.candidates.firstOrNull()?.prediction?.probabilityLowRisk?.let(
-        ::toHighRiskPercentage
-    )
-
-    HomeCard(title = "Perkiraan Risiko") {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                ProbabilityItem(
-                    modifier = Modifier.weight(1f),
-                    label = "Risiko saat ini",
-                    value = formatPercentage(currentRisk),
-                    containerColor = Color(0xFFFFF7ED),
-                    valueColor = Color(0xFFEA580C)
-                )
-                ProbabilityItem(
-                    modifier = Modifier.weight(1f),
-                    label = "Risiko setelah skenario",
-                    value = formatPercentage(projectedRisk),
-                    containerColor = Color(0xFFECFDF5),
-                    valueColor = Color(0xFF059669)
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ProbabilityItem(
-    modifier: Modifier = Modifier,
-    label: String,
-    value: String,
-    containerColor: Color = Color(0xFFF9FAFB),
-    valueColor: Color = colorResource(id = R.color.primary)
-) {
-    Card(
-        modifier = modifier.height(104.dp),
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = containerColor)
-    ) {
-        Column(
-            modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                text = label,
-                fontFamily = poppinsFontFamily,
-                fontSize = 12.sp,
-                color = Color(0xFF6B7280),
-                lineHeight = 16.sp
-            )
-            Text(
-                text = value,
-                fontFamily = poppinsFontFamily,
-                fontWeight = FontWeight.Bold,
-                fontSize = 18.sp,
-                lineHeight = 24.sp,
-                color = valueColor
-            )
-        }
-    }
-}
-
-@Composable
-private fun FeatureTransitionCard(
-    feature: CounterfactualDisplayFeature
-) {
-    val baseline = feature.baselineNumeric
-    val candidate = feature.candidateNumeric
-    val range = feature.range
-    val span = (range.second - range.first).coerceAtLeast(1.0)
-    val startFraction = ((baseline - range.first) / span).toFloat().coerceIn(0f, 1f)
-    val endFraction = ((candidate - range.first) / span).toFloat().coerceIn(0f, 1f)
-    val accentColor = feature.accentColor
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = feature.label,
-                    fontFamily = poppinsFontFamily,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 14.sp,
-                    color = colorResource(id = R.color.primary)
-                )
-                ScenarioChip(
-                    text = feature.chipText,
-                    backgroundColor = accentColor.copy(alpha = 0.10f),
-                    textColor = accentColor
-                )
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                TransitionValuePanel(
-                    modifier = Modifier.weight(1f),
-                    label = "Saat ini",
-                    value = feature.baselineText,
-                    containerColor = Color(0xFFF8FAFC),
-                    valueColor = colorResource(id = R.color.primary)
-                )
-                Box(
-                    modifier = Modifier
-                        .size(34.dp)
-                        .background(accentColor.copy(alpha = 0.12f), CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "->",
-                        fontFamily = poppinsFontFamily,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp,
-                        color = accentColor
-                    )
-                }
-                TransitionValuePanel(
-                    modifier = Modifier.weight(1f),
-                    label = "Skenario",
-                    value = feature.candidateText,
-                    containerColor = accentColor.copy(alpha = 0.08f),
-                    valueColor = accentColor
-                )
-            }
-
-            BoxWithConstraints(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(30.dp)
-            ) {
-                val knobSize = 14.dp
-                val startOffset = (maxWidth - knobSize) * startFraction
-                val endOffset = (maxWidth - knobSize) * endFraction
-
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.CenterStart)
-                        .fillMaxWidth()
-                        .height(6.dp)
-                        .clip(RoundedCornerShape(999.dp))
-                        .background(Color(0xFFE5E7EB))
-                )
-
-                val segmentStart = minOf(startFraction, endFraction)
-                val segmentEnd = maxOf(startFraction, endFraction)
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.CenterStart)
-                        .padding(start = maxWidth * segmentStart)
-                        .width(maxOf((maxWidth * (segmentEnd - segmentStart)), 8.dp))
-                        .height(6.dp)
-                        .clip(RoundedCornerShape(999.dp))
-                        .background(accentColor)
-                )
-
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.CenterStart)
-                        .padding(start = startOffset)
-                        .size(knobSize)
-                        .background(colorResource(id = R.color.primary), CircleShape)
-                )
-
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.CenterStart)
-                        .padding(start = endOffset)
-                        .size(knobSize)
-                        .background(accentColor, CircleShape)
-                )
-            }
-
-            feature.detailDescription?.let { detailDescription ->
-                Box(
-                    modifier = Modifier.fillMaxWidth(),
-                    contentAlignment = Alignment.CenterStart
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(Color(0xFFF8FAFC))
-                            .padding(12.dp)
-                    ) {
-                        Text(
-                            text = feature.detailTitle ?: "Interpretasi perubahan",
-                            fontFamily = poppinsFontFamily,
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 12.sp,
-                            color = colorResource(id = R.color.primary)
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = detailDescription,
-                            fontFamily = poppinsFontFamily,
-                            fontSize = 12.sp,
-                            color = Color(0xFF475569),
-                            lineHeight = 18.sp
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun TransitionValuePanel(
-    modifier: Modifier = Modifier,
-    label: String,
-    value: String,
-    containerColor: Color,
-    valueColor: Color
-) {
-    Box(
-        modifier = modifier
-            .clip(RoundedCornerShape(14.dp))
-            .background(containerColor)
-            .padding(12.dp)
-    ) {
-        Column(
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Text(
-                text = label,
-                fontFamily = poppinsFontFamily,
-                fontSize = 11.sp,
-                color = Color(0xFF6B7280)
-            )
-            Text(
-                text = value,
-                fontFamily = poppinsFontFamily,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 13.sp,
-                lineHeight = 18.sp,
-                color = valueColor
-            )
-        }
-    }
-}
-
-private fun displayMutableFeatureLabels(
-    rawFeatureNames: List<String>,
-    fallbackLabels: List<String>
-): List<String> {
-    if (rawFeatureNames.isEmpty()) {
-        return fallbackLabels
-    }
-
-    val labels = mutableListOf<String>()
-    var smokingAdded = false
-    rawFeatureNames.forEach { featureName ->
-        if (featureName == "smoking_status") {
-            if (!smokingAdded) {
-                labels.add("Status Merokok")
-                smokingAdded = true
-            }
-        } else {
-            labels.add(featureLabel(featureName))
-        }
-    }
-    return labels.distinct()
-}
 
 private fun buildDisplayFeatureChanges(
     rawFeatures: List<CounterfactualChangedFeature>,
@@ -823,16 +723,14 @@ private fun buildSmokingDisplayFeature(
     val smokingStatusTarget = smokingStatusFeature?.candidateValue?.toInt()
     if (smokingStatusTarget == 1) {
         return CounterfactualDisplayFeature(
+            featureName = "smoking_status",
             label = "Status Merokok",
             baselineNumeric = 2.0,
-            candidateNumeric = 0.0,
-            range = 0.0 to 2.0,
-            baselineText = "Masih aktif",
-            candidateText = "Sudah berhenti",
-            chipText = "berhenti merokok",
-            accentColor = Color(0xFF0F766E),
-            detailTitle = "Interpretasi perubahan",
-            detailDescription = "Skenario ini mengarah ke berhenti merokok sepenuhnya. Status merokok berubah dari masih aktif menjadi sudah berhenti."
+            candidateNumeric = 1.0,
+            baselineText = "Tak Terkontrol",
+            candidateText = "Terkontrol",
+            chipText = "Perubahan status",
+            iconResId = R.drawable.ic_smoking
         )
     }
 
@@ -847,7 +745,6 @@ private fun buildGenericDisplayFeature(
     val baseline = feature.baselineValue ?: return null
     val candidate = feature.candidateValue ?: return null
     val delta = feature.delta ?: (candidate - baseline)
-    val accentColor = if (delta >= 0) Color(0xFF1D4ED8) else Color(0xFF0F766E)
     val bmiTranslation = bmiTranslation(
         featureName = feature.featureName,
         baselineValue = baseline,
@@ -857,67 +754,104 @@ private fun buildGenericDisplayFeature(
     )
 
     return CounterfactualDisplayFeature(
+        featureName = feature.featureName,
         label = if (feature.featureName == "BMI") "Berat Badan" else featureLabel(feature.featureName),
         baselineNumeric = baseline,
         candidateNumeric = candidate,
-        range = featureRange(feature.featureName),
-        baselineText = bmiTranslation?.baselineText ?: formatFeatureValue(feature.featureName, baseline),
-        candidateText = bmiTranslation?.candidateText ?: formatFeatureValue(feature.featureName, candidate),
-        chipText = bmiTranslation?.chipText ?: formatDeltaDescription(feature.featureName, delta),
-        accentColor = accentColor,
-        detailTitle = null,
-        detailDescription = null
+        baselineText = bmiTranslation?.baselineText ?: formatFeatureValue(feature.featureName, baseline, visualStyle = true),
+        candidateText = bmiTranslation?.candidateText ?: formatFeatureValue(feature.featureName, candidate, visualStyle = true),
+        chipText = bmiTranslation?.chipText ?: formatDeltaChip(feature.featureName, delta),
+        iconResId = featureIconRes(feature.featureName)
     )
 }
 
-@Composable
-private fun ScenarioChip(
-    text: String,
-    backgroundColor: Color,
-    textColor: Color
-) {
-    Box(
-        modifier = Modifier
-            .background(backgroundColor, RoundedCornerShape(999.dp))
-            .padding(horizontal = 10.dp, vertical = 6.dp)
-    ) {
-        Text(
-            text = text,
-            fontFamily = poppinsFontFamily,
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 11.sp,
-            color = textColor
-        )
+private fun featureIconRes(featureName: String): Int {
+    return when (featureName) {
+        "BMI" -> R.drawable.ic_weight
+        "is_hypertension" -> R.drawable.ic_hypertension
+        "is_cholesterol" -> R.drawable.ic_cholesterol
+        "smoking_status" -> R.drawable.ic_smoking
+        "moderate_physical_activity_frequency" -> R.drawable.ic_walk
+        else -> R.drawable.ic_weight
     }
 }
 
-@Composable
-private fun BulletSection(items: List<String>) {
-    Column(
-        modifier = Modifier.padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        items.forEachIndexed { index, item ->
-            Row(
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    text = "${index + 1}.",
-                    fontFamily = poppinsFontFamily,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 13.sp,
-                    color = colorResource(id = R.color.primary),
-                    modifier = Modifier.padding(end = 8.dp)
-                )
-                Text(
-                    text = item,
-                    fontFamily = poppinsFontFamily,
-                    fontSize = 13.sp,
-                    color = Color(0xFF4B5563),
-                    lineHeight = 18.sp
-                )
-            }
+private fun featureLabel(name: String): String {
+    return when (name) {
+        "BMI" -> "Berat Badan"
+        "smoking_status" -> "Status Merokok"
+        "is_cholesterol" -> "Kolestrol"
+        "is_hypertension" -> "Hipertensi"
+        "moderate_physical_activity_frequency" -> "Aktivitas Fisik/Minggu"
+        "brinkman_index" -> "Indeks Brinkman"
+        "is_bloodline" -> "Riwayat Keluarga"
+        "is_macrosomic_baby" -> "Riwayat Bayi Makrosomia"
+        "age" -> "Usia"
+        else -> name
+    }
+}
+
+private fun formatFeatureValue(
+    name: String,
+    value: Double,
+    visualStyle: Boolean = false
+): String {
+    return when (name) {
+        "BMI" -> "Data berat belum lengkap"
+        "age" -> "${value.toInt()} tahun"
+        "moderate_physical_activity_frequency" -> if (visualStyle) {
+            "${value.toInt()} Aktivitas"
+        } else {
+            "${value.toInt()} hari / minggu"
         }
+
+        "smoking_status" -> when (value.toInt()) {
+            0 -> "Tidak merokok"
+            1 -> if (visualStyle) "Terkontrol" else "Sudah berhenti"
+            2 -> if (visualStyle) "Tak Terkontrol" else "Masih aktif"
+            else -> value.toInt().toString()
+        }
+
+        "brinkman_index" -> when (value.toInt()) {
+            0 -> "Paparan sangat rendah"
+            1 -> "Paparan ringan"
+            2 -> "Paparan sedang"
+            3 -> "Paparan tinggi"
+            else -> value.toInt().toString()
+        }
+
+        "is_hypertension", "is_cholesterol" -> if (visualStyle) {
+            if (value.toInt() == 1) "Tak Terkontrol" else "Terkontrol"
+        } else {
+            if (value.toInt() == 1) "Ya" else "Tidak"
+        }
+
+        "is_bloodline" -> if (value.toInt() == 1) "Ya" else "Tidak"
+        "is_macrosomic_baby" -> when (value.toInt()) {
+            0 -> "Tidak"
+            1 -> "Ya"
+            2 -> "Tidak relevan"
+            else -> value.toInt().toString()
+        }
+
+        else -> String.format("%.2f", value)
+    }
+}
+
+private fun formatDeltaChip(name: String, delta: Double): String {
+    return when (name) {
+        "BMI" -> {
+            val prefix = if (delta < 0) "↓" else "↑"
+            "$prefix ${String.format("%.1f", abs(delta))} kg"
+        }
+
+        "moderate_physical_activity_frequency" -> {
+            val prefix = if (delta < 0) "↓" else "↑"
+            "$prefix ${abs(delta).toInt()} Aktivitas"
+        }
+
+        "is_hypertension", "is_cholesterol", "smoking_status" -> "Perubahan status"
+        else -> if (delta < 0) "Menurun" else "Meningkat"
     }
 }
 
@@ -933,82 +867,6 @@ private fun SummaryText(text: String) {
     )
 }
 
-private fun featureLabel(name: String): String {
-    return when (name) {
-        "BMI" -> "Berat Badan"
-        "smoking_status" -> "Status Merokok"
-        "is_cholesterol" -> "Kolesterol"
-        "is_hypertension" -> "Hipertensi"
-        "moderate_physical_activity_frequency" -> "Aktivitas Fisik"
-        "brinkman_index" -> "Indeks Brinkman"
-        "is_bloodline" -> "Riwayat Keluarga"
-        "is_macrosomic_baby" -> "Riwayat Bayi Makrosomia"
-        "age" -> "Usia"
-        else -> name
-    }
-}
-
-private fun formatFeatureValue(name: String, value: Double): String {
-    return when (name) {
-        "BMI" -> "Data berat belum lengkap"
-        "age" -> "${value.toInt()} tahun"
-        "moderate_physical_activity_frequency" -> "${value.toInt()} hari / minggu"
-        "smoking_status" -> when (value.toInt()) {
-            0 -> "Tidak merokok"
-            1 -> "Sudah berhenti"
-            2 -> "Masih aktif"
-            else -> value.toInt().toString()
-        }
-
-        "brinkman_index" -> when (value.toInt()) {
-            0 -> "Paparan sangat rendah"
-            1 -> "Paparan ringan"
-            2 -> "Paparan sedang"
-            3 -> "Paparan tinggi"
-            else -> value.toInt().toString()
-        }
-
-        "is_hypertension", "is_cholesterol", "is_bloodline" -> if (value.toInt() == 1) "Ya" else "Tidak"
-        "is_macrosomic_baby" -> when (value.toInt()) {
-            0 -> "Tidak"
-            1 -> "Ya"
-            2 -> "Tidak relevan"
-            else -> value.toInt().toString()
-        }
-
-        else -> String.format("%.2f", value)
-    }
-}
-
-private fun formatDeltaDescription(name: String, delta: Double): String {
-    return when (name) {
-        "BMI" -> "target berat badan berubah"
-
-        "moderate_physical_activity_frequency" -> if (delta < 0) {
-            "berkurang ${abs(delta).toInt()} hari/minggu"
-        } else {
-            "bertambah ${delta.toInt()} hari/minggu"
-        }
-
-        else -> if (delta < 0) "menurun" else "meningkat"
-    }
-}
-
-private fun featureRange(name: String): Pair<Double, Double> {
-    return when (name) {
-        "age" -> 18.0 to 100.0
-        "BMI" -> 10.0 to 60.0
-        "smoking_status" -> 0.0 to 2.0
-        "is_cholesterol" -> 0.0 to 1.0
-        "is_macrosomic_baby" -> 0.0 to 2.0
-        "moderate_physical_activity_frequency" -> 0.0 to 14.0
-        "is_bloodline" -> 0.0 to 1.0
-        "brinkman_index" -> 0.0 to 3.0
-        "is_hypertension" -> 0.0 to 1.0
-        else -> 0.0 to 100.0
-    }
-}
-
 private fun toHighRiskPercentage(lowRiskProbability: Double): Double {
     return (1.0 - lowRiskProbability) * 100
 }
@@ -1017,9 +875,28 @@ private fun formatPercentage(value: Double?): String {
     return value?.let { String.format("%.1f%%", it) } ?: "-"
 }
 
+private fun riskLevelLabel(value: Double?): String {
+    val risk = value ?: return "Data belum tersedia"
+    return when {
+        risk <= 35.0 -> "Kategori rendah"
+        risk <= 55.0 -> "Kategori sedang"
+        risk <= 70.0 -> "Kategori tinggi"
+        else -> "Kategori sangat tinggi"
+    }
+}
+
+private fun riskLevelColor(value: Double?): Color {
+    val risk = value ?: return Color.White
+    return when {
+        risk <= 35.0 -> Color(0xFF8BC34A)
+        risk <= 55.0 -> Color(0xFFFFC107)
+        risk <= 70.0 -> Color(0xFFFA821F)
+        else -> Color(0xFFF44336)
+    }
+}
+
 private data class BmiTranslation(
     val chipText: String,
-    val description: String,
     val baselineText: String,
     val candidateText: String
 )
@@ -1043,40 +920,11 @@ private fun bmiTranslation(
     val baselineWeightFromBmi = baselineValue * heightMeters * heightMeters
     val targetWeight = candidateValue * heightMeters * heightMeters
     val estimatedDelta = targetWeight - currentWeightKg
-    val weightAction = if (estimatedDelta < 0) "turun" else "naik"
     val weightDeltaAbs = abs(estimatedDelta)
-
-    val chipText = if (weightDeltaAbs < 0.05) {
-        "berat relatif tetap"
-    } else {
-        "sekitar $weightAction ${String.format("%.1f", weightDeltaAbs)} kg"
-    }
-
-    val description = buildString {
-        append(
-            "Dengan tinggi badan $heightCm cm, kondisi awal "
-        )
-        append(
-            "setara kira-kira dengan berat ${String.format("%.1f", baselineWeightFromBmi)} kg. "
-        )
-        append(
-            "Target akhir berarti berat badan "
-        )
-        append(
-            "sekitar ${String.format("%.1f", targetWeight)} kg"
-        )
-        if (weightDeltaAbs >= 0.05) {
-            append(
-                ", atau sekitar $weightAction ${String.format("%.1f", weightDeltaAbs)} kg dari berat Anda saat ini."
-            )
-        } else {
-            append(" dengan perubahan berat yang sangat kecil dari kondisi saat ini.")
-        }
-    }
+    val prefix = if (estimatedDelta < 0) "↓" else "↑"
 
     return BmiTranslation(
-        chipText = chipText,
-        description = description,
+        chipText = "$prefix ${String.format("%.1f", weightDeltaAbs)} kg",
         baselineText = "${String.format("%.1f", baselineWeightFromBmi)} kg",
         candidateText = "${String.format("%.1f", targetWeight)} kg"
     )

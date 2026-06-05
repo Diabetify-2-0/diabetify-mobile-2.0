@@ -149,7 +149,7 @@ private fun PlannerHeroSection(
     progressFraction: Float,
     onBack: () -> Unit
 ) {
-    val backgroundColor = Color(0xFF2D475B)
+    val backgroundColor = Color(0xFF274254)
     val baselineRisk = goal.currentRiskPercentage
     val currentRisk = latestRisk ?: baselineRisk
     val targetRisk = goal.projectedRiskPercentage ?: goal.targetRiskPercentage.toDouble()

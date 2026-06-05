@@ -1185,7 +1185,7 @@ private fun ActivePlannerGoalCard(
         latestRisk = latestRisk,
         projectedRisk = projectedRisk
     )
-    val cardColor = Color(0xFF2D475B)
+    val cardColor = Color(0xFF274254)
     val accentColor = Color(0xFF5DCAA5)
     val trackColor = Color.White.copy(alpha = 0.96f)
     val dividerColor = Color.White.copy(alpha = 0.16f)
@@ -1213,7 +1213,7 @@ private fun ActivePlannerGoalCard(
                 text = "Goal Aktif",
                 fontFamily = poppinsFontFamily,
                 fontWeight = FontWeight.Bold,
-                fontSize = 16.sp,
+                fontSize = 24.sp,
                 color = Color.White
             )
 
@@ -1292,7 +1292,7 @@ private fun ActivePlannerGoalCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Lihat Progress",
+                    text = "Lihat Progres",
                     fontFamily = poppinsFontFamily,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 13.sp,
