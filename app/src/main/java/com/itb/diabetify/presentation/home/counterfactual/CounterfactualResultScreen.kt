@@ -517,75 +517,71 @@ private fun RiskHighlightCard(
 private fun FeatureVisualizationRow(
     feature: CounterfactualDisplayFeature
 ) {
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 14.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Box(
-            modifier = Modifier
-                .size(64.dp)
-                .clip(RoundedCornerShape(14.dp))
-                .background(Color(0xFF2E475A)),
-            contentAlignment = Alignment.Center
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                painter = painterResource(id = feature.iconResId),
-                contentDescription = feature.label,
-                tint = Color.White,
-                modifier = Modifier.size(28.dp)
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color(0xFF2E475A)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(id = feature.iconResId),
+                    contentDescription = feature.label,
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            Text(
+                text = feature.label,
+                fontFamily = poppinsFontFamily,
+                fontWeight = FontWeight.Bold,
+                fontSize = 15.sp,
+                color = Color(0xFF111827),
+                modifier = Modifier.weight(1f)
             )
+
+            FeatureChip(text = feature.chipText)
         }
 
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
-            ) {
-                Text(
-                    text = feature.label,
-                    fontFamily = poppinsFontFamily,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
-                    color = Color(0xFF111827),
-                    modifier = Modifier.weight(1f)
-                )
-                FeatureChip(text = feature.chipText)
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                FeatureValueCard(
-                    modifier = Modifier.weight(1f),
-                    label = "Saat ini",
-                    value = feature.baselineText,
-                    containerColor = Color(0xFFF7F7F7),
-                    valueColor = Color(0xFF121212)
-                )
-                Text(
-                    text = "→",
-                    fontFamily = poppinsFontFamily,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 22.sp,
-                    color = Color(0xFF64748B)
-                )
-                FeatureValueCard(
-                    modifier = Modifier.weight(1f),
-                    label = "Skenario",
-                    value = feature.candidateText,
-                    containerColor = Color(0xFFD3EFE5),
-                    valueColor = Color(0xFF0F5132)
-                )
-            }
+            FeatureValueCard(
+                modifier = Modifier.weight(1f),
+                label = "Saat ini",
+                value = feature.baselineText,
+                containerColor = Color(0xFFF7F7F7),
+                valueColor = Color(0xFF121212)
+            )
+            Text(
+                text = "→",
+                fontFamily = poppinsFontFamily,
+                fontWeight = FontWeight.Bold,
+                fontSize = 24.sp,
+                color = Color(0xFF64748B),
+                modifier = Modifier.padding(horizontal = 2.dp)
+            )
+            FeatureValueCard(
+                modifier = Modifier.weight(1f),
+                label = "Skenario",
+                value = feature.candidateText,
+                containerColor = Color(0xFFD3EFE5),
+                valueColor = Color(0xFF0F5132)
+            )
         }
     }
 }
@@ -602,13 +598,13 @@ private fun FeatureValueCard(
         modifier = modifier
             .clip(RoundedCornerShape(14.dp))
             .background(containerColor)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(3.dp)
     ) {
         Text(
             text = label,
             fontFamily = poppinsFontFamily,
-            fontSize = 10.sp,
+            fontSize = 9.sp,
             color = Color(0xFF9CA3AF)
         )
         Text(
@@ -616,6 +612,7 @@ private fun FeatureValueCard(
             fontFamily = poppinsFontFamily,
             fontWeight = FontWeight.Bold,
             fontSize = 13.sp,
+            lineHeight = 17.sp,
             color = valueColor
         )
     }
@@ -627,12 +624,12 @@ private fun FeatureChip(text: String) {
         modifier = Modifier
             .clip(RoundedCornerShape(999.dp))
             .background(Color(0xFFE9F7F0))
-            .padding(horizontal = 8.dp, vertical = 4.dp)
+            .padding(horizontal = 8.dp, vertical = 3.dp)
     ) {
         Text(
             text = text,
             fontFamily = poppinsFontFamily,
-            fontWeight = FontWeight.Medium,
+            fontWeight = FontWeight.Bold,
             fontSize = 10.sp,
             color = Color(0xFF2F7D68)
         )
@@ -727,9 +724,9 @@ private fun buildSmokingDisplayFeature(
             label = "Status Merokok",
             baselineNumeric = 2.0,
             candidateNumeric = 1.0,
-            baselineText = "Tak Terkontrol",
-            candidateText = "Terkontrol",
-            chipText = "Perubahan status",
+            baselineText = "Masih Aktif",
+            candidateText = "Sudah Berhenti",
+            chipText = "Perubahan Status",
             iconResId = R.drawable.ic_smoking
         )
     }
@@ -782,7 +779,7 @@ private fun featureLabel(name: String): String {
         "smoking_status" -> "Status Merokok"
         "is_cholesterol" -> "Kolestrol"
         "is_hypertension" -> "Hipertensi"
-        "moderate_physical_activity_frequency" -> "Aktivitas Fisik/Minggu"
+        "moderate_physical_activity_frequency" -> "Aktivitas Fisik"
         "brinkman_index" -> "Indeks Brinkman"
         "is_bloodline" -> "Riwayat Keluarga"
         "is_macrosomic_baby" -> "Riwayat Bayi Makrosomia"
@@ -800,7 +797,7 @@ private fun formatFeatureValue(
         "BMI" -> "Data berat belum lengkap"
         "age" -> "${value.toInt()} tahun"
         "moderate_physical_activity_frequency" -> if (visualStyle) {
-            "${value.toInt()} Aktivitas"
+            "${value.toInt()} Per Minggu"
         } else {
             "${value.toInt()} hari / minggu"
         }
@@ -841,16 +838,16 @@ private fun formatFeatureValue(
 private fun formatDeltaChip(name: String, delta: Double): String {
     return when (name) {
         "BMI" -> {
-            val prefix = if (delta < 0) "↓" else "↑"
+            val prefix = if (delta < 0) "▼" else "▲"
             "$prefix ${String.format("%.1f", abs(delta))} kg"
         }
 
         "moderate_physical_activity_frequency" -> {
-            val prefix = if (delta < 0) "↓" else "↑"
+            val prefix = if (delta < 0) "▼" else "▲"
             "$prefix ${abs(delta).toInt()} Aktivitas"
         }
 
-        "is_hypertension", "is_cholesterol", "smoking_status" -> "Perubahan status"
+        "is_hypertension", "is_cholesterol", "smoking_status" -> "Perubahan Status"
         else -> if (delta < 0) "Menurun" else "Meningkat"
     }
 }
@@ -921,7 +918,7 @@ private fun bmiTranslation(
     val targetWeight = candidateValue * heightMeters * heightMeters
     val estimatedDelta = targetWeight - currentWeightKg
     val weightDeltaAbs = abs(estimatedDelta)
-    val prefix = if (estimatedDelta < 0) "↓" else "↑"
+    val prefix = if (estimatedDelta < 0) "▼" else "▲"
 
     return BmiTranslation(
         chipText = "$prefix ${String.format("%.1f", weightDeltaAbs)} kg",
