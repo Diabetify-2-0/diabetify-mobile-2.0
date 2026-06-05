@@ -687,8 +687,12 @@ private fun SaveGoalCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp),
-                backgroundColor = Color(0xFF7A7A7A),
-                textColor = Color.White
+                backgroundColor = Color.White,
+                backgroundColorSecondary = Color.White,
+                textColor = colorResource(id = R.color.primary),
+                borderColor = colorResource(id = R.color.primary).copy(alpha = 0.5f),
+                enabledShadowElevation = 0.dp,
+                disabledShadowElevation = 0.dp
             )
 
             if (hasDifferentActiveGoal) {

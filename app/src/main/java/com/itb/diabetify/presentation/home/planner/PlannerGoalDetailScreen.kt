@@ -2,6 +2,7 @@ package com.itb.diabetify.presentation.home.planner
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,14 +23,19 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material3.AlertDialog
+import androidx.compose.foundation.layout.offset
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -522,70 +528,130 @@ private fun PlannerShortcutCard(
 private fun PlannerDangerZoneCard(
     onDeleteGoal: () -> Unit
 ) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(
-                        brush = Brush.horizontalGradient(
-                            colors = listOf(
-                                colorResource(id = R.color.primary),
-                                colorResource(id = R.color.primary).copy(alpha = 0.8f)
-                            )
-                        )
-                    )
-                    .padding(vertical = 12.dp, horizontal = 16.dp)
-            ) {
+    var showDeleteDialog by remember { mutableStateOf(false) }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = {
                 Text(
-                    text = "Zona Berbahaya",
+                    text = "Hapus Goal Aktif?",
                     fontFamily = poppinsFontFamily,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp,
-                    color = Color.White
+                    color = Color(0xFF111827)
                 )
+            },
+            text = {
+                Text(
+                    text = "Goal dan seluruh progres planner akan dihapus permanen. Tindakan ini tidak bisa dibatalkan.",
+                    fontFamily = poppinsFontFamily,
+                    fontSize = 13.sp,
+                    lineHeight = 20.sp,
+                    color = Color(0xFF4B5563)
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteDialog = false
+                        onDeleteGoal()
+                    }
+                ) {
+                    Text(
+                        text = "Hapus Goal",
+                        fontFamily = poppinsFontFamily,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFFFF2D2D)
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showDeleteDialog = false }
+                ) {
+                    Text(
+                        text = "Batal",
+                        fontFamily = poppinsFontFamily,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF6B7280)
+                    )
+                }
             }
+        )
+    }
 
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(5.dp)
+    ) {
+        Text(
+            text = "ZONA BERBAHAYA",
+            fontFamily = poppinsFontFamily,
+            fontWeight = FontWeight.Bold,
+            fontSize = 12.sp,
+            color = Color(0xFFBBBBBB)
+        )
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            shape = RoundedCornerShape(22.dp)
+        ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
-                    .clickable(onClick = onDeleteGoal)
-                    .padding(horizontal = 16.dp, vertical = 16.dp),
+                    .clip(RoundedCornerShape(22.dp))
+                    .background(Color.White)
+                    .border(
+                        width = 1.dp,
+                        color = Color(0xFFF6B6BC),
+                        shape = RoundedCornerShape(22.dp)
+                    )
+                    .clickable { showDeleteDialog = true }
+                    .padding(horizontal = 18.dp, vertical = 16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
                     modifier = Modifier
-                        .size(42.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFFFFF1F3)),
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(12.dp)),
                     contentAlignment = Alignment.Center
                 ) {
                     Image(
                         painter = painterResource(id = R.drawable.ic_planner_trash),
                         contentDescription = "Hapus goal",
-                        modifier = Modifier.size(20.dp),
-                        colorFilter = ColorFilter.tint(Color(0xFFFA4D5E))
+                        modifier = Modifier
+                            .size(40.dp)
+                            .offset(x = (-2.5).dp),
+                        colorFilter = ColorFilter.tint(Color(0xFFDC2626))
                     )
                 }
 
-                Spacer(modifier = Modifier.width(10.dp))
+                Spacer(modifier = Modifier.width(8.dp))
 
-                Text(
-                    text = "Hapus goal ini",
-                    fontFamily = poppinsFontFamily,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 12.sp,
-                    color = Color(0xFFFF2D2D)
-                )
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    Text(
+                        text = "Hapus goal ini",
+                        fontFamily = poppinsFontFamily,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 14.sp,
+                        color = Color(0xFFDC2626)
+                    )
+                    Text(
+                        text = "Goal dan seluruh progres akan dihapus permanen",
+                        fontFamily = poppinsFontFamily,
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 10.sp,
+                        lineHeight = 18.sp,
+                        color = Color(0xFF9CA3AF)
+                    )
+                }
             }
         }
     }
