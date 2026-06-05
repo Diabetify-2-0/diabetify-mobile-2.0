@@ -198,16 +198,17 @@ internal fun buildGoalCompletionState(
     )
 }
 
-internal fun currentMilestoneWeek(createdAtMillis: Long): Int {
+internal fun currentMilestoneWeek(createdAtMillis: Long, totalWeeks: Int): Int {
     val elapsedMillis = (System.currentTimeMillis() - createdAtMillis).coerceAtLeast(0L)
     val elapsedWeeks = ceil(elapsedMillis.toDouble() / WEEK_MILLIS).toInt().coerceAtLeast(1)
-    return elapsedWeeks.coerceIn(1, MILESTONE_TOTAL_WEEKS)
+    return elapsedWeeks.coerceIn(1, totalWeeks.coerceAtLeast(1))
 }
 
 internal fun buildWeeklyMilestone(
     feature: PlannerGoalFeature,
     currentValue: Double?,
     currentWeek: Int,
+    totalWeeks: Int,
     heightCm: Int
 ): PlannerWeeklyMilestone? {
     val baseline = feature.baselineValue ?: return null
@@ -225,7 +226,7 @@ internal fun buildWeeklyMilestone(
         return PlannerWeeklyMilestone(
             label = displayFeatureLabel(feature),
             currentText = currentText,
-            expectedText = if (currentWeek >= MILESTONE_TOTAL_WEEKS) finalTargetText else "Pantau",
+            expectedText = if (currentWeek >= totalWeeks) finalTargetText else "Pantau",
             finalTargetText = finalTargetText,
             progressFraction = if (reached) 1f else 0f,
             statusText = if (reached) "Tercapai" else "Pantau",
@@ -234,7 +235,7 @@ internal fun buildWeeklyMilestone(
         )
     }
 
-    val expectedFraction = currentWeek.toDouble() / MILESTONE_TOTAL_WEEKS
+    val expectedFraction = currentWeek.toDouble() / totalWeeks.coerceAtLeast(1)
     val expectedValue = baseline + ((target - baseline) * expectedFraction)
     val progressFraction = calculateProgressFraction(
         baseline = baseline,
@@ -568,7 +569,6 @@ private fun bmiToWeight(bmi: Double, heightCm: Int): Double? {
     return bmi * heightMeters * heightMeters
 }
 
-private const val MILESTONE_TOTAL_WEEKS = 12
 private const val MILESTONE_TOLERANCE = 0.05f
 private const val COMPLETION_RISK_BUFFER_PERCENTAGE = 2.0
 private const val WEEK_MILLIS = 7L * 24L * 60L * 60L * 1000L

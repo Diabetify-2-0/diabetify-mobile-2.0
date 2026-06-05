@@ -2,6 +2,7 @@ package com.itb.diabetify.presentation.home.counterfactual
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -63,7 +65,7 @@ fun CounterfactualResultScreen(
 ) {
     val result by viewModel.counterfactualResult
     val resultMeta by viewModel.counterfactualJobResultMeta
-    val submittedTarget by viewModel.counterfactualSubmittedTarget
+    val plannerGoalDurationWeeks by viewModel.plannerGoalDurationWeeks
     val activePlannerGoal by viewModel.activePlannerGoal
     val replaceableActivePlannerGoal = activePlannerGoal?.takeIf { it.status == PlannerGoalStatus.ACTIVE }
     var showReplaceGoalDialog by remember { mutableStateOf(false) }
@@ -174,17 +176,19 @@ fun CounterfactualResultScreen(
             FeasibleCounterfactualResultScreen(
                 result = safeResult,
                 displayFeatures = displayFeatures,
-                targetRiskPercentage = submittedTarget.targetHighRiskPercentage,
+                selectedDurationWeeks = plannerGoalDurationWeeks,
                 isSaved = isCurrentResultSaved,
                 hasDifferentActiveGoal = hasDifferentActiveGoal,
                 onBack = navigateBackToHome,
+                onDurationSelected = viewModel::updatePlannerGoalDurationWeeks,
                 onSave = {
                     if (hasDifferentActiveGoal) {
                         showReplaceGoalDialog = true
                     } else {
-                        viewModel.saveCounterfactualAsGoal()
+                        viewModel.saveCounterfactualAsGoal(durationWeeks = plannerGoalDurationWeeks)
                     }
-                }
+                },
+                onTryAnother = navigateBackToPlannerSetup
             )
         }
 
@@ -206,11 +210,13 @@ fun CounterfactualResultScreen(
 private fun FeasibleCounterfactualResultScreen(
     result: CounterfactualResultPayload,
     displayFeatures: List<CounterfactualDisplayFeature>,
-    targetRiskPercentage: Int,
+    selectedDurationWeeks: Int,
     isSaved: Boolean,
     hasDifferentActiveGoal: Boolean,
     onBack: () -> Unit,
-    onSave: () -> Unit
+    onDurationSelected: (Int) -> Unit,
+    onSave: () -> Unit,
+    onTryAnother: () -> Unit
 ) {
     val scrollState = rememberScrollState()
 
@@ -279,21 +285,13 @@ private fun FeasibleCounterfactualResultScreen(
             }
 
             SaveGoalCard(
+                selectedDurationWeeks = selectedDurationWeeks,
                 isSaved = isSaved,
-                targetRiskPercentage = targetRiskPercentage,
-                onSave = onSave
+                hasDifferentActiveGoal = hasDifferentActiveGoal,
+                onDurationSelected = onDurationSelected,
+                onSave = onSave,
+                onTryAnother = onTryAnother
             )
-
-            if (hasDifferentActiveGoal) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "Menyimpan rencana ini akan menggantikan goal aktif sebelumnya.",
-                    fontFamily = poppinsFontFamily,
-                    fontSize = 12.sp,
-                    color = Color(0xFF6B7280),
-                    modifier = Modifier.padding(horizontal = 8.dp)
-                )
-            }
 
             Spacer(modifier = Modifier.height(16.dp))
         }
@@ -638,29 +636,114 @@ private fun FeatureChip(text: String) {
 
 @Composable
 private fun SaveGoalCard(
+    selectedDurationWeeks: Int,
     isSaved: Boolean,
-    targetRiskPercentage: Int,
-    onSave: () -> Unit
+    hasDifferentActiveGoal: Boolean,
+    onDurationSelected: (Int) -> Unit,
+    onSave: () -> Unit,
+    onTryAnother: () -> Unit
 ) {
-    HomeCard(title = "Lanjutkan Sebagai Goal") {
+    HomeCard(title = "Jadikan Goal Aktif") {
         Column(
             modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            SummaryText(
-                text = "Simpan rencana ini agar menjadi goal aktif. Setelah tersimpan, goal akan muncul di Home dan bisa menjadi dasar tracking progres berikutnya."
+            Text(
+                text = "Berapa lama kamu ingin mencapai target ini?",
+                fontFamily = poppinsFontFamily,
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp,
+                color = Color(0xFF111827)
             )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                plannerDurationOptions().forEach { durationWeeks ->
+                    PlannerDurationOption(
+                        modifier = Modifier.weight(1f),
+                        durationWeeks = durationWeeks,
+                        isSelected = durationWeeks == selectedDurationWeeks,
+                        onClick = { onDurationSelected(durationWeeks) }
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(3.dp))
+
             PrimaryButton(
-                text = if (isSaved) "Goal Sudah Aktif" else "Jadikan Goal Risiko <$targetRiskPercentage%",
+                text = if (isSaved) "Goal Sudah Aktif" else "Jadikan Goal",
                 onClick = onSave,
                 enabled = !isSaved,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp)
             )
+
+            CustomizableButton(
+                text = "Cari Skenario Lain",
+                onClick = onTryAnother,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp),
+                backgroundColor = Color(0xFF7A7A7A),
+                textColor = Color.White
+            )
+
+            if (hasDifferentActiveGoal) {
+                Text(
+                    text = "Menyimpan rencana ini akan menggantikan goal aktif sebelumnya",
+                    fontFamily = poppinsFontFamily,
+                    fontSize = 12.sp,
+                    lineHeight = 18.sp,
+                    textAlign = TextAlign.Center,
+                    color = Color(0xFF6B7280),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
         }
     }
 }
+
+@Composable
+private fun PlannerDurationOption(
+    modifier: Modifier = Modifier,
+    durationWeeks: Int,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(if (isSelected) colorResource(id = R.color.primary) else Color(0xFFF4F4F5))
+            .clickable(onClick = onClick)
+            .padding(vertical = 12.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(
+                text = durationWeeks.toString(),
+                fontFamily = poppinsFontFamily,
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp,
+                color = if (isSelected) Color.White else Color(0xFF616161)
+            )
+            Text(
+                text = "minggu",
+                fontFamily = poppinsFontFamily,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 12.sp,
+                color = if (isSelected) Color.White else Color(0xFF616161)
+            )
+        }
+    }
+}
+
+private fun plannerDurationOptions(): List<Int> = listOf(4, 8, 12, 24)
 
 private data class CounterfactualDisplayFeature(
     val featureName: String,

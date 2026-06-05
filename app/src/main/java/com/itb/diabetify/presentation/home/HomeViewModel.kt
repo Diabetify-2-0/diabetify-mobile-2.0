@@ -298,6 +298,9 @@ class HomeViewModel @Inject constructor(
     private val _counterfactualJobResultMeta = mutableStateOf<CounterfactualJobResultData?>(null)
     val counterfactualJobResultMeta: State<CounterfactualJobResultData?> = _counterfactualJobResultMeta
 
+    private val _plannerGoalDurationWeeks = mutableIntStateOf(DEFAULT_PLANNER_DURATION_WEEKS)
+    val plannerGoalDurationWeeks: State<Int> = _plannerGoalDurationWeeks
+
     private val _activePlannerGoal = mutableStateOf<PlannerGoal?>(null)
     val activePlannerGoal: State<PlannerGoal?> = _activePlannerGoal
 
@@ -737,6 +740,7 @@ class HomeViewModel @Inject constructor(
         _counterfactualSubmittedOptions.value = emptyList()
         _counterfactualResult.value = null
         _counterfactualJobResultMeta.value = null
+        _plannerGoalDurationWeeks.intValue = DEFAULT_PLANNER_DURATION_WEEKS
 
         _riskFactorDetails.value = _riskFactorDetails.value.map {
             it.copy(impactPercentage = 0.0, currentValue = when(it.name) {
@@ -1103,14 +1107,25 @@ class HomeViewModel @Inject constructor(
         currentCounterfactualJobId = null
     }
 
-    fun saveCounterfactualAsGoal(replaceActiveGoal: Boolean = false) {
+    fun updatePlannerGoalDurationWeeks(value: Int) {
+        if (value in PLANNER_DURATION_OPTIONS_WEEKS) {
+            _plannerGoalDurationWeeks.intValue = value
+        }
+    }
+
+    fun saveCounterfactualAsGoal(
+        replaceActiveGoal: Boolean = false,
+        durationWeeks: Int = plannerGoalDurationWeeks.value
+    ) {
         val result = counterfactualResult.value
         if (result == null || result.status != "FEASIBLE" || result.candidates.isEmpty()) {
             _errorMessage.value = "Belum ada rencana feasible yang bisa disimpan sebagai goal"
             return
         }
 
-        val goal = buildPlannerGoalFromCounterfactual(result)
+        val normalizedDurationWeeks = durationWeeks.takeIf { it in PLANNER_DURATION_OPTIONS_WEEKS }
+            ?: DEFAULT_PLANNER_DURATION_WEEKS
+        val goal = buildPlannerGoalFromCounterfactual(result, normalizedDurationWeeks)
         viewModelScope.launch {
             val existingGoal = activePlannerGoal.value
             if (
@@ -1154,7 +1169,8 @@ class HomeViewModel @Inject constructor(
     }
 
     private fun buildPlannerGoalFromCounterfactual(
-        result: CounterfactualResultPayload
+        result: CounterfactualResultPayload,
+        durationWeeks: Int
     ): PlannerGoal {
         val currentRisk = result.inputPrediction?.probabilityLowRisk?.let(::toHighRiskPercentage)
         val projectedRisk = result.candidates.firstOrNull()?.prediction?.probabilityLowRisk?.let(
@@ -1168,6 +1184,7 @@ class HomeViewModel @Inject constructor(
             title = "Turunkan risiko ke bawah ${counterfactualSubmittedTarget.value.targetHighRiskPercentage}%",
             currentRiskPercentage = currentRisk,
             targetRiskPercentage = counterfactualSubmittedTarget.value.targetHighRiskPercentage,
+            durationWeeks = durationWeeks,
             projectedRiskPercentage = projectedRisk,
             sourceJobId = _counterfactualJobResultMeta.value?.jobId,
             createdAtMillis = System.currentTimeMillis(),
@@ -1298,5 +1315,7 @@ class HomeViewModel @Inject constructor(
 
     companion object {
         private const val DEFAULT_COUNTERFACTUAL_RISK_TARGET_INPUT = "45"
+        private const val DEFAULT_PLANNER_DURATION_WEEKS = 4
+        private val PLANNER_DURATION_OPTIONS_WEEKS = setOf(4, 8, 12, 24)
     }
 }

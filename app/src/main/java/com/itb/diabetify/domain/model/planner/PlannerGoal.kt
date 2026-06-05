@@ -6,6 +6,7 @@ data class PlannerGoal(
     val status: PlannerGoalStatus = PlannerGoalStatus.ACTIVE,
     val currentRiskPercentage: Double?,
     val targetRiskPercentage: Int,
+    val durationWeeks: Int = 12,
     val projectedRiskPercentage: Double?,
     val sourceJobId: String?,
     val createdAtMillis: Long,

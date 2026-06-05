@@ -57,12 +57,13 @@ fun PlannerMilestoneScreen(
             return@PlannerSectionScaffold
         }
 
-        val currentWeek = currentMilestoneWeek(goal.createdAtMillis)
+        val currentWeek = currentMilestoneWeek(goal.createdAtMillis, goal.durationWeeks)
         val milestones = goal.features.mapNotNull { feature ->
             buildWeeklyMilestone(
                 feature = feature,
                 currentValue = currentFeatureValue(feature.featureName, viewModel),
                 currentWeek = currentWeek,
+                totalWeeks = goal.durationWeeks,
                 heightCm = viewModel.height.value
             )
         }
@@ -86,7 +87,7 @@ fun PlannerMilestoneScreen(
                     modifier = Modifier.weight(1f)
                 ) {
                     Text(
-                        text = "Minggu $currentWeek dari 12",
+                        text = "Minggu $currentWeek dari ${goal.durationWeeks}",
                         fontFamily = poppinsFontFamily,
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp,
@@ -342,11 +343,13 @@ fun PlannerCoachScreen(
         val history = goalId
             ?.let { id -> allCheckInHistory.filter { it.goalId == id }.sortedByDescending { it.createdAtMillis } }
             ?: viewModel.plannerCheckInHistory.value
+        val currentWeek = currentMilestoneWeek(goal.createdAtMillis, goal.durationWeeks)
         val milestones = goal.features.mapNotNull { feature ->
             buildWeeklyMilestone(
                 feature = feature,
                 currentValue = currentFeatureValue(feature.featureName, viewModel),
-                currentWeek = currentMilestoneWeek(goal.createdAtMillis),
+                currentWeek = currentWeek,
+                totalWeeks = goal.durationWeeks,
                 heightCm = viewModel.height.value
             )
         }

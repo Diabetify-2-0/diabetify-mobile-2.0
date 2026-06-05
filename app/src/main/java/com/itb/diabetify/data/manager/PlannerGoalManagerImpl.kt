@@ -87,7 +87,9 @@ class PlannerGoalManagerImpl @Inject constructor(
         val rawGoal = sharedPreferences.getString(ACTIVE_GOAL_KEY, null) ?: return null
         val goal = runCatching {
             gson.fromJson(rawGoal, PlannerGoal::class.java)
-        }.getOrNull()
+        }.getOrNull()?.let { parsedGoal ->
+            if (parsedGoal.durationWeeks > 0) parsedGoal else parsedGoal.copy(durationWeeks = 12)
+        }
 
         if (goal?.status != PlannerGoalStatus.ACTIVE) {
             sharedPreferences.edit()

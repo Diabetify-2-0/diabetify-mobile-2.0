@@ -16,6 +16,8 @@ data class PlannerGoalRequest(
     val currentRiskPercentage: Double?,
     @SerializedName("target_risk_percentage")
     val targetRiskPercentage: Int,
+    @SerializedName("duration_weeks")
+    val durationWeeks: Int? = null,
     @SerializedName("projected_risk_percentage")
     val projectedRiskPercentage: Double?,
     @SerializedName("source_job_id")
@@ -36,6 +38,7 @@ data class PlannerGoalRequest(
             status = runCatching { PlannerGoalStatus.valueOf(status) }.getOrDefault(PlannerGoalStatus.ACTIVE),
             currentRiskPercentage = currentRiskPercentage,
             targetRiskPercentage = targetRiskPercentage,
+            durationWeeks = durationWeeks ?: 12,
             projectedRiskPercentage = projectedRiskPercentage,
             sourceJobId = sourceJobId,
             createdAtMillis = createdAtMillis,
@@ -53,6 +56,7 @@ data class PlannerGoalRequest(
                 status = goal.status.name,
                 currentRiskPercentage = goal.currentRiskPercentage,
                 targetRiskPercentage = goal.targetRiskPercentage,
+                durationWeeks = goal.durationWeeks,
                 projectedRiskPercentage = goal.projectedRiskPercentage,
                 sourceJobId = goal.sourceJobId,
                 createdAtMillis = goal.createdAtMillis,
