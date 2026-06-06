@@ -104,8 +104,13 @@ fun PlannerGoalDetailScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 18.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                    .padding(
+                        start = 16.dp,
+                        end = 16.dp,
+                        top = 12.dp,
+                        bottom = 18.dp
+                    ),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 PlannerCardSection(title = "Progres Faktor") {
                     Column(
@@ -721,7 +726,7 @@ internal fun PlannerSectionScaffold(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 10.dp, vertical = 10.dp),
+                .padding(start = 10.dp, end = 10.dp, top = 10.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(
@@ -747,8 +752,8 @@ internal fun PlannerSectionScaffold(
                 .fillMaxWidth()
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 4.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 4.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             content()
             Spacer(modifier = Modifier.height(24.dp))
@@ -766,29 +771,17 @@ internal fun PlannerInfoCard(
 
 @Composable
 internal fun PlannerSectionTitle(
-    title: String,
     subtitle: String? = null
 ) {
-    Column(
-        verticalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
+    subtitle?.let {
         Text(
-            text = title,
+            text = it,
             fontFamily = poppinsFontFamily,
-            fontWeight = FontWeight.Bold,
-            fontSize = 18.sp,
-            color = Color(0xFF1F2937)
+            fontWeight = FontWeight.Medium,
+            fontSize = 12.sp,
+            lineHeight = 18.sp,
+            color = Color(0xFF6B7280)
         )
-        subtitle?.let {
-            Text(
-                text = it,
-                fontFamily = poppinsFontFamily,
-                fontWeight = FontWeight.Medium,
-                fontSize = 12.sp,
-                lineHeight = 18.sp,
-                color = Color(0xFF6B7280)
-            )
-        }
     }
 }
 

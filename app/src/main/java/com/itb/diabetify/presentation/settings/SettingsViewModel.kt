@@ -692,7 +692,8 @@ class SettingsViewModel @Inject constructor(
                         section = section,
                         updatedWeight = updatedWeight,
                         updatedHypertension = updatedHypertension,
-                        updatedCholesterol = updatedCholesterol
+                        updatedCholesterol = updatedCholesterol,
+                        updatedSmoking = updatedSmoking
                     )
                     _successMessage.value = "Profil kesehatan berhasil diperbaharui"
                     _isEditingHealthProfile.value = false
@@ -726,7 +727,8 @@ class SettingsViewModel @Inject constructor(
         section: HealthProfileSaveSection,
         updatedWeight: Int,
         updatedHypertension: Boolean,
-        updatedCholesterol: Boolean
+        updatedCholesterol: Boolean,
+        updatedSmoking: Int
     ) {
         val goal = _activePlannerGoal.value
             ?.takeIf { it.status == PlannerGoalStatus.ACTIVE }
@@ -760,6 +762,20 @@ class SettingsViewModel @Inject constructor(
                 label = "Kolesterol",
                 valueText = if (updatedCholesterol) "Ya" else "Tidak",
                 note = "Status kolesterol diperbarui dari profil kesehatan."
+            )
+        }
+
+        if (
+            section == HealthProfileSaveSection.SMOKING &&
+            "smoking_status" in featureNames &&
+            updatedSmoking in 1..2
+        ) {
+            recordPlannerCheckIn(
+                goal = goal,
+                checkInType = CHECK_IN_SMOKING,
+                label = "Status Merokok",
+                valueText = if (updatedSmoking == 1) "Sudah Berhenti" else "Masih aktif",
+                note = "Status merokok diperbarui dari profil kesehatan."
             )
         }
     }
@@ -856,6 +872,7 @@ class SettingsViewModel @Inject constructor(
         const val CHECK_IN_WEIGHT = "weight"
         const val CHECK_IN_HYPERTENSION = "hypertension"
         const val CHECK_IN_CHOLESTEROL = "cholesterol"
+        const val CHECK_IN_SMOKING = "smoking"
     }
 }
 
