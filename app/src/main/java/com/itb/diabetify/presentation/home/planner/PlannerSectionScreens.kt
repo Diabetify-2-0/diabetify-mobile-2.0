@@ -253,21 +253,21 @@ private fun PlannerNumericMilestoneCard(
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 PlannerMilestoneMetricCard(
-                    modifier = Modifier.weight(0.96f),
+                    modifier = Modifier.weight(0.94f),
                     label = milestone.currentLabel,
                     value = milestone.currentValueText,
                     containerColor = Color(0xFFFFEFF1),
                     valueColor = Color(0xFFF24E5A)
                 )
                 PlannerMilestoneMetricCard(
-                    modifier = Modifier.weight(1.08f),
+                    modifier = Modifier.weight(1.2f),
                     label = milestone.weeklyLabel,
                     value = milestone.weeklyValueText,
                     containerColor = Color(0xFFDDF4EC),
                     valueColor = Color(0xFF175C4A)
                 )
                 PlannerMilestoneMetricCard(
-                    modifier = Modifier.weight(0.956f),
+                    modifier = Modifier.weight(0.94f),
                     label = milestone.targetLabel,
                     value = milestone.targetValueText,
                     containerColor = Color(0xFFF6F6F6),
@@ -388,7 +388,7 @@ private fun PlannerMilestoneCardHeader(
                 text = milestone.title,
                 fontFamily = poppinsFontFamily,
                 fontWeight = FontWeight.Bold,
-                fontSize = 14.sp,
+                fontSize = 16.sp,
                 color = Color(0xFF304459)
             )
         }
@@ -397,13 +397,13 @@ private fun PlannerMilestoneCardHeader(
             modifier = Modifier
                 .clip(RoundedCornerShape(999.dp))
                 .background(milestone.statusContainerColor)
-                .padding(horizontal = 12.dp, vertical = 6.dp)
+                .padding(horizontal = 10.dp, vertical = 4.dp)
         ) {
             Text(
                 text = milestone.statusText,
                 fontFamily = poppinsFontFamily,
                 fontWeight = FontWeight.SemiBold,
-                fontSize = 12.sp,
+                fontSize = 9.sp,
                 color = milestone.statusTextColor
             )
         }
@@ -429,9 +429,8 @@ private fun PlannerMilestoneMetricCard(
             text = label,
             fontFamily = poppinsFontFamily,
             fontWeight = FontWeight.Medium,
-            fontSize = 8.sp,
-            color = Color(0xFFB2B2B2)
-            ,
+            fontSize = 9.sp,
+            color = Color(0xFFB2B2B2),
             maxLines = 1,
             softWrap = false
         )
@@ -476,14 +475,14 @@ private fun PlannerMilestoneHighlightBanner(
         Icon(
             painter = painterResource(id = highlight.iconResId),
             contentDescription = null,
-            tint = highlight.textColor,
-            modifier = Modifier.size(18.dp)
+            tint = highlight.iconColor,
+            modifier = Modifier.size(20.dp)
         )
         Text(
             text = highlight.message,
             fontFamily = poppinsFontFamily,
             fontWeight = FontWeight.SemiBold,
-            fontSize = 13.sp,
+            fontSize = 12.sp,
             lineHeight = 18.sp,
             color = highlight.textColor
         )

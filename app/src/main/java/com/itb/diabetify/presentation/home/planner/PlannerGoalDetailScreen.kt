@@ -64,6 +64,7 @@ fun PlannerGoalDetailScreen(
     goalId: String? = null
 ) {
     val activeGoal by viewModel.activePlannerGoal
+    val allCheckInHistory by viewModel.allPlannerCheckInHistory
     val latestRisk by viewModel.latestPredictionScore
     val goal = activeGoal?.takeIf { goalId.isNullOrBlank() || it.id == goalId }
     val resolvedLatestRisk = latestRisk.takeIf { it > 0.0 } ?: goal?.currentRiskPercentage
@@ -85,7 +86,10 @@ fun PlannerGoalDetailScreen(
             return
         }
 
-        val featureModels = buildPlannerFeatureUiModels(goal, viewModel)
+        val history = goalId
+            ?.let { id -> allCheckInHistory.filter { it.goalId == id } }
+            ?: viewModel.plannerCheckInHistory.value
+        val featureModels = buildPlannerFeatureUiModels(goal, viewModel, history)
         val progressFraction = overallGoalProgress(goal, resolvedLatestRisk)
         val safeGoalId = goal.id
 

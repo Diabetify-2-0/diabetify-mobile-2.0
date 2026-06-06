@@ -44,6 +44,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import androidx.navigation.NavController
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import com.itb.diabetify.R
@@ -52,6 +53,7 @@ import com.itb.diabetify.data.remote.counterfactual.response.CounterfactualResul
 import com.itb.diabetify.domain.model.planner.PlannerGoalStatus
 import com.itb.diabetify.presentation.common.CustomizableButton
 import com.itb.diabetify.presentation.common.PrimaryButton
+import com.itb.diabetify.presentation.common.SuccessNotification
 import com.itb.diabetify.presentation.home.HomeViewModel
 import com.itb.diabetify.presentation.home.components.HomeCard
 import com.itb.diabetify.presentation.navgraph.Route
@@ -67,6 +69,7 @@ fun CounterfactualResultScreen(
     val resultMeta by viewModel.counterfactualJobResultMeta
     val plannerGoalDurationWeeks by viewModel.plannerGoalDurationWeeks
     val activePlannerGoal by viewModel.activePlannerGoal
+    val successMessage = viewModel.successMessage.value
     val replaceableActivePlannerGoal = activePlannerGoal?.takeIf { it.status == PlannerGoalStatus.ACTIVE }
     var showReplaceGoalDialog by remember { mutableStateOf(false) }
     val isCurrentResultSaved = replaceableActivePlannerGoal?.sourceJobId != null &&
@@ -74,6 +77,7 @@ fun CounterfactualResultScreen(
     val hasDifferentActiveGoal = replaceableActivePlannerGoal != null && !isCurrentResultSaved
 
     val navigateBackToHome: () -> Unit = {
+        viewModel.onSuccessShown()
         if (!navController.popBackStack(Route.HomeScreen.route, inclusive = false)) {
             navController.navigate(Route.HomeScreen.route) {
                 popUpTo(navController.graph.findStartDestination().id) {
@@ -142,67 +146,78 @@ fun CounterfactualResultScreen(
         )
     }
 
-    when {
-        result == null || resultMeta == null -> {
-            CounterfactualFullStateScreen(
-                backgroundResId = R.drawable.bg_no_scenario_state,
-                iconResId = R.drawable.ic_no_scenario_state,
-                title = "Skenario realistis belum ditemukan untuk target dan batasan faktor ini",
-                buttonLabel = "Pilih Target Baru",
-                buttonContainerColor = Color.White,
-                buttonContentColor = Color.Black,
-                onButtonClick = navigateBackToPlannerSetup
-            )
+    Box(modifier = Modifier.fillMaxSize()) {
+        when {
+            result == null || resultMeta == null -> {
+                CounterfactualFullStateScreen(
+                    backgroundResId = R.drawable.bg_no_scenario_state,
+                    iconResId = R.drawable.ic_no_scenario_state,
+                    title = "Skenario realistis belum ditemukan untuk target dan batasan faktor ini",
+                    buttonLabel = "Pilih Target Baru",
+                    buttonContainerColor = Color.White,
+                    buttonContentColor = Color.Black,
+                    onButtonClick = navigateBackToPlannerSetup
+                )
+            }
+
+            result?.reasonCode == "TARGET_ALREADY_SATISFIED" -> {
+                CounterfactualFullStateScreen(
+                    backgroundResId = R.drawable.bg_already_satisfied_state,
+                    iconResId = R.drawable.ic_already_satisfied_state,
+                    title = "Kondisi Anda saat ini sudah memenuhi target risiko yang dipilih",
+                    buttonLabel = "Pilih Target Baru",
+                    buttonContainerColor = Color(0xFFD9ECE7),
+                    buttonContentColor = Color(0xFF0F5A55),
+                    onButtonClick = navigateBackToPlannerSetup
+                )
+            }
+
+            result?.status == "FEASIBLE" && !result?.candidates.isNullOrEmpty() -> {
+                val safeResult = result!!
+                val displayFeatures = buildDisplayFeatureChanges(
+                    rawFeatures = safeResult.plannerInput?.changedFeatures.orEmpty(),
+                    viewModel = viewModel
+                )
+                FeasibleCounterfactualResultScreen(
+                    result = safeResult,
+                    displayFeatures = displayFeatures,
+                    selectedDurationWeeks = plannerGoalDurationWeeks,
+                    isSaved = isCurrentResultSaved,
+                    hasDifferentActiveGoal = hasDifferentActiveGoal,
+                    onBack = navigateBackToHome,
+                    onDurationSelected = viewModel::updatePlannerGoalDurationWeeks,
+                    onSave = {
+                        if (hasDifferentActiveGoal) {
+                            showReplaceGoalDialog = true
+                        } else {
+                            viewModel.saveCounterfactualAsGoal(durationWeeks = plannerGoalDurationWeeks)
+                        }
+                    },
+                    onTryAnother = navigateBackToPlannerSetup
+                )
+            }
+
+            else -> {
+                CounterfactualFullStateScreen(
+                    backgroundResId = R.drawable.bg_no_scenario_state,
+                    iconResId = R.drawable.ic_no_scenario_state,
+                    title = "Skenario realistis belum ditemukan untuk target dan batasan faktor ini",
+                    buttonLabel = "Pilih Target Baru",
+                    buttonContainerColor = Color.White,
+                    buttonContentColor = Color.Black,
+                    onButtonClick = navigateBackToPlannerSetup
+                )
+            }
         }
 
-        result?.reasonCode == "TARGET_ALREADY_SATISFIED" -> {
-            CounterfactualFullStateScreen(
-                backgroundResId = R.drawable.bg_already_satisfied_state,
-                iconResId = R.drawable.ic_already_satisfied_state,
-                title = "Kondisi Anda saat ini sudah memenuhi target risiko yang dipilih",
-                buttonLabel = "Pilih Target Baru",
-                buttonContainerColor = Color(0xFFD9ECE7),
-                buttonContentColor = Color(0xFF0F5A55),
-                onButtonClick = navigateBackToPlannerSetup
-            )
-        }
-
-        result?.status == "FEASIBLE" && !result?.candidates.isNullOrEmpty() -> {
-            val safeResult = result!!
-            val displayFeatures = buildDisplayFeatureChanges(
-                rawFeatures = safeResult.plannerInput?.changedFeatures.orEmpty(),
-                viewModel = viewModel
-            )
-            FeasibleCounterfactualResultScreen(
-                result = safeResult,
-                displayFeatures = displayFeatures,
-                selectedDurationWeeks = plannerGoalDurationWeeks,
-                isSaved = isCurrentResultSaved,
-                hasDifferentActiveGoal = hasDifferentActiveGoal,
-                onBack = navigateBackToHome,
-                onDurationSelected = viewModel::updatePlannerGoalDurationWeeks,
-                onSave = {
-                    if (hasDifferentActiveGoal) {
-                        showReplaceGoalDialog = true
-                    } else {
-                        viewModel.saveCounterfactualAsGoal(durationWeeks = plannerGoalDurationWeeks)
-                    }
-                },
-                onTryAnother = navigateBackToPlannerSetup
-            )
-        }
-
-        else -> {
-            CounterfactualFullStateScreen(
-                backgroundResId = R.drawable.bg_no_scenario_state,
-                iconResId = R.drawable.ic_no_scenario_state,
-                title = "Skenario realistis belum ditemukan untuk target dan batasan faktor ini",
-                buttonLabel = "Pilih Target Baru",
-                buttonContainerColor = Color.White,
-                buttonContentColor = Color.Black,
-                onButtonClick = navigateBackToPlannerSetup
-            )
-        }
+        SuccessNotification(
+            showSuccess = successMessage != null,
+            successMessage = successMessage,
+            onDismiss = { viewModel.onSuccessShown() },
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .zIndex(1000f)
+        )
     }
 }
 
