@@ -54,6 +54,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.itb.diabetify.R
 import com.itb.diabetify.domain.model.ChatMessage
+import com.itb.diabetify.presentation.chatbot.components.FormattedChatText
 import com.itb.diabetify.presentation.chatbot.components.RecommendationChips
 import com.itb.diabetify.presentation.chatbot.components.XaiInfoSheet
 import com.itb.diabetify.presentation.common.ErrorNotification
@@ -316,13 +317,23 @@ private fun ChatBubble(
                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
             ) {
                 if (displayText.isNotEmpty()) {
-                    Text(
-                        text = displayText,
-                        fontFamily = poppinsFontFamily,
-                        fontSize = 14.sp,
-                        color = textColor,
-                        lineHeight = 20.sp,
-                    )
+                    if (message.isFromUser) {
+                        Text(
+                            text = displayText,
+                            fontFamily = poppinsFontFamily,
+                            fontSize = 14.sp,
+                            color = textColor,
+                            lineHeight = 20.sp,
+                        )
+                    } else {
+                        FormattedChatText(
+                            text = displayText,
+                            color = textColor,
+                            fontFamily = poppinsFontFamily,
+                            fontSize = 14.sp,
+                            lineHeight = 20.sp,
+                        )
+                    }
                 } else if (message.isStreaming) {
                     StreamingPlaceholder(color = textColor)
                 }
