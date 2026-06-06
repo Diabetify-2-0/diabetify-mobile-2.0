@@ -51,6 +51,7 @@ import com.itb.diabetify.domain.usecases.app_entry.ReadAppEntry
 import com.itb.diabetify.domain.usecases.app_entry.SaveAppEntry
 import com.itb.diabetify.domain.usecases.auth.AuthUseCases
 import com.itb.diabetify.domain.usecases.chatbot.ChatbotUseCases
+import com.itb.diabetify.domain.usecases.chatbot.GetXaiProfileUseCase
 import com.itb.diabetify.domain.usecases.chatbot.LoadChatHistoryUseCase
 import com.itb.diabetify.domain.usecases.chatbot.LoadRecommendationsUseCase
 import com.itb.diabetify.domain.usecases.chatbot.RefreshRecommendationsUseCase
@@ -502,6 +503,7 @@ object AppModule {
             loadChatHistory = LoadChatHistoryUseCase(repository),
             loadRecommendations = LoadRecommendationsUseCase(repository),
             refreshRecommendations = RefreshRecommendationsUseCase(repository),
+            getXaiProfile = GetXaiProfileUseCase(repository),
         )
     }
 }

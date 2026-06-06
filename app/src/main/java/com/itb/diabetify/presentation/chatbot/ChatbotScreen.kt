@@ -21,9 +21,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
@@ -53,9 +55,11 @@ import androidx.navigation.NavController
 import com.itb.diabetify.R
 import com.itb.diabetify.domain.model.ChatMessage
 import com.itb.diabetify.presentation.chatbot.components.RecommendationChips
+import com.itb.diabetify.presentation.chatbot.components.XaiInfoSheet
 import com.itb.diabetify.presentation.common.ErrorNotification
 import com.itb.diabetify.ui.theme.poppinsFontFamily
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatbotScreen(
     navController: NavController,
@@ -69,7 +73,18 @@ fun ChatbotScreen(
     val isLoadingRecommendations by viewModel.isLoadingRecommendations
     val recommendedQuestions by viewModel.recommendedQuestions
     val errorMessage by viewModel.errorMessage
+    val xaiProfile by viewModel.xaiProfile
+    val isLoadingXai by viewModel.isLoadingXai
+    val showXaiSheet by viewModel.showXaiSheet
     val listState = rememberLazyListState()
+
+    if (showXaiSheet) {
+        XaiInfoSheet(
+            xaiProfile = xaiProfile,
+            isLoading = isLoadingXai,
+            onDismiss = viewModel::onXaiDismiss,
+        )
+    }
 
     val lastMessage = messages.lastOrNull()
     val lastDisplayText = lastMessage?.let { message ->
@@ -130,6 +145,17 @@ fun ChatbotScreen(
                         fontFamily = poppinsFontFamily,
                         fontSize = 12.sp,
                         color = Color.White.copy(alpha = 0.9f),
+                    )
+                }
+
+                IconButton(
+                    modifier = Modifier.align(Alignment.CenterEnd),
+                    onClick = viewModel::onXaiButtonClick,
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.BarChart,
+                        contentDescription = "Lihat analisis XAI",
+                        tint = Color.White,
                     )
                 }
             }

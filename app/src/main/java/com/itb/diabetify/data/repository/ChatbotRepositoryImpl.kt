@@ -6,9 +6,13 @@ import com.itb.diabetify.data.remote.chatbot.ChatbotApiService
 import com.itb.diabetify.data.remote.chatbot.request.ChatRequest
 import com.itb.diabetify.data.remote.chatbot.request.SessionStartRequest
 import com.itb.diabetify.data.remote.chatbot.response.RecommendationResponse
+import com.itb.diabetify.data.remote.chatbot.response.XaiFeatureResponse
+import com.itb.diabetify.data.remote.chatbot.response.XaiProfileResponse
 import com.itb.diabetify.domain.model.ChatMessage
 import com.itb.diabetify.domain.model.ChatRecommendation
 import com.itb.diabetify.domain.model.ChatStreamEvent
+import com.itb.diabetify.domain.model.XaiFeature
+import com.itb.diabetify.domain.model.XaiProfile
 import com.itb.diabetify.domain.repository.ChatbotRepository
 import com.itb.diabetify.util.Constants.CHATBOT_BASE_URL
 import com.itb.diabetify.util.Resource
@@ -235,11 +239,47 @@ class ChatbotRepositoryImpl(
         }
     }
 
+    override suspend fun getXaiProfile(userId: String): Resource<XaiProfile> {
+        return try {
+            val response = chatbotApiService.getXaiProfile(userId)
+            Resource.Success(response.toDomain())
+        } catch (e: IOException) {
+            Resource.Error(e.message ?: "Tidak dapat memuat profil XAI")
+        } catch (e: HttpException) {
+            if (e.code() == 404) {
+                Resource.Error("not_found")
+            } else {
+                Resource.Error(parseHttpError(e))
+            }
+        }
+    }
+
     private fun RecommendationResponse.toDomain(): ChatRecommendation {
         val questions = listOf(question1, question2)
             .map { it.trim() }
             .filter { it.isNotBlank() }
         return ChatRecommendation(questions = questions)
+    }
+
+    private fun XaiProfileResponse.toDomain(): XaiProfile {
+        return XaiProfile(
+            userId = userId,
+            riskScore = riskScore,
+            features = features.map { it.toDomain() },
+            xaiSummary = xaiSummary,
+        )
+    }
+
+    private fun XaiFeatureResponse.toDomain(): XaiFeature {
+        return XaiFeature(
+            feature = feature,
+            alias = alias,
+            value = value,
+            shap = shap,
+            contribution = contribution,
+            impact = impact,
+            explanation = explanation,
+        )
     }
 
     private fun parseHttpError(exception: HttpException): String {

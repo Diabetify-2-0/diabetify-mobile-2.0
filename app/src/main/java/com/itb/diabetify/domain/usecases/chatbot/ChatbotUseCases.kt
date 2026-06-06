@@ -6,4 +6,5 @@ data class ChatbotUseCases(
     val loadChatHistory: LoadChatHistoryUseCase,
     val loadRecommendations: LoadRecommendationsUseCase,
     val refreshRecommendations: RefreshRecommendationsUseCase,
+    val getXaiProfile: GetXaiProfileUseCase,
 )

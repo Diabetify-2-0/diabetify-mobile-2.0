@@ -10,6 +10,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.itb.diabetify.domain.model.ChatMessage
 import com.itb.diabetify.domain.model.ChatStreamEvent
+import com.itb.diabetify.domain.model.XaiProfile
 import com.itb.diabetify.domain.usecases.chatbot.ChatbotUseCases
 import com.itb.diabetify.domain.usecases.user.UserUseCases
 import com.itb.diabetify.util.Resource
@@ -57,6 +58,15 @@ class ChatbotViewModel @Inject constructor(
     private val _userId = mutableStateOf<String?>(null)
     val userId: State<String?> = _userId
 
+    private val _xaiProfile = mutableStateOf<XaiProfile?>(null)
+    val xaiProfile: State<XaiProfile?> = _xaiProfile
+
+    private val _isLoadingXai = mutableStateOf(false)
+    val isLoadingXai: State<Boolean> = _isLoadingXai
+
+    private val _showXaiSheet = mutableStateOf(false)
+    val showXaiSheet: State<Boolean> = _showXaiSheet
+
     private val welcomeMessage = ChatMessage(
         id = "welcome",
         text = "Halo! Saya asisten Diabetify. Tanyakan seputar diabetes, risiko, atau hasil XAI Anda — jawaban akan disesuaikan dengan profil risiko terbaru.",
@@ -76,6 +86,34 @@ class ChatbotViewModel @Inject constructor(
 
     fun onErrorShown() {
         _errorMessage.value = null
+    }
+
+    fun onXaiButtonClick() {
+        _showXaiSheet.value = true
+        val currentUserId = _userId.value ?: return
+        if (_xaiProfile.value == null && !_isLoadingXai.value) {
+            loadXaiProfile(currentUserId)
+        }
+    }
+
+    fun onXaiDismiss() {
+        _showXaiSheet.value = false
+    }
+
+    private fun loadXaiProfile(userId: String) {
+        viewModelScope.launch {
+            _isLoadingXai.value = true
+            when (val result = chatbotUseCases.getXaiProfile(userId)) {
+                is Resource.Success -> {
+                    _xaiProfile.value = result.data
+                }
+                is Resource.Error -> {
+                    // silently fail — XAI may not exist yet (no prediction done)
+                }
+                is Resource.Loading -> Unit
+            }
+            _isLoadingXai.value = false
+        }
     }
 
     fun onRecommendationClicked(question: String) {
@@ -187,6 +225,7 @@ class ChatbotViewModel @Inject constructor(
                     if (!resolvedId.isNullOrBlank()) {
                         loadHistory(resolvedId)
                         loadRecommendations(resolvedId)
+                        loadXaiProfile(resolvedId)
                     } else {
                         _isLoadingHistory.value = false
                         _errorMessage.value = "Profil pengguna tidak ditemukan"

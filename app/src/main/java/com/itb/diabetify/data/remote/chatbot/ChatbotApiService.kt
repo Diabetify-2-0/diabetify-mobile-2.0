@@ -5,6 +5,7 @@ import com.itb.diabetify.data.remote.chatbot.request.SessionStartRequest
 import com.itb.diabetify.data.remote.chatbot.response.ChatHistoryResponse
 import com.itb.diabetify.data.remote.chatbot.response.ChatResponse
 import com.itb.diabetify.data.remote.chatbot.response.RecommendationResponse
+import com.itb.diabetify.data.remote.chatbot.response.XaiProfileResponse
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
@@ -30,4 +31,9 @@ interface ChatbotApiService {
     suspend fun getRecommendations(
         @Path("userId") userId: String,
     ): RecommendationResponse
+
+    @GET("api/v1/xai/{userId}")
+    suspend fun getXaiProfile(
+        @Path("userId") userId: String,
+    ): XaiProfileResponse
 }
