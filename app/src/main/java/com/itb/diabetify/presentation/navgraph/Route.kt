@@ -83,6 +83,7 @@ sealed class Route(
     object EditProfileScreen: Route(route = "editProfileScreen")
     object HealthProfileScreen: Route(route = "healthProfileScreen")
     object HealthProfileFromHomePopupScreen: Route(route = "healthProfileFromHomePopupScreen")
+    object HealthProfileFromPlannerScreen: Route(route = "healthProfileFromPlannerScreen")
     object NoInternetScreen : Route(route = "noInternetScreen")
     object AppStartNavigation : Route(route = "appStartNavigation")
     object AuthNavigation : Route(route = "authNavigation")

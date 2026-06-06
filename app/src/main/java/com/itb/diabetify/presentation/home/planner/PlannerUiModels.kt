@@ -24,10 +24,16 @@ internal data class PlannerFeatureProgress(
 )
 
 internal data class PlannerWeeklyMilestone(
+    val featureName: String,
     val label: String,
+    val baselineText: String,
     val currentText: String,
     val expectedText: String,
     val finalTargetText: String,
+    val baselineValue: Double?,
+    val currentValue: Double?,
+    val expectedValue: Double?,
+    val finalTargetValue: Double?,
     val progressFraction: Float,
     val statusText: String,
     val statusColor: Color,
@@ -77,6 +83,49 @@ internal data class PlannerShortcut(
     val label: String,
     @DrawableRes val iconResId: Int,
     val palette: PlannerFeaturePalette
+)
+
+internal enum class PlannerMilestoneCardType {
+    NUMERIC,
+    CATEGORICAL
+}
+
+internal enum class PlannerMilestoneHighlightTone {
+    SUCCESS,
+    WARNING
+}
+
+internal data class PlannerMilestoneHighlight(
+    @DrawableRes val iconResId: Int,
+    val message: String,
+    val containerColor: Color,
+    val textColor: Color
+)
+
+internal data class PlannerMilestoneCardUiModel(
+    val featureName: String,
+    val title: String,
+    val type: PlannerMilestoneCardType,
+    @DrawableRes val iconResId: Int,
+    val iconContainerColor: Color,
+    val iconTint: Color,
+    val statusText: String,
+    val statusContainerColor: Color,
+    val statusTextColor: Color,
+    val progressFraction: Float,
+    val progressColor: Color,
+    val progressTrackColor: Color,
+    val baselineCaption: String,
+    val trailingCaption: String,
+    val currentLabel: String,
+    val currentValueText: String,
+    val weeklyLabel: String,
+    val weeklyValueText: String,
+    val targetLabel: String,
+    val targetValueText: String,
+    val transitionFromText: String? = null,
+    val transitionToText: String? = null,
+    val highlight: PlannerMilestoneHighlight? = null
 )
 
 internal fun plannerShortcuts(): List<PlannerShortcut> {
@@ -162,6 +211,47 @@ internal fun buildPlannerFeatureUiModels(
     }
 }
 
+internal fun buildMilestoneCardUiModels(
+    milestones: List<PlannerWeeklyMilestone>
+): List<PlannerMilestoneCardUiModel> {
+    return milestones.map { milestone ->
+        val palette = plannerFeaturePalette(milestone.featureName)
+        val badgeColors = milestoneBadgeColors(milestone.status)
+        val progressColor = Color(0xFFB6E8C7)
+        val progressTrackColor = Color(0xFFF1F1F1)
+
+        PlannerMilestoneCardUiModel(
+            featureName = milestone.featureName,
+            title = milestone.label,
+            type = if (isNumericMilestoneFeature(milestone.featureName)) {
+                PlannerMilestoneCardType.NUMERIC
+            } else {
+                PlannerMilestoneCardType.CATEGORICAL
+            },
+            iconResId = plannerFeatureIcon(milestone.featureName),
+            iconContainerColor = palette.containerColor,
+            iconTint = palette.accentColor,
+            statusText = milestone.statusText,
+            statusContainerColor = badgeColors.containerColor,
+            statusTextColor = badgeColors.textColor,
+            progressFraction = milestone.progressFraction,
+            progressColor = progressColor,
+            progressTrackColor = progressTrackColor,
+            baselineCaption = "Baseline ${milestone.baselineText}",
+            trailingCaption = milestone.finalTargetText,
+            currentLabel = "Saat ini",
+            currentValueText = milestone.currentText,
+            weeklyLabel = "Target Minggu Ini",
+            weeklyValueText = milestone.expectedText,
+            targetLabel = "Target Akhir",
+            targetValueText = milestone.finalTargetText,
+            transitionFromText = if (isNumericMilestoneFeature(milestone.featureName)) null else milestone.currentText,
+            transitionToText = if (isNumericMilestoneFeature(milestone.featureName)) null else milestone.finalTargetText,
+            highlight = buildMilestoneHighlight(milestone)
+        )
+    }
+}
+
 internal fun buildGoalCompletionState(
     goal: PlannerGoal,
     featureProgress: List<PlannerFeatureProgress>,
@@ -209,7 +299,8 @@ internal fun buildWeeklyMilestone(
     currentValue: Double?,
     currentWeek: Int,
     totalWeeks: Int,
-    heightCm: Int
+    heightCm: Int,
+    history: List<PlannerCheckInEntry> = emptyList()
 ): PlannerWeeklyMilestone? {
     val baseline = feature.baselineValue ?: return null
     val target = feature.targetValue ?: return null
@@ -223,14 +314,37 @@ internal fun buildWeeklyMilestone(
             target = target,
             current = currentValue
         )
+        val latestCheckIn = latestRelevantPlannerCheckIn(feature.featureName, history)
+        val hasUpdate = latestCheckIn != null
         return PlannerWeeklyMilestone(
+            featureName = feature.featureName,
             label = displayFeatureLabel(feature),
+            baselineText = formatFeatureValue(feature.featureName, baseline, heightCm),
             currentText = currentText,
-            expectedText = if (currentWeek >= totalWeeks) finalTargetText else "Pantau",
+            expectedText = categoricalMilestoneFocusText(
+                featureName = feature.featureName,
+                isTargetReached = reached
+            ),
             finalTargetText = finalTargetText,
-            progressFraction = if (reached) 1f else 0f,
-            statusText = if (reached) "Tercapai" else "Pantau",
-            statusColor = if (reached) Color(0xFF059669) else Color(0xFF2563EB),
+            baselineValue = baseline,
+            currentValue = currentValue,
+            expectedValue = null,
+            finalTargetValue = target,
+            progressFraction = when {
+                reached -> 1f
+                hasUpdate -> 0.5f
+                else -> 0f
+            },
+            statusText = when {
+                reached -> "Tercapai"
+                hasUpdate -> "Dalam pemantauan"
+                else -> "Belum ada update"
+            },
+            statusColor = when {
+                reached -> Color(0xFF059669)
+                hasUpdate -> Color(0xFF2563EB)
+                else -> Color(0xFF9CA3AF)
+            },
             status = if (reached) MilestoneStatus.ACHIEVED else MilestoneStatus.MONITOR
         )
     }
@@ -266,10 +380,16 @@ internal fun buildWeeklyMilestone(
     }
 
     return PlannerWeeklyMilestone(
+        featureName = feature.featureName,
         label = displayFeatureLabel(feature),
+        baselineText = formatFeatureValue(feature.featureName, baseline, heightCm),
         currentText = currentText,
         expectedText = formatFeatureValue(feature.featureName, expectedValue, heightCm),
         finalTargetText = finalTargetText,
+        baselineValue = baseline,
+        currentValue = currentValue,
+        expectedValue = expectedValue,
+        finalTargetValue = target,
         progressFraction = if (reached) 1f else progressFraction,
         statusText = statusText,
         statusColor = statusColor,
@@ -419,6 +539,32 @@ private fun plannerFeaturePalette(featureName: String): PlannerFeaturePalette {
     }
 }
 
+private data class MilestoneBadgeColors(
+    val containerColor: Color,
+    val textColor: Color
+)
+
+private fun milestoneBadgeColors(status: MilestoneStatus): MilestoneBadgeColors {
+    return when (status) {
+        MilestoneStatus.ACHIEVED -> MilestoneBadgeColors(
+            containerColor = Color(0xFFE0F5EA),
+            textColor = Color(0xFF176B4D)
+        )
+        MilestoneStatus.BEHIND -> MilestoneBadgeColors(
+            containerColor = Color(0xFFFFF0DF),
+            textColor = Color(0xFFF28A1C)
+        )
+        MilestoneStatus.ON_TRACK -> MilestoneBadgeColors(
+            containerColor = Color(0xFFF5F3F0),
+            textColor = Color(0xFF1F2937)
+        )
+        MilestoneStatus.MONITOR -> MilestoneBadgeColors(
+            containerColor = Color(0xFFE7F4EF),
+            textColor = Color(0xFF1E6B57)
+        )
+    }
+}
+
 @DrawableRes
 private fun plannerFeatureIcon(featureName: String): Int {
     return when (featureName) {
@@ -428,6 +574,105 @@ private fun plannerFeatureIcon(featureName: String): Int {
         "smoking_status" -> R.drawable.ic_smoking
         "moderate_physical_activity_frequency" -> R.drawable.ic_walk
         else -> R.drawable.ic_goal
+    }
+}
+
+private fun isNumericMilestoneFeature(featureName: String): Boolean {
+    return featureName in setOf("BMI", "moderate_physical_activity_frequency")
+}
+
+private fun buildMilestoneHighlight(
+    milestone: PlannerWeeklyMilestone
+): PlannerMilestoneHighlight? {
+    return when (milestone.featureName) {
+        "BMI" -> buildNumericMilestoneHighlight(
+            milestone = milestone,
+            successMessage = "Kamu sudah melampaui target minggu ini!",
+            warningMessage = { difference ->
+                "Turunkan sekitar ${String.format("%.0f", difference)} kg untuk mengejar target minggu ini!"
+            }
+        )
+        "moderate_physical_activity_frequency" -> buildNumericMilestoneHighlight(
+            milestone = milestone,
+            successMessage = "Aktivitasmu sudah memenuhi target minggu ini!",
+            warningMessage = { difference ->
+                "Tambahkan ${difference.toInt()} hari aktivitas untuk memenuhi target!"
+            }
+        )
+        "is_hypertension" -> if (milestone.status == MilestoneStatus.ACHIEVED) {
+            PlannerMilestoneHighlight(
+                iconResId = R.drawable.ic_confetti,
+                message = "Selamat target Hipertensi tercapai! Pertahankan!",
+                containerColor = Color(0xFFE7F4EF),
+                textColor = Color(0xFF1E6B57)
+            )
+        } else {
+            null
+        }
+        "is_cholesterol" -> if (milestone.status == MilestoneStatus.ACHIEVED) {
+            PlannerMilestoneHighlight(
+                iconResId = R.drawable.ic_confetti,
+                message = "Selamat target Kolesterol tercapai! Pertahankan!",
+                containerColor = Color(0xFFE7F4EF),
+                textColor = Color(0xFF1E6B57)
+            )
+        } else {
+            null
+        }
+        "smoking_status" -> if (milestone.status == MilestoneStatus.ACHIEVED) {
+            PlannerMilestoneHighlight(
+                iconResId = R.drawable.ic_confetti,
+                message = "Selamat, kamu sudah mencapai target berhenti merokok!",
+                containerColor = Color(0xFFE7F4EF),
+                textColor = Color(0xFF1E6B57)
+            )
+        } else {
+            null
+        }
+        else -> null
+    }
+}
+
+private fun buildNumericMilestoneHighlight(
+    milestone: PlannerWeeklyMilestone,
+    successMessage: String,
+    warningMessage: (Double) -> String
+): PlannerMilestoneHighlight? {
+    val current = milestone.currentValue ?: return null
+    val expected = milestone.expectedValue ?: return null
+    val baseline = milestone.baselineValue ?: return null
+
+    val meetsExpected = when {
+        expected < baseline -> current <= expected
+        expected > baseline -> current >= expected
+        else -> current == expected
+    }
+
+    return when {
+        meetsExpected -> PlannerMilestoneHighlight(
+            iconResId = R.drawable.ic_confetti,
+            message = successMessage,
+            containerColor = Color(0xFFE7F4EF),
+            textColor = Color(0xFF1E6B57)
+        )
+        milestone.status == MilestoneStatus.BEHIND -> {
+            val rawDifference = when {
+                expected < baseline -> current - expected
+                expected > baseline -> expected - current
+                else -> 0.0
+            }.coerceAtLeast(0.0)
+            if (rawDifference <= 0.0) {
+                null
+            } else {
+                PlannerMilestoneHighlight(
+                    iconResId = R.drawable.ic_exclamation_circle,
+                    message = warningMessage(rawDifference),
+                    containerColor = Color(0xFFFFF4E7),
+                    textColor = Color(0xFFF28A1C)
+                )
+            }
+        }
+        else -> null
     }
 }
 
@@ -529,11 +774,11 @@ private fun formatFeatureValue(
     return when (name) {
         "BMI" -> bmiToWeightText(value, heightCm)
         "age" -> "${value.toInt()} tahun"
-        "moderate_physical_activity_frequency" -> "${value.toInt()} Aktivitas"
+        "moderate_physical_activity_frequency" -> "${value.toInt()} hari/minggu"
         "smoking_status" -> when (value.toInt()) {
-            0 -> "Tidak merokok"
-            1 -> "Berhenti merokok"
-            2 -> "Aktif merokok"
+            0 -> "Tidak pernah"
+            1 -> "Sudah berhenti"
+            2 -> "Masih aktif"
             else -> value.toInt().toString()
         }
         "brinkman_index" -> when (value.toInt()) {
@@ -543,8 +788,8 @@ private fun formatFeatureValue(
             3 -> "Tinggi"
             else -> value.toInt().toString()
         }
-        "is_hypertension" -> if (value.toInt() == 1) "Terkontrol" else "Belum terkontrol"
-        "is_cholesterol" -> if (value.toInt() == 1) "Terkontrol" else "Belum terkontrol"
+        "is_hypertension" -> if (value.toInt() == 1) "Belum terkontrol" else "Terkontrol"
+        "is_cholesterol" -> if (value.toInt() == 1) "Belum terkontrol" else "Terkontrol"
         "is_bloodline" -> if (value.toInt() == 1) "Ya" else "Tidak"
         "is_macrosomic_baby" -> when (value.toInt()) {
             0 -> "Tidak"
@@ -567,6 +812,43 @@ private fun bmiToWeight(bmi: Double, heightCm: Int): Double? {
         return null
     }
     return bmi * heightMeters * heightMeters
+}
+
+private fun categoricalMilestoneFocusText(
+    featureName: String,
+    isTargetReached: Boolean
+): String {
+    return when (featureName) {
+        "is_hypertension" -> {
+            if (isTargetReached) "Pertahankan tetap terkontrol" else "Pantau tekanan darah"
+        }
+        "is_cholesterol" -> {
+            if (isTargetReached) "Pertahankan tetap terkontrol" else "Pantau status kolesterol"
+        }
+        "smoking_status" -> {
+            if (isTargetReached) "Pertahankan berhenti merokok" else "Usahakan berhenti merokok"
+        }
+        else -> if (isTargetReached) "Pertahankan status target" else "Pantau perubahan status"
+    }
+}
+
+private fun latestRelevantPlannerCheckIn(
+    featureName: String,
+    history: List<PlannerCheckInEntry>
+): PlannerCheckInEntry? {
+    val checkInType = when (featureName) {
+        "BMI" -> "weight"
+        "moderate_physical_activity_frequency" -> "activity"
+        "is_hypertension" -> "hypertension"
+        "is_cholesterol" -> "cholesterol"
+        "smoking_status" -> "smoking"
+        else -> null
+    } ?: return null
+
+    return history
+        .asSequence()
+        .filter { it.type == checkInType }
+        .maxByOrNull { it.createdAtMillis }
 }
 
 private const val MILESTONE_TOLERANCE = 0.05f

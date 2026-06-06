@@ -52,6 +52,7 @@ fun PlannerMilestoneScreen(
     goalId: String? = null
 ) {
     val activeGoal by viewModel.activePlannerGoal
+    val allCheckInHistory by viewModel.allPlannerCheckInHistory
     val goal = activeGoal?.takeIf { goalId.isNullOrBlank() || it.id == goalId }
 
     PlannerSectionScaffold(
@@ -64,97 +65,428 @@ fun PlannerMilestoneScreen(
         }
 
         val currentWeek = currentMilestoneWeek(goal.createdAtMillis, goal.durationWeeks)
+        val history = goalId
+            ?.let { id -> allCheckInHistory.filter { it.goalId == id } }
+            ?: viewModel.plannerCheckInHistory.value
         val milestones = goal.features.mapNotNull { feature ->
             buildWeeklyMilestone(
                 feature = feature,
                 currentValue = currentFeatureValue(feature.featureName, viewModel),
                 currentWeek = currentWeek,
                 totalWeeks = goal.durationWeeks,
-                heightCm = viewModel.height.value
+                heightCm = viewModel.height.value,
+                history = history
+            )
+        }
+        val milestoneCards = buildMilestoneCardUiModels(milestones)
+
+        PlannerMilestoneHeaderCard(
+            currentWeek = currentWeek,
+            totalWeeks = goal.durationWeeks
+        )
+
+        milestoneCards.forEach { milestoneCard ->
+            when (milestoneCard.type) {
+                PlannerMilestoneCardType.NUMERIC -> PlannerNumericMilestoneCard(milestoneCard)
+                PlannerMilestoneCardType.CATEGORICAL -> PlannerCategoricalMilestoneCard(milestoneCard)
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlannerMilestoneHeaderCard(
+    currentWeek: Int,
+    totalWeeks: Int
+) {
+    val checkpoints = milestoneHeaderCheckpoints(totalWeeks)
+    val activeStepIndex = checkpoints.indexOfLast { currentWeek >= it.week }.coerceAtLeast(0)
+    val activeContainerColor = Color(0xFFF9FAFB)
+    val inactiveContainerColor = Color(0xFF3A5467)
+    val activeTextColor = Color(0xFF2D475B)
+    val inactiveTextColor = Color(0xFF98A8B6)
+    val activeLineColor = Color(0xFFF9FAFB)
+    val inactiveLineColor = Color(0xFF486274)
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        shape = RoundedCornerShape(26.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF2D475B)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Text(
+                    text = "Minggu $currentWeek dari $totalWeeks",
+                    fontFamily = poppinsFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                    color = Color.White
+                )
+                Text(
+                    text = "Fokus pada target minggu ini!",
+                    fontFamily = poppinsFontFamily,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 12.sp,
+                    color = Color.White.copy(alpha = 0.78f)
+                )
+            }
+
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    checkpoints.forEachIndexed { index, step ->
+                        val isActive = index <= activeStepIndex
+                        val stepContainerColor = if (isActive) activeContainerColor else inactiveContainerColor
+                        val stepTextColor = if (isActive) activeTextColor else inactiveTextColor
+
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(CircleShape)
+                                .background(stepContainerColor),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = step.week.toString(),
+                                fontFamily = poppinsFontFamily,
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 11.sp,
+                                color = stepTextColor
+                            )
+                        }
+
+                        if (index < checkpoints.lastIndex) {
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(3.dp)
+                                    .background(
+                                        if (index < activeStepIndex) activeLineColor else inactiveLineColor,
+                                        RoundedCornerShape(999.dp)
+                                    )
+                            )
+                        }
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    checkpoints.forEach { step ->
+                        Text(
+                            text = step.label,
+                            fontFamily = poppinsFontFamily,
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 11.sp,
+                            color = Color.White.copy(alpha = 0.78f)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+private data class MilestoneHeaderCheckpoint(
+    val week: Int,
+    val label: String
+)
+
+private fun milestoneHeaderCheckpoints(totalWeeks: Int): List<MilestoneHeaderCheckpoint> {
+    val safeTotalWeeks = totalWeeks.coerceAtLeast(1)
+    val weekMarkers = listOf(
+        1,
+        (1 + ((safeTotalWeeks - 1) / 3f)).toInt(),
+        (1 + (2f * (safeTotalWeeks - 1) / 3f)).toInt(),
+        safeTotalWeeks
+    ).fold(mutableListOf<Int>()) { acc, marker ->
+        val nextValue = marker.coerceAtLeast((acc.lastOrNull() ?: 0) + 1).coerceAtMost(safeTotalWeeks)
+        acc += nextValue
+        acc
+    }
+
+    return weekMarkers.mapIndexed { index, week ->
+        MilestoneHeaderCheckpoint(
+            week = week,
+            label = when (index) {
+                0 -> "Sekarang"
+                weekMarkers.lastIndex -> "Selesai"
+                else -> "Minggu $week"
+            }
+        )
+    }
+}
+
+@Composable
+private fun PlannerNumericMilestoneCard(
+    milestone: PlannerMilestoneCardUiModel
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        shape = RoundedCornerShape(26.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            PlannerMilestoneCardHeader(milestone)
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                PlannerMilestoneMetricCard(
+                    modifier = Modifier.weight(0.96f),
+                    label = milestone.currentLabel,
+                    value = milestone.currentValueText,
+                    containerColor = Color(0xFFFFEFF1),
+                    valueColor = Color(0xFFF24E5A)
+                )
+                PlannerMilestoneMetricCard(
+                    modifier = Modifier.weight(1.08f),
+                    label = milestone.weeklyLabel,
+                    value = milestone.weeklyValueText,
+                    containerColor = Color(0xFFDDF4EC),
+                    valueColor = Color(0xFF175C4A)
+                )
+                PlannerMilestoneMetricCard(
+                    modifier = Modifier.weight(0.956f),
+                    label = milestone.targetLabel,
+                    value = milestone.targetValueText,
+                    containerColor = Color(0xFFF6F6F6),
+                    valueColor = Color(0xFF111827)
+                )
+            }
+
+            PlannerProgressBar(
+                progress = milestone.progressFraction,
+                accentColor = milestone.progressColor,
+                trackColor = milestone.progressTrackColor
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                PlannerMilestoneCaption(milestone.baselineCaption)
+                PlannerMilestoneCaption(milestone.trailingCaption, textAlign = TextAlign.End)
+            }
+
+            milestone.highlight?.let { highlight ->
+                PlannerMilestoneHighlightBanner(highlight)
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlannerCategoricalMilestoneCard(
+    milestone: PlannerMilestoneCardUiModel
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        shape = RoundedCornerShape(26.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            PlannerMilestoneCardHeader(milestone)
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = milestone.transitionFromText.orEmpty(),
+                    fontFamily = poppinsFontFamily,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 14.sp,
+                    color = Color(0xFF4B5563)
+                )
+                Text(
+                    text = "→",
+                    fontFamily = poppinsFontFamily,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 16.sp,
+                    color = Color(0xFF6B7280)
+                )
+                Text(
+                    text = milestone.transitionToText.orEmpty(),
+                    fontFamily = poppinsFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    color = Color(0xFF111827)
+                )
+            }
+
+            PlannerProgressBar(
+                progress = milestone.progressFraction,
+                accentColor = milestone.progressColor,
+                trackColor = milestone.progressTrackColor
+            )
+
+            milestone.highlight?.let { highlight ->
+                PlannerMilestoneHighlightBanner(highlight)
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlannerMilestoneCardHeader(
+    milestone: PlannerMilestoneCardUiModel
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(
+            modifier = Modifier.weight(1f),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(38.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(milestone.iconContainerColor),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(id = milestone.iconResId),
+                    contentDescription = null,
+                    tint = milestone.iconTint,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+
+            Text(
+                text = milestone.title,
+                fontFamily = poppinsFontFamily,
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp,
+                color = Color(0xFF304459)
             )
         }
 
-        PlannerSectionTitle(
-            subtitle = "Target minggu ini dihitung bertahap dari baseline menuju target akhir planner."
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(999.dp))
+                .background(milestone.statusContainerColor)
+                .padding(horizontal = 12.dp, vertical = 6.dp)
+        ) {
+            Text(
+                text = milestone.statusText,
+                fontFamily = poppinsFontFamily,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 12.sp,
+                color = milestone.statusTextColor
+            )
+        }
+    }
+}
+
+@Composable
+private fun PlannerMilestoneMetricCard(
+    modifier: Modifier = Modifier,
+    label: String,
+    value: String,
+    containerColor: Color,
+    valueColor: Color
+) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(14.dp))
+            .background(containerColor)
+            .padding(horizontal = 10.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Text(
+            text = label,
+            fontFamily = poppinsFontFamily,
+            fontWeight = FontWeight.Medium,
+            fontSize = 8.sp,
+            color = Color(0xFFB2B2B2)
+            ,
+            maxLines = 1,
+            softWrap = false
         )
+        Text(
+            text = value,
+            fontFamily = poppinsFontFamily,
+            fontWeight = FontWeight.Bold,
+            fontSize = 16.sp,
+            color = valueColor
+        )
+    }
+}
 
-        PlannerInfoCard(title = "Milestone") {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(Color(0xFFEDF5FF))
-                    .padding(14.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(
-                        text = "Minggu $currentWeek dari ${goal.durationWeeks}",
-                        fontFamily = poppinsFontFamily,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp,
-                        color = colorResource(id = R.color.primary)
-                    )
-                    Text(
-                        text = "Fokuskan pencapaian minggu ini sebelum masuk ke target berikutnya.",
-                        fontFamily = poppinsFontFamily,
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 12.sp,
-                        lineHeight = 18.sp,
-                        color = Color(0xFF4B5563)
-                    )
-                }
-                Icon(
-                    imageVector = Icons.Outlined.Info,
-                    contentDescription = null,
-                    tint = Color(0xFF1269FE)
-                )
-            }
-        }
+@Composable
+private fun PlannerMilestoneCaption(
+    text: String,
+    textAlign: TextAlign = TextAlign.Start
+) {
+    Text(
+        text = text,
+        fontFamily = poppinsFontFamily,
+        fontWeight = FontWeight.Medium,
+        fontSize = 12.sp,
+        color = Color(0xFF5B5B5B),
+        textAlign = textAlign
+    )
+}
 
-        milestones.forEach { milestone ->
-            PlannerInfoCard(title = milestone.label) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Top
-                ) {
-                    Text(
-                        text = milestone.label,
-                        fontFamily = poppinsFontFamily,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp,
-                        color = Color(0xFF1F2937),
-                        modifier = Modifier.weight(1f)
-                    )
-                    Text(
-                        text = milestone.statusText,
-                        fontFamily = poppinsFontFamily,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 12.sp,
-                        color = milestone.statusColor
-                    )
-                }
-
-                PlannerProgressBar(
-                    progress = milestone.progressFraction,
-                    accentColor = milestone.statusColor,
-                    trackColor = milestone.statusColor.copy(alpha = 0.15f)
-                )
-
-                PlannerTripleValueRow(
-                    firstLabel = "Saat ini",
-                    firstValue = milestone.currentText,
-                    secondLabel = "Minggu ini",
-                    secondValue = milestone.expectedText,
-                    thirdLabel = "Target",
-                    thirdValue = milestone.finalTargetText
-                )
-            }
-        }
+@Composable
+private fun PlannerMilestoneHighlightBanner(
+    highlight: PlannerMilestoneHighlight
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(highlight.containerColor)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Icon(
+            painter = painterResource(id = highlight.iconResId),
+            contentDescription = null,
+            tint = highlight.textColor,
+            modifier = Modifier.size(18.dp)
+        )
+        Text(
+            text = highlight.message,
+            fontFamily = poppinsFontFamily,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 13.sp,
+            lineHeight = 18.sp,
+            color = highlight.textColor
+        )
     }
 }
 
@@ -315,7 +647,7 @@ fun PlannerActionScreen(
         PrimaryButton(
             text = "Perbarui Data Kesehatan",
             onClick = {
-                navController.navigate(Route.HealthProfileScreen.route)
+                navController.navigate(Route.HealthProfileFromPlannerScreen.route)
             },
             modifier = Modifier
                 .fillMaxWidth()
@@ -354,7 +686,8 @@ fun PlannerCoachScreen(
                 currentValue = currentFeatureValue(feature.featureName, viewModel),
                 currentWeek = currentWeek,
                 totalWeeks = goal.durationWeeks,
-                heightCm = viewModel.height.value
+                heightCm = viewModel.height.value,
+                history = history
             )
         }
         val coachNote = buildWeeklyCoachNote(
@@ -449,13 +782,13 @@ fun PlannerCheckInScreen(
             ?: viewModel.plannerCheckInHistory.value
 
         PlannerSectionTitle(
-            subtitle = "Timeline ini mencatat update yang berkaitan langsung dengan goal aktif Anda."
+            subtitle = "Timeline ini mencatat update yang berkaitan langsung dengan goal aktif Anda"
         )
 
         PlannerInfoCard(title = "Timeline") {
             if (history.isEmpty()) {
                 Text(
-                    text = "Belum ada check-in untuk goal ini. Gunakan menu tambah aktivitas atau perbarui data kesehatan untuk mulai mencatat progres.",
+                    text = "Belum ada check-in untuk goal ini. Gunakan menu tambah aktivitas atau perbarui data kesehatan untuk mulai mencatat progres",
                     fontFamily = poppinsFontFamily,
                     fontWeight = FontWeight.Medium,
                     fontSize = 13.sp,
@@ -471,7 +804,7 @@ fun PlannerCheckInScreen(
 
         PrimaryButton(
             text = "Perbarui Data Kesehatan",
-            onClick = { navController.navigate(Route.HealthProfileScreen.route) },
+            onClick = { navController.navigate(Route.HealthProfileFromPlannerScreen.route) },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(50.dp)

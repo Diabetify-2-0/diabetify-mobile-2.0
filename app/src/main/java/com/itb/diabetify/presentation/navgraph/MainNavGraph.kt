@@ -136,6 +136,9 @@ fun MainNavGraph(
                     }
                 }
             }
+            Route.HealthProfileFromPlannerScreen.route -> {
+                mainNavController.popBackStack()
+            }
             Route.HealthProfileFromHomePopupScreen.route -> {
                 returnToHomeAndOpenAddPopup()
             }
@@ -197,6 +200,7 @@ fun MainNavGraph(
         Route.EditProfileScreen.route,
         Route.HealthProfileScreen.route,
         Route.HealthProfileFromHomePopupScreen.route,
+        Route.HealthProfileFromPlannerScreen.route,
         Route.GuideDetailScreen.route,
         Route.TipsDetailScreen.route
     )
@@ -501,6 +505,17 @@ fun MainNavGraph(
                     viewModel = settingsViewModel,
                     onBack = {
                         returnToHomeAndOpenAddPopup()
+                    }
+                )
+            }
+
+            composable(route = Route.HealthProfileFromPlannerScreen.route) {
+                val settingsViewModel: SettingsViewModel = hiltViewModel()
+                HealthProfileScreen(
+                    navController = mainNavController,
+                    viewModel = settingsViewModel,
+                    onBack = {
+                        mainNavController.popBackStack()
                     }
                 )
             }
