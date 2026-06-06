@@ -18,7 +18,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -34,7 +33,6 @@ import com.itb.diabetify.presentation.settings.components.HealthProfileCard
 import com.itb.diabetify.presentation.settings.components.NotificationCard
 import com.itb.diabetify.presentation.settings.components.NotificationItem
 import com.itb.diabetify.presentation.settings.components.ProfileCard
-import com.itb.diabetify.presentation.settings.components.SettingsCard
 import com.itb.diabetify.ui.theme.poppinsFontFamily
 
 @Composable
@@ -47,8 +45,6 @@ fun SettingsScreen(
     val showLogoutDialog by viewModel.showLogoutDialog
     val errorMessage = viewModel.errorMessage.value
     val isLoading = viewModel.logoutState.value.isLoading
-    val healthProfile = viewModel.healthProfile.value
-    val context = LocalContext.current
 
     // Navigation Event
     val navigationEvent = viewModel.navigationEvent.value
@@ -152,16 +148,6 @@ fun SettingsScreen(
                 Spacer(modifier = Modifier.height(10.dp))
 
                 HealthProfileCard(
-                    summary = if (healthProfile.hasProfile) {
-                        "BMI ${String.format("%.1f", healthProfile.bmi)} • ${healthProfile.weight} kg • ${healthProfile.height} cm"
-                    } else {
-                        "Belum ada baseline kesehatan yang tersimpan"
-                    },
-                    smokingSummary = if (healthProfile.hasProfile) {
-                        "Status merokok: ${settingsSmokingStatusLabel(healthProfile.smokingStatus)}"
-                    } else {
-                        "Lengkapi survey kesehatan agar data profil medis tersedia"
-                    },
                     onViewClick = {
                         navController.navigate(Route.HealthProfileScreen.route) {
                             launchSingleTop = true
@@ -185,12 +171,6 @@ fun SettingsScreen(
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
-
-                // Cards section
-                getSettingsCards(context).forEach { cardData ->
-                    SettingsCard(cardData = cardData)
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
 
                 Spacer(modifier = Modifier.height(18.dp))
 
@@ -219,11 +199,4 @@ fun SettingsScreen(
                 .zIndex(1000f)
         )
     }
-}
-
-private fun settingsSmokingStatusLabel(value: Int): String = when (value) {
-    0 -> "Tidak pernah"
-    1 -> "Sudah berhenti"
-    2 -> "Masih merokok"
-    else -> "Tidak diketahui"
 }

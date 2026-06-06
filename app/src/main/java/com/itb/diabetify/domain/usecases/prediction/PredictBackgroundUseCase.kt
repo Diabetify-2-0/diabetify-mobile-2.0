@@ -9,13 +9,15 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 class PredictBackgroundUseCase(
-    private val repository: PredictionRepository
+    private val repository: PredictionRepository,
+    private val applicationScope: CoroutineScope
 ) {
-    suspend operator fun invoke(scope: CoroutineScope, pollingIntervalMs: Long = 5000L) {
-        scope.launch {
+    operator fun invoke(pollingIntervalMs: Long = 5000L) {
+        applicationScope.launch {
+            PredictionUpdateNotifier.notifyPredictionUpdateStarted()
             try {
                 val jobResult = repository.startPredictionJob()
-                
+
                 if (jobResult is Resource.Success) {
                     val jobId = jobResult.data?.data?.jobId
                     if (jobId != null) {
@@ -32,6 +34,8 @@ class PredictBackgroundUseCase(
                 }
             } catch (e: Exception) {
                 // Silent failure
+            } finally {
+                PredictionUpdateNotifier.notifyPredictionUpdateFinished()
             }
         }
     }

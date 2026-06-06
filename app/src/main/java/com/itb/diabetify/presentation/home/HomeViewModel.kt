@@ -16,21 +16,31 @@ import com.itb.diabetify.data.remote.counterfactual.request.CounterfactualInstan
 import com.itb.diabetify.data.remote.counterfactual.request.CounterfactualRequest
 import com.itb.diabetify.data.remote.counterfactual.request.CounterfactualTarget
 import com.itb.diabetify.data.remote.counterfactual.response.CounterfactualJobResultData
+import com.itb.diabetify.data.remote.counterfactual.response.CounterfactualChangedFeature
+import com.itb.diabetify.data.remote.counterfactual.response.CounterfactualPredictionInfo
 import com.itb.diabetify.data.remote.counterfactual.response.CounterfactualResultPayload
+import com.itb.diabetify.domain.model.planner.PlannerCheckInEntry
+import com.itb.diabetify.domain.model.planner.PlannerGoal
+import com.itb.diabetify.domain.model.planner.PlannerGoalFeature
 import com.itb.diabetify.domain.repository.PredictionRepository
 import com.itb.diabetify.domain.usecases.counterfactual.CounterfactualUseCases
 import com.itb.diabetify.domain.usecases.activity.ActivityUseCases
 import com.itb.diabetify.domain.usecases.prediction.PredictionUseCases
+import com.itb.diabetify.domain.usecases.planner.PlannerGoalUseCases
 import com.itb.diabetify.domain.usecases.profile.ProfileUseCases
 import com.itb.diabetify.domain.usecases.user.UserUseCases
 import com.itb.diabetify.util.handleAsyncCounterfactual
 import com.itb.diabetify.util.DataState
+import com.itb.diabetify.util.PredictionUpdateNotifier
 import com.itb.diabetify.util.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import kotlin.math.abs
+
+internal const val NO_PREDICTION_TIMESTAMP = "Belum ada prediksi"
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
@@ -38,6 +48,7 @@ class HomeViewModel @Inject constructor(
     private val activityUseCases: ActivityUseCases,
     private val predictionUseCases: PredictionUseCases,
     private val counterfactualUseCases: CounterfactualUseCases,
+    private val plannerGoalUseCases: PlannerGoalUseCases,
     private val profileUseCases: ProfileUseCases,
     private val predictionRepository: PredictionRepository,
 ): ViewModel() {
@@ -74,11 +85,14 @@ class HomeViewModel @Inject constructor(
     private val _userName = mutableStateOf("Pengguna")
     val userName: State<String> = _userName
 
-    private val _lastPredictionAt = mutableStateOf("Belum ada prediksi")
+    private val _lastPredictionAt = mutableStateOf(NO_PREDICTION_TIMESTAMP)
     val lastPredictionAt: State<String> = _lastPredictionAt
 
     private val _latestPredictionScore = mutableDoubleStateOf(0.0)
     val latestPredictionScore: State<Double> = _latestPredictionScore
+
+    private val _isPredictionRefreshing = mutableStateOf(PredictionUpdateNotifier.isPredictionUpdating)
+    val isPredictionRefreshing: State<Boolean> = _isPredictionRefreshing
 
     data class RiskFactor(
         val name: String,
@@ -239,9 +253,6 @@ class HomeViewModel @Inject constructor(
     private val _physicalActivityAverage = mutableIntStateOf(0)
     val physicalActivityAverage: State<Int> = _physicalActivityAverage
 
-    private val _smokeToday = mutableIntStateOf(0)
-    val smoke: State<Int> = _smokeToday
-
     private val _physicalActivityToday = mutableIntStateOf(0)
     val physicalActivityToday: State<Int> = _physicalActivityToday
 
@@ -252,15 +263,9 @@ class HomeViewModel @Inject constructor(
     data class CounterfactualOption(
         val key: String,
         val label: String,
-        val description: String,
+
         val iconResId: Int,
         val isSelected: Boolean = true,
-        val supportingText: String? = null,
-        val idealDirectionLabel: String,
-        val effortLabel: String,
-        val impactLabel: String,
-        val categoryLabel: String,
-        val needsClinicalReview: Boolean = false
     )
 
     data class CounterfactualRiskTarget(
@@ -293,19 +298,46 @@ class HomeViewModel @Inject constructor(
     private val _counterfactualJobResultMeta = mutableStateOf<CounterfactualJobResultData?>(null)
     val counterfactualJobResultMeta: State<CounterfactualJobResultData?> = _counterfactualJobResultMeta
 
+    private val _plannerGoalDurationWeeks = mutableIntStateOf(DEFAULT_PLANNER_DURATION_WEEKS)
+    val plannerGoalDurationWeeks: State<Int> = _plannerGoalDurationWeeks
+
+    private val _activePlannerGoal = mutableStateOf<PlannerGoal?>(null)
+    val activePlannerGoal: State<PlannerGoal?> = _activePlannerGoal
+
+    private val _plannerCheckInHistory = mutableStateOf<List<PlannerCheckInEntry>>(emptyList())
+    val plannerCheckInHistory: State<List<PlannerCheckInEntry>> = _plannerCheckInHistory
+
+    private val _allPlannerCheckInHistory = mutableStateOf<List<PlannerCheckInEntry>>(emptyList())
+    val allPlannerCheckInHistory: State<List<PlannerCheckInEntry>> = _allPlannerCheckInHistory
+
+    private var allPlannerCheckInHistoryCache: List<PlannerCheckInEntry> = emptyList()
+
     // Loading state tracking
     private var isUserDataLoaded = false
     private var isPredictionDataLoaded = false
     private var isActivityDataLoaded = false
     private var isProfileDataLoaded = false
+    private var isCollectingLatestPrediction = false
+    private val predictionUpdateListener = {
+        _successMessage.value = "Prediksi risiko telah diperbaharui"
+        loadLatestPredictionData()
+    }
+    private val predictionUpdatingListener: (Boolean) -> Unit = { isUpdating ->
+        _isPredictionRefreshing.value = isUpdating
+    }
 
     // Initialization
     init {
+        PredictionUpdateNotifier.addListener(predictionUpdateListener)
+        PredictionUpdateNotifier.addUpdatingListener(predictionUpdatingListener)
         _loadingMessage.value = "Memuat data..."
         loadUserData()
         loadLatestPredictionData()
         loadActivityTodayData()
         loadProfileData()
+        collectActivePlannerGoal()
+        collectPlannerCheckInHistory()
+        refreshPlannerGoal()
     }
 
     // Use Case Calls
@@ -393,6 +425,11 @@ class HomeViewModel @Inject constructor(
 
     @SuppressLint("DefaultLocale")
     private fun collectLatestPredictionData() {
+        if (isCollectingLatestPrediction) {
+            return
+        }
+        isCollectingLatestPrediction = true
+
         viewModelScope.launch {
             _latestPredictionState.value = latestPredictionState.value.copy(isLoading = true)
 
@@ -533,6 +570,12 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    override fun onCleared() {
+        PredictionUpdateNotifier.removeListener(predictionUpdateListener)
+        PredictionUpdateNotifier.removeUpdatingListener(predictionUpdatingListener)
+        super.onCleared()
+    }
+
     private fun loadProfileData() {
         viewModelScope.launch {
             _profileState.value = profileState.value.copy(isLoading = true)
@@ -639,7 +682,6 @@ class HomeViewModel @Inject constructor(
                 _activityTodayState.value = activityTodayState.value.copy(isLoading = false)
 
                 activity?.let { todayActivity ->
-                    _smokeToday.intValue = todayActivity.smokingValue
                     _physicalActivityToday.intValue = todayActivity.workoutValue
                 }
             }.launchIn(viewModelScope)
@@ -675,6 +717,7 @@ class HomeViewModel @Inject constructor(
     // Helper Functions
     private fun resetToDefaultValues() {
         _baselineAge.intValue = 0
+        _lastPredictionAt.value = NO_PREDICTION_TIMESTAMP
         _latestPredictionScore.doubleValue = 0.0
         _bmi.doubleValue = 0.0
         _weight.intValue = 0
@@ -687,7 +730,6 @@ class HomeViewModel @Inject constructor(
         _profileSmokeCount.intValue = 0
         _profileAgeOfSmoking.intValue = 0
         _profileAgeOfStopSmoking.intValue = 0
-        _smokeToday.intValue = 0
         _physicalActivityToday.intValue = 0
         _brinkmanScore.intValue = 0
 
@@ -698,6 +740,7 @@ class HomeViewModel @Inject constructor(
         _counterfactualSubmittedOptions.value = emptyList()
         _counterfactualResult.value = null
         _counterfactualJobResultMeta.value = null
+        _plannerGoalDurationWeeks.intValue = DEFAULT_PLANNER_DURATION_WEEKS
 
         _riskFactorDetails.value = _riskFactorDetails.value.map {
             it.copy(impactPercentage = 0.0, currentValue = when(it.name) {
@@ -720,71 +763,51 @@ class HomeViewModel @Inject constructor(
         isProfileDataLoaded = false
     }
 
-    private fun defaultCounterfactualOptions(smokingStatus: String = _smokingStatus.value): List<CounterfactualOption> {
-        val options = mutableListOf(
-            CounterfactualOption(
-                key = "BMI",
-                label = "Indeks Massa Tubuh",
-                description = "Eksplorasi perubahan berat badan untuk melihat dampaknya pada risiko.",
-                iconResId = R.drawable.ic_weight,
-                idealDirectionLabel = "Cenderung diturunkan",
-                effortLabel = "Bertahap",
-                impactLabel = "Dampak utama",
-                categoryLabel = "Gaya hidup"
-            ),
-            CounterfactualOption(
-                key = "moderate_physical_activity_frequency",
-                label = "Aktivitas Fisik",
-                description = "Gunakan frekuensi aktivitas fisik mingguan sebagai faktor yang boleh diubah.",
-                iconResId = R.drawable.ic_walk,
-                idealDirectionLabel = "Cenderung ditingkatkan",
-                effortLabel = "Menengah",
-                impactLabel = "Sangat realistis",
-                categoryLabel = "Gaya hidup"
-            ),
-            CounterfactualOption(
-                key = "is_hypertension",
-                label = "Hipertensi",
-                description = "Gunakan faktor ini untuk melihat arah pengendalian tekanan darah, bukan sebagai perubahan instan yang dilakukan sendiri.",
-                iconResId = R.drawable.ic_hypertension,
-                idealDirectionLabel = "Cenderung dikendalikan",
-                effortLabel = "Butuh tindak lanjut",
-                impactLabel = "Perlu pendampingan",
-                categoryLabel = "Kondisi kesehatan",
-                supportingText = "Biasanya dibaca bersama pemantauan tekanan darah dan evaluasi tenaga kesehatan.",
-                needsClinicalReview = true
-            ),
-            CounterfactualOption(
-                key = "is_cholesterol",
-                label = "Kolesterol",
-                description = "Gunakan faktor ini untuk melihat arah pengendalian kolesterol, bukan sebagai target obat atau tindakan mandiri.",
-                iconResId = R.drawable.ic_cholesterol,
-                idealDirectionLabel = "Cenderung dikendalikan",
-                effortLabel = "Butuh tindak lanjut",
-                impactLabel = "Perlu pendampingan",
-                categoryLabel = "Kondisi kesehatan",
-                supportingText = "Biasanya dibaca bersama pola makan, aktivitas, dan evaluasi tenaga kesehatan.",
-                needsClinicalReview = true
-            )
-        )
+    private fun defaultCounterfactualOptions(): List<CounterfactualOption> {
+        return buildList {
+            if (_smokingStatus.value == "2") {
+                add(
+                    CounterfactualOption(
+                        key = "smoking_status",
+                        label = "Status Merokok",
+                        iconResId = R.drawable.ic_smoking,
 
-        if (smokingStatus == "2") {
-            options.add(
-                2,
+
+                    )
+                )
+            }
+
+            add(
                 CounterfactualOption(
-                    key = "smoking_behavior",
-                    label = "Kebiasaan Merokok",
-                    description = "Planner dapat mengeksplorasi dua skenario: berhenti merokok sepenuhnya atau mengurangi konsumsi rokok harian secara bertahap.",
-                    iconResId = R.drawable.ic_smoking,
-                    idealDirectionLabel = "Cenderung dikurangi",
-                    effortLabel = "Menantang",
-                    impactLabel = "Dampak besar",
-                    categoryLabel = "Perilaku"
+                    key = "BMI",
+                    label = "Berat Badan",
+                    iconResId = R.drawable.ic_weight,
+
+                )
+            )
+            add(
+                CounterfactualOption(
+                    key = "moderate_physical_activity_frequency",
+                    label = "Aktivitas Fisik",
+                    iconResId = R.drawable.ic_walk,
+
+                )
+            )
+            add(
+                CounterfactualOption(
+                    key = "is_hypertension",
+                    label = "Hipertensi",
+                    iconResId = R.drawable.ic_hypertension,
+                )
+            )
+            add(
+                CounterfactualOption(
+                    key = "is_cholesterol",
+                    label = "Kolesterol",
+                    iconResId = R.drawable.ic_cholesterol,
                 )
             )
         }
-
-        return options
     }
 
     private fun defaultCounterfactualRiskTarget(): CounterfactualRiskTarget {
@@ -794,7 +817,6 @@ class HomeViewModel @Inject constructor(
     private fun checkAllDataLoaded() {
         if (isUserDataLoaded && isPredictionDataLoaded && isActivityDataLoaded && isProfileDataLoaded) {
             _loadingMessage.value = null
-            _successMessage.value = "Data berhasil dimuat"
         }
     }
 
@@ -804,6 +826,59 @@ class HomeViewModel @Inject constructor(
 
     fun onSuccessShown() {
         _successMessage.value = null
+    }
+
+    private fun collectActivePlannerGoal() {
+        plannerGoalUseCases.getActivePlannerGoal()
+            .onEach { goal ->
+                _activePlannerGoal.value = goal
+                filterPlannerCheckInHistory()
+                goal?.let { refreshPlannerCheckIns(it.id) }
+            }
+            .launchIn(viewModelScope)
+    }
+
+    private fun collectPlannerCheckInHistory() {
+        plannerGoalUseCases.getPlannerCheckInHistory()
+            .onEach { history ->
+                allPlannerCheckInHistoryCache = history
+                _allPlannerCheckInHistory.value = history
+                filterPlannerCheckInHistory()
+            }
+            .launchIn(viewModelScope)
+    }
+
+    private fun filterPlannerCheckInHistory() {
+        val goalId = activePlannerGoal.value?.id
+        _plannerCheckInHistory.value = if (goalId == null) {
+            emptyList()
+        } else {
+            allPlannerCheckInHistoryCache
+                .filter { it.goalId == goalId }
+                .sortedByDescending { it.createdAtMillis }
+        }
+    }
+
+    private fun refreshPlannerGoal() {
+        viewModelScope.launch {
+            plannerGoalUseCases.refreshPlannerGoal()
+        }
+    }
+
+    private fun refreshPlannerCheckIns(goalId: String) {
+        viewModelScope.launch {
+            plannerGoalUseCases.refreshPlannerCheckIns(goalId)
+        }
+    }
+
+    fun refreshPlannerCheckInsForGoal(goalId: String) {
+        refreshPlannerCheckIns(goalId)
+    }
+
+    fun refreshPlannerCheckInHistoryForGoal(goalId: String) {
+        viewModelScope.launch {
+            plannerGoalUseCases.refreshPlannerCheckInHistory(goalId)
+        }
     }
 
     fun toggleCounterfactualOption(key: String) {
@@ -848,11 +923,17 @@ class HomeViewModel @Inject constructor(
             return
         }
 
+        _counterfactualSubmittedOptions.value = selectedOptions
+        _counterfactualSubmittedTarget.value = parsedRiskTarget
+
+        if (isRiskTargetAlreadySatisfied(parsedRiskTarget)) {
+            showTargetAlreadySatisfiedResult()
+            return
+        }
+
         val request = buildCounterfactualRequest(
             selectedKeys = selectedOptions.flatMap(::mutableKeysForCounterfactualOption).distinct()
         )
-        _counterfactualSubmittedOptions.value = selectedOptions
-        _counterfactualSubmittedTarget.value = parsedRiskTarget
         _counterfactualResult.value = null
         _counterfactualJobResultMeta.value = null
         currentCounterfactualJobId = null
@@ -916,13 +997,48 @@ class HomeViewModel @Inject constructor(
         )
     }
 
+    private fun isRiskTargetAlreadySatisfied(target: CounterfactualRiskTarget): Boolean {
+        if (lastPredictionAt.value == NO_PREDICTION_TIMESTAMP) {
+            return false
+        }
+
+        return latestPredictionScore.value <= target.targetHighRiskPercentage.toDouble()
+    }
+
+    private fun showTargetAlreadySatisfiedResult() {
+        val lowRiskProbability = (1 - (latestPredictionScore.value / 100.0)).coerceIn(0.0, 1.0)
+        val localJobId = "local-target-satisfied-${System.currentTimeMillis()}"
+
+        _counterfactualResult.value = CounterfactualResultPayload(
+            candidates = emptyList(),
+            inputPrediction = CounterfactualPredictionInfo(
+                className = if (lowRiskProbability >= 0.5) "low_risk" else "high_risk",
+                probabilityLowRisk = lowRiskProbability
+            ),
+            message = "Kondisi Anda saat ini sudah memenuhi target risiko yang dipilih, sehingga belum diperlukan perubahan tambahan.",
+            reasonCode = "TARGET_ALREADY_SATISFIED",
+            status = "FEASIBLE"
+        )
+        _counterfactualJobResultMeta.value = CounterfactualJobResultData(
+            jobId = localJobId,
+            jobStatus = "completed",
+            reasonCode = "TARGET_ALREADY_SATISFIED",
+            result = _counterfactualResult.value
+        )
+        _counterfactualState.value = counterfactualState.value.copy(isLoading = false)
+        _loadingMessage.value = null
+        currentCounterfactualJobId = null
+
+        if (!_isNavigating.value) {
+            _isNavigating.value = true
+            _navigationEvent.value = "COUNTERFACTUAL_RESULT_SCREEN"
+        }
+    }
+
     private fun mutableKeysForCounterfactualOption(
         option: CounterfactualOption
     ): List<String> {
-        return when (option.key) {
-            "smoking_behavior" -> listOf("smoking_status", "brinkman_index")
-            else -> listOf(option.key)
-        }
+        return listOf(option.key)
     }
 
     private fun refreshCounterfactualOptions() {
@@ -991,7 +1107,215 @@ class HomeViewModel @Inject constructor(
         currentCounterfactualJobId = null
     }
 
+    fun updatePlannerGoalDurationWeeks(value: Int) {
+        if (value in PLANNER_DURATION_OPTIONS_WEEKS) {
+            _plannerGoalDurationWeeks.intValue = value
+        }
+    }
+
+    fun saveCounterfactualAsGoal(
+        replaceActiveGoal: Boolean = false,
+        durationWeeks: Int = plannerGoalDurationWeeks.value
+    ) {
+        val result = counterfactualResult.value
+        if (result == null || result.status != "FEASIBLE" || result.candidates.isEmpty()) {
+            _errorMessage.value = "Belum ada rencana feasible yang bisa disimpan sebagai goal"
+            return
+        }
+
+        val normalizedDurationWeeks = durationWeeks.takeIf { it in PLANNER_DURATION_OPTIONS_WEEKS }
+            ?: DEFAULT_PLANNER_DURATION_WEEKS
+        val goal = buildPlannerGoalFromCounterfactual(result, normalizedDurationWeeks)
+        viewModelScope.launch {
+            val existingGoal = activePlannerGoal.value
+            if (
+                replaceActiveGoal &&
+                existingGoal != null &&
+                existingGoal.sourceJobId != goal.sourceJobId
+            ) {
+                plannerGoalUseCases.clearPlannerGoal(existingGoal.id)
+            }
+            plannerGoalUseCases.savePlannerGoal(goal)
+            _successMessage.value = "Rencana berhasil disimpan sebagai goal aktif"
+        }
+    }
+
+    fun clearActivePlannerGoal() {
+        val goal = activePlannerGoal.value
+        if (goal == null) {
+            _errorMessage.value = "Tidak ada goal aktif yang bisa dihapus"
+            return
+        }
+
+        viewModelScope.launch {
+            plannerGoalUseCases.clearPlannerGoal(goal.id)
+            plannerGoalUseCases.clearPlannerCheckIns()
+            _successMessage.value = "Goal aktif berhasil dihapus"
+        }
+    }
+
+    fun completeActivePlannerGoal() {
+        val goal = activePlannerGoal.value
+        if (goal == null) {
+            _errorMessage.value = "Tidak ada goal aktif yang bisa diselesaikan"
+            return
+        }
+
+        viewModelScope.launch {
+            plannerGoalUseCases.completePlannerGoal(goal.id)
+            plannerGoalUseCases.clearPlannerCheckIns()
+            _successMessage.value = "Goal selesai dan berhasil dihapus"
+        }
+    }
+
+    private fun buildPlannerGoalFromCounterfactual(
+        result: CounterfactualResultPayload,
+        durationWeeks: Int
+    ): PlannerGoal {
+        val currentRisk = result.inputPrediction?.probabilityLowRisk?.let(::toHighRiskPercentage)
+        val projectedRisk = result.candidates.firstOrNull()?.prediction?.probabilityLowRisk?.let(
+            ::toHighRiskPercentage
+        )
+        val changedFeatures = result.plannerInput?.changedFeatures.orEmpty()
+        val goalFeatures = changedFeatures.mapNotNull(::buildPlannerGoalFeature)
+
+        return PlannerGoal(
+            id = _counterfactualJobResultMeta.value?.jobId ?: "planner-${System.currentTimeMillis()}",
+            title = "Turunkan risiko ke bawah ${counterfactualSubmittedTarget.value.targetHighRiskPercentage}%",
+            currentRiskPercentage = currentRisk,
+            targetRiskPercentage = counterfactualSubmittedTarget.value.targetHighRiskPercentage,
+            durationWeeks = durationWeeks,
+            projectedRiskPercentage = projectedRisk,
+            sourceJobId = _counterfactualJobResultMeta.value?.jobId,
+            createdAtMillis = System.currentTimeMillis(),
+            summary = result.prescriptivePlan?.summary ?: result.message,
+            actionSteps = result.prescriptivePlan?.actionSteps.orEmpty(),
+            features = goalFeatures
+        )
+    }
+
+    private fun buildPlannerGoalFeature(
+        feature: CounterfactualChangedFeature
+    ): PlannerGoalFeature? {
+        val baseline = feature.baselineValue
+        val target = feature.candidateValue
+        if (baseline == null && target == null) {
+            return null
+        }
+
+        return PlannerGoalFeature(
+            featureName = feature.featureName,
+            label = plannerFeatureLabel(feature.featureName),
+            baselineValue = baseline,
+            targetValue = target,
+            baselineText = formatPlannerFeatureValue(feature.featureName, baseline),
+            targetText = formatPlannerFeatureValue(feature.featureName, target),
+            actionLabel = plannerActionLabel(feature)
+        )
+    }
+
+    private fun plannerActionLabel(feature: CounterfactualChangedFeature): String {
+        val delta = feature.delta ?: run {
+            val baseline = feature.baselineValue
+            val target = feature.candidateValue
+            if (baseline != null && target != null) target - baseline else null
+        }
+
+        return when (feature.featureName) {
+            "BMI" -> {
+                val baselineWeight = feature.baselineValue?.let(::bmiToWeight)
+                val targetWeight = feature.candidateValue?.let(::bmiToWeight)
+                val weightDelta = if (baselineWeight != null && targetWeight != null) {
+                    targetWeight - baselineWeight
+                } else {
+                    null
+                }
+                val absDelta = abs(weightDelta ?: 0.0)
+                if ((weightDelta ?: 0.0) < 0) {
+                    "Turunkan berat sekitar ${String.format("%.1f", absDelta)} kg"
+                } else {
+                    "Naikkan berat sekitar ${String.format("%.1f", absDelta)} kg"
+                }
+            }
+            "moderate_physical_activity_frequency" -> {
+                val absDelta = abs(delta ?: 0.0).toInt()
+                if ((delta ?: 0.0) >= 0) {
+                    "Tambah aktivitas $absDelta hari/minggu"
+                } else {
+                    "Sesuaikan aktivitas $absDelta hari/minggu"
+                }
+            }
+            "smoking_status" -> "Ubah status merokok sesuai skenario"
+            "brinkman_index" -> "Indeks Brinkman merupakan faktor historis dan tidak digunakan sebagai target aksi"
+            "is_hypertension" -> "Kendalikan hipertensi dengan pendampingan klinis"
+            "is_cholesterol" -> "Kendalikan kolesterol dengan pendampingan klinis"
+            else -> "Ubah dari ${formatPlannerFeatureValue(feature.featureName, feature.baselineValue)} ke ${formatPlannerFeatureValue(feature.featureName, feature.candidateValue)}"
+        }
+    }
+
+    private fun plannerFeatureLabel(name: String): String {
+        return when (name) {
+            "BMI" -> "Berat Badan"
+            "smoking_status" -> "Status Merokok"
+            "brinkman_index" -> "Paparan Rokok"
+            "is_cholesterol" -> "Kolesterol"
+            "is_hypertension" -> "Hipertensi"
+            "moderate_physical_activity_frequency" -> "Aktivitas Fisik"
+            "is_bloodline" -> "Riwayat Keluarga"
+            "is_macrosomic_baby" -> "Riwayat Bayi Makrosomia"
+            "age" -> "Usia"
+            else -> name
+        }
+    }
+
+    private fun formatPlannerFeatureValue(name: String, value: Double?): String {
+        if (value == null) {
+            return "-"
+        }
+
+        return when (name) {
+            "BMI" -> bmiToWeight(value)?.let { "${String.format("%.1f", it)} kg" } ?: "-"
+            "age" -> "${value.toInt()} tahun"
+            "moderate_physical_activity_frequency" -> "${value.toInt()} hari/minggu"
+            "smoking_status" -> when (value.toInt()) {
+                0 -> "Tidak merokok"
+                1 -> "Sudah berhenti"
+                2 -> "Masih aktif"
+                else -> value.toInt().toString()
+            }
+            "brinkman_index" -> when (value.toInt()) {
+                0 -> "Sangat rendah"
+                1 -> "Ringan"
+                2 -> "Sedang"
+                3 -> "Tinggi"
+                else -> value.toInt().toString()
+            }
+            "is_hypertension", "is_cholesterol", "is_bloodline" -> if (value.toInt() == 1) "Ya" else "Tidak"
+            "is_macrosomic_baby" -> when (value.toInt()) {
+                0 -> "Tidak"
+                1 -> "Ya"
+                2 -> "Tidak relevan"
+                else -> value.toInt().toString()
+            }
+            else -> String.format("%.2f", value)
+        }
+    }
+
+    private fun bmiToWeight(bmi: Double): Double? {
+        val heightMeters = _height.intValue / 100.0
+        if (heightMeters <= 0.0) {
+            return null
+        }
+        return bmi * heightMeters * heightMeters
+    }
+
+    private fun toHighRiskPercentage(lowRiskProbability: Double): Double {
+        return (1.0 - lowRiskProbability) * 100
+    }
+
     companion object {
         private const val DEFAULT_COUNTERFACTUAL_RISK_TARGET_INPUT = "45"
+        private const val DEFAULT_PLANNER_DURATION_WEEKS = 4
+        private val PLANNER_DURATION_OPTIONS_WEEKS = setOf(4, 8, 12, 24)
     }
 }

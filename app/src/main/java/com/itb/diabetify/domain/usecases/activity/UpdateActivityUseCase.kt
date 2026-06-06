@@ -26,9 +26,8 @@ class UpdateActivityUseCase(
             } -> "Format tanggal tidak valid"
             else -> null
         }
-        val activityTypeError: String? = if (activityType != "workout" && activityType != "smoke") "Jenis aktivitas tidak valid" else null
+        val activityTypeError: String? = if (activityType != "workout") "Jenis aktivitas tidak valid" else null
         val valueError: String? = when {
-            activityType == "smoke" && (value < 0 || value > 60) -> "Jumlah rokok tidak valid"
             activityType == "workout" && (value < 0 || value > 1) -> "Nilai aktivitas tidak valid"
             else -> null
         }

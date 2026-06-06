@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -35,8 +36,11 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import com.itb.diabetify.R
 import com.itb.diabetify.presentation.navbar.add_activity.AddActionPopup
 import com.itb.diabetify.presentation.navbar.add_activity.AddActivityViewModel
@@ -47,6 +51,7 @@ fun BottomNavigationBar(
     viewModel: NavigationViewModel,
     addActivityViewModel: AddActivityViewModel,
     onOpenHealthProfile: () -> Unit,
+    onCreatePlan: () -> Unit,
     backgroundColor: Color = Color.White,
     selectedColor: Color = colorResource(id = R.color.primary),
     unselectedColor: Color = colorResource(id = R.color.tertiary),
@@ -59,6 +64,7 @@ fun BottomNavigationBar(
     val items = viewModel.navigationItems
     val middleIndex = items.size / 2
     val showPopup by viewModel.showPopUp
+    val hasDuePlannerCheckIn = addActivityViewModel.plannerCheckInActions().any { it.isDue }
 
     // Popup
     if (showPopup) {
@@ -69,6 +75,10 @@ fun BottomNavigationBar(
             onOpenHealthProfile = {
                 viewModel.setShowPopUp(false)
                 onOpenHealthProfile()
+            },
+            onCreatePlan = {
+                viewModel.setShowPopUp(false)
+                onCreatePlan()
             }
         )
     }
@@ -159,20 +169,47 @@ fun BottomNavigationBar(
             }
         }
 
-        FloatingActionButton(
-            onClick = { viewModel.setShowPopUp(true) },
+        Box(
             modifier = Modifier
                 .align(Alignment.Center)
-                .shadow(8.dp, CircleShape),
-            shape = CircleShape,
-            containerColor = colorResource(id = R.color.primary),
-            contentColor = colorResource(id = R.color.white)
+                .size(72.dp)
         ) {
-            Icon(
-                modifier = Modifier.scale(1.5f),
-                imageVector = Icons.Rounded.Add,
-                contentDescription = "Add"
-            )
+            FloatingActionButton(
+                onClick = { viewModel.setShowPopUp(true) },
+                shape = CircleShape,
+                containerColor = colorResource(id = R.color.primary),
+                contentColor = colorResource(id = R.color.white),
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .shadow(8.dp, CircleShape)
+            ) {
+                Icon(
+                    modifier = Modifier.scale(1.5f),
+                    imageVector = Icons.Rounded.Add,
+                    contentDescription = "Add"
+                )
+            }
+
+            if (hasDuePlannerCheckIn) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .offset(x = (-4).dp, y = 5.dp)
+                        .size(18.dp)
+                        .zIndex(1f)
+                        .clip(CircleShape)
+                        .background(Color(0xFFEF4444)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "!",
+                        color = Color.White,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.offset(y = (-3).dp)
+                    )
+                }
+            }
         }
     }
 }

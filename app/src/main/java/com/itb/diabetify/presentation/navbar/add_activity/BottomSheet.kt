@@ -183,19 +183,13 @@ fun NumericInput(
     var hasSubmitted by remember { mutableStateOf(false) }
     
     val fieldState = when (question.id) {
-        "cigarette" -> viewModel.smokeFieldState.value
         "weight" -> viewModel.weightFieldState.value
         "height" -> viewModel.heightFieldState.value
         else -> null
     }
     
     val errorMessage = fieldState?.error
-    val canSubmit = viewModel.isFieldValid(
-        when (question.id) {
-            "cigarette" -> "smoke"
-            else -> question.id
-        }
-    )
+    val canSubmit = viewModel.isFieldValid(question.id)
     
     LaunchedEffect(isLoading, hasSubmitted) {
         if (hasSubmitted && !isLoading) {
@@ -221,7 +215,6 @@ fun NumericInput(
                     if (newValue.isEmpty() || newValue.all { char -> char.isDigit() || char == '.' }) {
                         inputValue = newValue
                         when (question.id) {
-                            "cigarette" -> viewModel.setSmokeValue(newValue)
                             "weight" -> viewModel.setWeightValue(newValue)
                             "height" -> viewModel.setHeightValue(newValue)
                         }
@@ -268,12 +261,6 @@ fun NumericInput(
             onClick = { 
                 hasSubmitted = true
                 when (question.id) {
-                    "cigarette" -> {
-                        val isValid = viewModel.validateSmokingField()
-                        if (isValid) {
-                            viewModel.handleSmoking()
-                        }
-                    }
                     "weight", "height" -> {
                         val isValid = viewModel.validateProfileFields()
                         if (isValid) {

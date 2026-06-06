@@ -7,6 +7,8 @@ import com.itb.diabetify.data.manager.ActivityManagerImpl
 import com.itb.diabetify.data.manager.ConnectivityManagerImpl
 import com.itb.diabetify.data.manager.CounterfactualJobManagerImpl
 import com.itb.diabetify.data.manager.LocalUserManagerImpl
+import com.itb.diabetify.data.manager.PlannerCheckInManagerImpl
+import com.itb.diabetify.data.manager.PlannerGoalManagerImpl
 import com.itb.diabetify.data.manager.PredictionJobManagerImpl
 import com.itb.diabetify.data.manager.PredictionManagerImpl
 import com.itb.diabetify.data.manager.ProfileManagerImpl
@@ -17,6 +19,7 @@ import com.itb.diabetify.data.remote.auth.AuthApiService
 import com.itb.diabetify.data.remote.chatbot.ChatbotApiService
 import com.itb.diabetify.data.remote.counterfactual.CounterfactualApiService
 import com.itb.diabetify.data.remote.interceptor.AuthInterceptor
+import com.itb.diabetify.data.remote.planner.PlannerApiService
 import com.itb.diabetify.data.remote.prediction.PredictionApiService
 import com.itb.diabetify.data.remote.profile.ProfileApiService
 import com.itb.diabetify.data.remote.user.UserApiService
@@ -30,6 +33,8 @@ import com.itb.diabetify.data.repository.UserRepositoryImpl
 import com.itb.diabetify.domain.manager.ConnectivityManager
 import com.itb.diabetify.domain.manager.CounterfactualJobManager
 import com.itb.diabetify.domain.manager.LocalUserManager
+import com.itb.diabetify.domain.manager.PlannerCheckInManager
+import com.itb.diabetify.domain.manager.PlannerGoalManager
 import com.itb.diabetify.domain.manager.PredictionJobManager
 import com.itb.diabetify.domain.manager.TokenManager
 import com.itb.diabetify.domain.manager.UserManager
@@ -77,6 +82,19 @@ import com.itb.diabetify.domain.usecases.prediction.PredictAsyncUseCase
 import com.itb.diabetify.domain.usecases.prediction.PredictBackgroundUseCase
 import com.itb.diabetify.domain.usecases.prediction.PredictUseCase
 import com.itb.diabetify.domain.usecases.prediction.PredictionUseCases
+import com.itb.diabetify.domain.usecases.planner.ClearPlannerGoalUseCase
+import com.itb.diabetify.domain.usecases.planner.ClearPlannerCheckInsUseCase
+import com.itb.diabetify.domain.usecases.planner.CompletePlannerGoalUseCase
+import com.itb.diabetify.domain.usecases.planner.GetPlannerCheckInsUseCase
+import com.itb.diabetify.domain.usecases.planner.GetPlannerCheckInHistoryUseCase
+import com.itb.diabetify.domain.usecases.planner.GetActivePlannerGoalUseCase
+import com.itb.diabetify.domain.usecases.planner.MarkPlannerCheckInUseCase
+import com.itb.diabetify.domain.usecases.planner.PlannerGoalUseCases
+import com.itb.diabetify.domain.usecases.planner.RecordPlannerCheckInUseCase
+import com.itb.diabetify.domain.usecases.planner.RefreshPlannerCheckInHistoryUseCase
+import com.itb.diabetify.domain.usecases.planner.RefreshPlannerCheckInsUseCase
+import com.itb.diabetify.domain.usecases.planner.RefreshPlannerGoalUseCase
+import com.itb.diabetify.domain.usecases.planner.SavePlannerGoalUseCase
 import com.itb.diabetify.domain.usecases.profile.AddProfileUseCase
 import com.itb.diabetify.domain.usecases.profile.GetProfileUseCase
 import com.itb.diabetify.domain.usecases.profile.UpdateProfileUseCase
@@ -104,14 +122,29 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import javax.inject.Qualifier
 import javax.inject.Singleton
+
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class ApplicationScope
 
 @Module
 @InstallIn(SingletonComponent::class)
 object AppModule {
+    @Provides
+    @Singleton
+    @ApplicationScope
+    fun providesApplicationScope(): CoroutineScope {
+        return CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    }
+
     @Provides
     @Singleton
     fun providesLocalUserManager(
@@ -306,8 +339,61 @@ object AppModule {
 
     @Provides
     @Singleton
+    fun providesPlannerApiService(okHttpClient: OkHttpClient): PlannerApiService {
+        return Retrofit.Builder()
+            .baseUrl(BASE_URL)
+            .client(okHttpClient)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+            .create(PlannerApiService::class.java)
+    }
+
+    @Provides
+    @Singleton
     fun providesPredictionManager(): PredictionManager {
         return PredictionManagerImpl()
+    }
+
+    @Provides
+    @Singleton
+    fun providesPlannerGoalManager(
+        @ApplicationContext context: Context,
+        gson: Gson,
+        plannerApiService: PlannerApiService
+    ): PlannerGoalManager {
+        return PlannerGoalManagerImpl(context, gson, plannerApiService)
+    }
+
+    @Provides
+    @Singleton
+    fun providesPlannerCheckInManager(
+        @ApplicationContext context: Context,
+        gson: Gson,
+        plannerApiService: PlannerApiService
+    ): PlannerCheckInManager {
+        return PlannerCheckInManagerImpl(context, gson, plannerApiService)
+    }
+
+    @Provides
+    @Singleton
+    fun providesPlannerGoalUseCases(
+        plannerGoalManager: PlannerGoalManager,
+        plannerCheckInManager: PlannerCheckInManager
+    ): PlannerGoalUseCases {
+        return PlannerGoalUseCases(
+            savePlannerGoal = SavePlannerGoalUseCase(plannerGoalManager),
+            getActivePlannerGoal = GetActivePlannerGoalUseCase(plannerGoalManager),
+            refreshPlannerGoal = RefreshPlannerGoalUseCase(plannerGoalManager),
+            completePlannerGoal = CompletePlannerGoalUseCase(plannerGoalManager),
+            clearPlannerGoal = ClearPlannerGoalUseCase(plannerGoalManager),
+            markPlannerCheckIn = MarkPlannerCheckInUseCase(plannerCheckInManager),
+            getPlannerCheckIns = GetPlannerCheckInsUseCase(plannerCheckInManager),
+            clearPlannerCheckIns = ClearPlannerCheckInsUseCase(plannerCheckInManager),
+            refreshPlannerCheckIns = RefreshPlannerCheckInsUseCase(plannerCheckInManager),
+            refreshPlannerCheckInHistory = RefreshPlannerCheckInHistoryUseCase(plannerCheckInManager),
+            recordPlannerCheckIn = RecordPlannerCheckInUseCase(plannerCheckInManager),
+            getPlannerCheckInHistory = GetPlannerCheckInHistoryUseCase(plannerCheckInManager)
+        )
     }
 
     @Provides
@@ -358,6 +444,7 @@ object AppModule {
     @Singleton
     fun providesPredictionUseCases(
         repository: PredictionRepository,
+        @ApplicationScope applicationScope: CoroutineScope
     ): PredictionUseCases {
         return PredictionUseCases(
             getLatestPredictionRepository = GetLatestPredictionRepositoryUseCase(repository),
@@ -366,7 +453,7 @@ object AppModule {
             getPredictionScoreByDate = GetPredictionScoreByDateUseCase(repository),
             predict = PredictUseCase(repository),
             predictAsync = PredictAsyncUseCase(repository),
-            predictBackground = PredictBackgroundUseCase(repository),
+            predictBackground = PredictBackgroundUseCase(repository, applicationScope),
             explainPrediction = ExplainPredictionUseCase(repository)
         )
     }

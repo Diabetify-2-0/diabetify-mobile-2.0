@@ -50,6 +50,12 @@ import com.itb.diabetify.presentation.survey.SurveyScreen
 import com.itb.diabetify.presentation.survey.SurveyViewModel
 import com.itb.diabetify.presentation.home.counterfactual.CounterfactualResultScreen
 import com.itb.diabetify.presentation.home.counterfactual.CounterfactualScreen
+import com.itb.diabetify.presentation.home.planner.PlannerActionScreen
+import com.itb.diabetify.presentation.home.planner.PlannerChatbotScreen
+import com.itb.diabetify.presentation.home.planner.PlannerCheckInScreen
+import com.itb.diabetify.presentation.home.planner.PlannerCoachScreen
+import com.itb.diabetify.presentation.home.planner.PlannerGoalDetailScreen
+import com.itb.diabetify.presentation.home.planner.PlannerMilestoneScreen
 import com.itb.diabetify.presentation.chatbot.ChatbotScreen
 
 @SuppressLint("UnrememberedGetBackStackEntry")
@@ -66,6 +72,7 @@ fun MainNavGraph(
     var shouldNavigateToLogin by rememberSaveable { mutableStateOf(false) }
     val navigationHistory = remember { mutableListOf<String>() }
     val currentRoute = mainNavController.currentBackStackEntryAsState().value?.destination?.route
+    var shouldOpenAddPopupOnHome by rememberSaveable { mutableStateOf(false) }
 
     val systemUiController = rememberSystemUiController()
     val primaryColor = colorResource(id = R.color.primary)
@@ -89,10 +96,67 @@ fun MainNavGraph(
     }
 
     val homeRoute = Route.HomeScreen.route
+    fun returnToHomeAndOpenAddPopup() {
+        shouldOpenAddPopupOnHome = true
+        if (!mainNavController.popBackStack(homeRoute, inclusive = false)) {
+            mainNavController.navigate(homeRoute) {
+                popUpTo(mainNavController.graph.findStartDestination().id) {
+                    saveState = true
+                }
+                launchSingleTop = true
+                restoreState = true
+            }
+        }
+    }
+
+    LaunchedEffect(currentRoute, shouldOpenAddPopupOnHome) {
+        if (currentRoute == homeRoute && shouldOpenAddPopupOnHome) {
+            shouldOpenAddPopupOnHome = false
+            navigationViewModel.setShowPopUp(true)
+        }
+    }
+
+    val settingsChildRoutes = setOf(
+        Route.EditProfileScreen.route,
+        Route.HealthProfileScreen.route
+    )
+    val guideChildRoutes = setOf(
+        Route.GuideDetailScreen.route,
+        Route.TipsDetailScreen.route
+    )
+
     BackHandler {
         when (currentRoute) {
             Route.SurveyScreen.route -> {
                 // Do nothing to prevent back navigation
+            }
+            in settingsChildRoutes -> {
+                if (!mainNavController.popBackStack(Route.SettingsScreen.route, inclusive = false)) {
+                    mainNavController.navigate(Route.SettingsScreen.route) {
+                        launchSingleTop = true
+                    }
+                }
+            }
+            Route.HealthProfileFromHomePopupScreen.route -> {
+                returnToHomeAndOpenAddPopup()
+            }
+            Route.CounterfactualResultScreen.route -> {
+                if (!mainNavController.popBackStack(homeRoute, inclusive = false)) {
+                    mainNavController.navigate(homeRoute) {
+                        popUpTo(mainNavController.graph.findStartDestination().id) {
+                            saveState = true
+                        }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                }
+            }
+            in guideChildRoutes -> {
+                if (!mainNavController.popBackStack(Route.GuideScreen.route, inclusive = false)) {
+                    mainNavController.navigate(Route.GuideScreen.route) {
+                        launchSingleTop = true
+                    }
+                }
             }
             homeRoute -> {
                 // Do nothing when already at home
@@ -118,6 +182,25 @@ fun MainNavGraph(
         }
     }
 
+    val bottomBarHiddenRoutes = setOf(
+        Route.SurveyScreen.route,
+        Route.SurveySuccessScreen.route,
+        Route.RiskDetailScreen.route,
+        Route.RiskFactorDetailScreen.route,
+        Route.CounterfactualScreen.route,
+        Route.CounterfactualResultScreen.route,
+        Route.PlannerGoalDetailScreen.route,
+        Route.PlannerMilestoneScreen.route,
+        Route.PlannerActionScreen.route,
+        Route.PlannerCoachScreen.route,
+        Route.PlannerCheckInScreen.route,
+        Route.PlannerChatbotScreen.route,
+        Route.EditProfileScreen.route,
+        Route.HealthProfileScreen.route,
+        Route.HealthProfileFromHomePopupScreen.route,
+        Route.GuideDetailScreen.route,
+        Route.TipsDetailScreen.route
+    )
     val shouldShowBottomBar = currentRoute !in listOf(
         Route.SurveyScreen.route,
         Route.SurveySuccessScreen.route,
@@ -133,7 +216,12 @@ fun MainNavGraph(
                     viewModel = navigationViewModel,
                     addActivityViewModel = addActivityViewModel,
                     onOpenHealthProfile = {
-                        mainNavController.navigate(Route.HealthProfileScreen.route) {
+                        mainNavController.navigate(Route.HealthProfileFromHomePopupScreen.route) {
+                            launchSingleTop = true
+                        }
+                    },
+                    onCreatePlan = {
+                        mainNavController.navigate(Route.CounterfactualScreen.route) {
                             launchSingleTop = true
                         }
                     },
@@ -221,6 +309,126 @@ fun MainNavGraph(
                 )
             }
 
+            composable(
+                route = Route.PlannerGoalDetailScreen.route,
+                arguments = listOf(
+                    navArgument("goalId") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    }
+                )
+            ) { backStackEntry ->
+                val homeViewModel: HomeViewModel = hiltViewModel(
+                    mainNavController.getBackStackEntry(Route.HomeScreen.route)
+                )
+                PlannerGoalDetailScreen(
+                    navController = mainNavController,
+                    viewModel = homeViewModel,
+                    goalId = backStackEntry.arguments?.getString("goalId")
+                )
+            }
+
+            composable(
+                route = Route.PlannerMilestoneScreen.route,
+                arguments = listOf(
+                    navArgument("goalId") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    }
+                )
+            ) { backStackEntry ->
+                val homeViewModel: HomeViewModel = hiltViewModel(
+                    mainNavController.getBackStackEntry(Route.HomeScreen.route)
+                )
+                PlannerMilestoneScreen(
+                    navController = mainNavController,
+                    viewModel = homeViewModel,
+                    goalId = backStackEntry.arguments?.getString("goalId")
+                )
+            }
+
+            composable(
+                route = Route.PlannerActionScreen.route,
+                arguments = listOf(
+                    navArgument("goalId") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    }
+                )
+            ) { backStackEntry ->
+                val homeViewModel: HomeViewModel = hiltViewModel(
+                    mainNavController.getBackStackEntry(Route.HomeScreen.route)
+                )
+                PlannerActionScreen(
+                    navController = mainNavController,
+                    viewModel = homeViewModel,
+                    goalId = backStackEntry.arguments?.getString("goalId")
+                )
+            }
+
+            composable(
+                route = Route.PlannerCoachScreen.route,
+                arguments = listOf(
+                    navArgument("goalId") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    }
+                )
+            ) { backStackEntry ->
+                val homeViewModel: HomeViewModel = hiltViewModel(
+                    mainNavController.getBackStackEntry(Route.HomeScreen.route)
+                )
+                PlannerCoachScreen(
+                    navController = mainNavController,
+                    viewModel = homeViewModel,
+                    goalId = backStackEntry.arguments?.getString("goalId")
+                )
+            }
+
+            composable(
+                route = Route.PlannerCheckInScreen.route,
+                arguments = listOf(
+                    navArgument("goalId") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    }
+                )
+            ) { backStackEntry ->
+                val homeViewModel: HomeViewModel = hiltViewModel(
+                    mainNavController.getBackStackEntry(Route.HomeScreen.route)
+                )
+                PlannerCheckInScreen(
+                    navController = mainNavController,
+                    viewModel = homeViewModel,
+                    goalId = backStackEntry.arguments?.getString("goalId")
+                )
+            }
+
+            composable(
+                route = Route.PlannerChatbotScreen.route,
+                arguments = listOf(
+                    navArgument("goalId") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    }
+                )
+            ) { backStackEntry ->
+                val homeViewModel: HomeViewModel = hiltViewModel(
+                    mainNavController.getBackStackEntry(Route.HomeScreen.route)
+                )
+                PlannerChatbotScreen(
+                    navController = mainNavController,
+                    viewModel = homeViewModel,
+                    goalId = backStackEntry.arguments?.getString("goalId")
+                )
+            }
+
             composable(route = Route.ChatbotScreen.route) {
                 ChatbotScreen(navController = mainNavController)
             }
@@ -228,7 +436,7 @@ fun MainNavGraph(
             composable(route = Route.HistoryScreen.route) {
                 val historyViewModel: HistoryViewModel = hiltViewModel()
                 HistoryScreen(
-                    viewModel = historyViewModel,
+                    viewModel = historyViewModel
                 )
             }
 
@@ -292,6 +500,17 @@ fun MainNavGraph(
                 HealthProfileScreen(
                     navController = mainNavController,
                     viewModel = settingsViewModel,
+                )
+            }
+
+            composable(route = Route.HealthProfileFromHomePopupScreen.route) {
+                val settingsViewModel: SettingsViewModel = hiltViewModel()
+                HealthProfileScreen(
+                    navController = mainNavController,
+                    viewModel = settingsViewModel,
+                    onBack = {
+                        returnToHomeAndOpenAddPopup()
+                    }
                 )
             }
 

@@ -47,6 +47,7 @@ import com.itb.diabetify.presentation.common.ErrorNotification
 import com.itb.diabetify.presentation.common.InputField
 import com.itb.diabetify.presentation.common.PrimaryButton
 import com.itb.diabetify.presentation.common.SuccessNotification
+import com.itb.diabetify.presentation.navgraph.Route
 import com.itb.diabetify.presentation.settings.SettingsViewModel
 import com.itb.diabetify.ui.theme.poppinsFontFamily
 import java.text.SimpleDateFormat
@@ -94,7 +95,13 @@ fun EditProfileScreen(
                 ) {
                     IconButton(
                         modifier = Modifier.align(Alignment.CenterStart),
-                        onClick = { navController.popBackStack() }
+                        onClick = {
+                            if (!navController.popBackStack(Route.SettingsScreen.route, inclusive = false)) {
+                                navController.navigate(Route.SettingsScreen.route) {
+                                    launchSingleTop = true
+                                }
+                            }
+                        }
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,

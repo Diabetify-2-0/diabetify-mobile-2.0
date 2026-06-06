@@ -1,6 +1,7 @@
 package com.itb.diabetify.presentation.common
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -22,6 +23,7 @@ import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.itb.diabetify.R
@@ -185,7 +187,11 @@ fun CustomizableButton(
     backgroundColor: Color = colorResource(id = R.color.primary),
     backgroundColorSecondary: Color? = null,
     textColor: Color = Color.White,
+    borderColor: Color? = null,
+    borderWidth: Dp = 1.dp,
     loadingIndicatorColor: Color = Color.White,
+    enabledShadowElevation: Dp = 6.dp,
+    disabledShadowElevation: Dp = 2.dp,
     disabledAlpha: Float = 0.5f
 ) {
     val isEnabled = (enabled ?: true) && !isLoading
@@ -228,11 +234,17 @@ fun CustomizableButton(
             .fillMaxWidth()
             .height(56.dp)
             .shadow(
-                elevation = if (isEnabled) 6.dp else 2.dp,
+                elevation = if (isEnabled) enabledShadowElevation else disabledShadowElevation,
                 shape = RoundedCornerShape(28.dp)
             ),
         shape = RoundedCornerShape(28.dp),
-        color = Color.Transparent
+        color = Color.Transparent,
+        border = borderColor?.let {
+            BorderStroke(
+                width = borderWidth,
+                color = it.copy(alpha = if (isEnabled) 1f else disabledAlpha)
+            )
+        }
     ) {
         Box(
             modifier = Modifier
