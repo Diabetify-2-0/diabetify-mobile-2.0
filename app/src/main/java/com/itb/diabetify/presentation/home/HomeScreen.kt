@@ -1134,6 +1134,69 @@ fun HomeScreen(
                     }
                 }
 
+                HomeCard(
+                    title = "Asisten Chatbot"
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .padding(16.dp)
+                            .fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 16.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = Color(0xFFE8F0F3)
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_message),
+                                    contentDescription = "Chatbot",
+                                    tint = colorResource(id = R.color.primary),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Terintegrasi dengan XAI",
+                                    fontSize = 14.sp,
+                                    fontFamily = poppinsFontFamily,
+                                    fontWeight = FontWeight.Medium,
+                                    color = colorResource(id = R.color.primary)
+                                )
+                            }
+                        }
+
+                        Text(
+                            text = "Tanyakan seputar diabetes, risiko, dan rekomendasi untuk Anda. Jawaban disesuaikan dengan profil risiko terbaru.",
+                            fontFamily = poppinsFontFamily,
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 14.sp,
+                            color = Color(0xFF6B7280),
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        PrimaryButton(
+                            text = "Mulai Percakapan",
+                            onClick = {
+                                navController.navigate(Route.ChatbotScreen.route)
+                            },
+                            leftImageResId = R.drawable.ic_message,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 16.dp)
+                                .height(50.dp)
+                        )
+                    }
+                }
+
                 Spacer(modifier = Modifier.height(30.dp))
             }
         }

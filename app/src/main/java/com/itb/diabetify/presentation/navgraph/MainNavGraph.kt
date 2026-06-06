@@ -56,6 +56,7 @@ import com.itb.diabetify.presentation.home.planner.PlannerCheckInScreen
 import com.itb.diabetify.presentation.home.planner.PlannerCoachScreen
 import com.itb.diabetify.presentation.home.planner.PlannerGoalDetailScreen
 import com.itb.diabetify.presentation.home.planner.PlannerMilestoneScreen
+import com.itb.diabetify.presentation.chatbot.ChatbotScreen
 
 @SuppressLint("UnrememberedGetBackStackEntry")
 @Composable
@@ -204,7 +205,11 @@ fun MainNavGraph(
         Route.GuideDetailScreen.route,
         Route.TipsDetailScreen.route
     )
-    val shouldShowBottomBar = currentRoute !in bottomBarHiddenRoutes
+    val shouldShowBottomBar = currentRoute !in listOf(
+        Route.SurveyScreen.route,
+        Route.SurveySuccessScreen.route,
+        Route.ChatbotScreen.route,
+    )
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -426,6 +431,10 @@ fun MainNavGraph(
                     viewModel = homeViewModel,
                     goalId = backStackEntry.arguments?.getString("goalId")
                 )
+            }
+
+            composable(route = Route.ChatbotScreen.route) {
+                ChatbotScreen(navController = mainNavController)
             }
 
             composable(route = Route.HistoryScreen.route) {

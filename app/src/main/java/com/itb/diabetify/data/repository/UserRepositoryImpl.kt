@@ -43,6 +43,7 @@ class UserRepositoryImpl(
             response.data?.let {
                 userManager.saveUser(
                     User(
+                        id = it.id,
                         name = it.name.orEmpty(),
                         email = it.email.orEmpty(),
                         gender = when (it.gender.orEmpty().lowercase()) {

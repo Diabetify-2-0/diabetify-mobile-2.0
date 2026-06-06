@@ -8,4 +8,6 @@ object Constants {
     const val APP_ENTRY = "appEntry"
 
     val BASE_URL: String = BuildConfig.API_BASE_URL
+
+    val CHATBOT_BASE_URL: String = BuildConfig.CHATBOT_BASE_URL
 }

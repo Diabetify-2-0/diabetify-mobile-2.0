@@ -26,6 +26,13 @@ fun normalizedBaseUrl(): String {
     return if (rawUrl.endsWith("/")) rawUrl else "$rawUrl/"
 }
 
+fun normalizedChatbotBaseUrl(): String {
+    val rawUrl = localProperty("CHATBOT_BASE_URL")
+        .ifBlank { localProperty("CHAT_BOT_URL") }
+        .ifBlank { "http://10.0.2.2:8023/" }
+    return if (rawUrl.endsWith("/")) rawUrl else "$rawUrl/"
+}
+
 android {
     namespace = "com.itb.diabetify"
     compileSdk = 35
@@ -43,6 +50,7 @@ android {
         }
         manifestPlaceholders["usesCleartextTraffic"] = "false"
         buildConfigField("String", "API_BASE_URL", buildConfigString(normalizedBaseUrl()))
+        buildConfigField("String", "CHATBOT_BASE_URL", buildConfigString(normalizedChatbotBaseUrl()))
         buildConfigField("String", "WEB_CLIENT_ID", buildConfigString(localProperty("WEB_CLIENT_ID")))
     }
 
@@ -92,6 +100,7 @@ dependencies {
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.core:core-splashscreen:1.0.1")
     implementation("androidx.navigation:navigation-compose:2.8.8")
     implementation("androidx.datastore:datastore-preferences:1.1.3")
