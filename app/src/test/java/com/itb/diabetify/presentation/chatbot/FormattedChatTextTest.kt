@@ -4,6 +4,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 import com.itb.diabetify.presentation.chatbot.components.normalizeChatListMarkers
 import com.itb.diabetify.presentation.chatbot.components.parseChatMarkdown
 import org.junit.Assert.assertEquals
@@ -12,7 +13,7 @@ import org.junit.Test
 
 class FormattedChatTextTest {
 
-    private val baseStyle = SpanStyle(color = Color.Black)
+    private val baseStyle = SpanStyle(color = Color.Black, fontSize = 14.sp)
 
     @Test
     fun normalizeChatListMarkers_convertsDashAndStarBullets() {
@@ -62,5 +63,25 @@ class FormattedChatTextTest {
         }
         assertEquals(1, styledRanges.size)
         assertEquals("urgent", annotated.substring(styledRanges.first().start, styledRanges.first().end))
+    }
+
+    @Test
+    fun parseChatMarkdown_stripsHeadingMarkersAndAppliesHeadingStyle() {
+        val annotated = parseChatMarkdown("### Cara Memantau Tekanan darah", baseStyle)
+        assertEquals("Cara Memantau Tekanan darah", annotated.text)
+        assertTrue(annotated.text.none { it == '#' })
+        assertTrue(
+            annotated.spanStyles.any {
+                it.item.fontWeight == FontWeight.Bold &&
+                    it.item.fontSize.value > baseStyle.fontSize.value
+            }
+        )
+    }
+
+    @Test
+    fun parseChatMarkdown_supportsPartialHeadingWhileStreaming() {
+        val annotated = parseChatMarkdown("### Cara Memantau", baseStyle)
+        assertEquals("Cara Memantau", annotated.text)
+        assertTrue(annotated.spanStyles.any { it.item.fontWeight == FontWeight.Bold })
     }
 }
