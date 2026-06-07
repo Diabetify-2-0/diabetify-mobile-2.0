@@ -451,9 +451,19 @@ internal fun buildFeatureProgress(
 ): PlannerFeatureProgress {
     val baseline = feature.baselineValue
     val target = feature.targetValue
+    val baselineText = formatFeatureValue(feature.featureName, baseline, heightCm)
+    val currentText = formatFeatureValue(feature.featureName, currentValue, heightCm)
+    val targetText = formatFeatureValue(feature.featureName, target, heightCm)
     val hasRelevantUpdate = latestRelevantPlannerCheckIn(feature.featureName, history) != null
     val progressFraction = if (isCategoricalFeature(feature.featureName)) {
         0f
+    } else if (isNumericMilestoneFeature(feature.featureName)) {
+        displayedNumericProgressFraction(
+            featureName = feature.featureName,
+            baselineText = baselineText,
+            currentText = currentText,
+            targetText = targetText
+        ) ?: 0f
     } else {
         calculateProgressFraction(
             baseline = baseline,
@@ -461,12 +471,21 @@ internal fun buildFeatureProgress(
             current = currentValue
         )
     }
-    val isReached = isTargetReached(
-        featureName = feature.featureName,
-        baseline = baseline,
-        target = target,
-        current = currentValue
-    )
+    val isReached = if (isNumericMilestoneFeature(feature.featureName)) {
+        hasReachedDisplayedNumericTarget(
+            featureName = feature.featureName,
+            baselineText = baselineText,
+            currentText = currentText,
+            targetText = targetText
+        )
+    } else {
+        isTargetReached(
+            featureName = feature.featureName,
+            baseline = baseline,
+            target = target,
+            current = currentValue
+        )
+    }
     val progressPercentage = (progressFraction * 100).roundToInt()
     val resolvedProgressFraction = if (isCategoricalFeature(feature.featureName)) {
         when {
@@ -483,9 +502,9 @@ internal fun buildFeatureProgress(
     return PlannerFeatureProgress(
         featureName = feature.featureName,
         label = displayFeatureLabel(feature),
-        baselineText = formatFeatureValue(feature.featureName, baseline, heightCm),
-        currentText = formatFeatureValue(feature.featureName, currentValue, heightCm),
-        targetText = formatFeatureValue(feature.featureName, target, heightCm),
+        baselineText = baselineText,
+        currentText = currentText,
+        targetText = targetText,
         actionText = displayFeatureActionText(feature, heightCm),
         progressFraction = resolvedProgressFraction,
         statusText = when {

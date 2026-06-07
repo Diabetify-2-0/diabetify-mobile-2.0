@@ -3,6 +3,7 @@ package com.itb.diabetify.presentation.home.planner
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -45,6 +46,7 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import kotlin.math.abs
+import kotlin.math.roundToInt
 @Composable
 fun PlannerMilestoneScreen(
     navController: NavController,
@@ -279,7 +281,7 @@ private fun PlannerNumericMilestoneCard(
 
             Spacer(modifier = Modifier.height(9.dp))
 
-            PlannerProgressBar(
+            PlannerNumericMilestoneProgressBar(
                 progress = milestone.progressFraction,
                 accentColor = milestone.progressColor,
                 trackColor = milestone.progressTrackColor
@@ -295,6 +297,64 @@ private fun PlannerNumericMilestoneCard(
 
             milestone.highlight?.let { highlight ->
                 PlannerMilestoneHighlightBanner(highlight)
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlannerNumericMilestoneProgressBar(
+    progress: Float,
+    accentColor: Color,
+    trackColor: Color
+) {
+    val clampedProgress = progress.coerceIn(0f, 1f)
+    val percentageText = "${(clampedProgress * 100).roundToInt()}%"
+    val shouldShowOutside = clampedProgress < 0.1f
+
+    BoxWithConstraints(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(22.dp)
+            .clip(RoundedCornerShape(999.dp))
+            .background(trackColor)
+    ) {
+        val labelOffset = (maxWidth * clampedProgress) + 6.dp
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(clampedProgress)
+                .height(22.dp)
+                .clip(RoundedCornerShape(999.dp))
+                .background(accentColor)
+        )
+
+        if (shouldShowOutside) {
+            Text(
+                text = percentageText,
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .padding(start = labelOffset),
+                fontFamily = poppinsFontFamily,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 11.sp,
+                color = Color(0xFF1A1A1A)
+            )
+        } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(clampedProgress)
+                    .height(22.dp)
+                    .padding(end = 8.dp),
+                contentAlignment = Alignment.CenterEnd
+            ) {
+                Text(
+                    text = percentageText,
+                    fontFamily = poppinsFontFamily,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 11.sp,
+                    color = Color(0xFF085041)
+                )
             }
         }
     }
