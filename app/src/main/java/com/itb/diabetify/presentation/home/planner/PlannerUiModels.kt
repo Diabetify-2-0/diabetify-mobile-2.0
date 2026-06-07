@@ -121,12 +121,16 @@ internal data class PlannerMilestoneCardUiModel(
     val trailingCaption: String,
     val currentLabel: String,
     val currentValueText: String,
+    val currentValueContainerColor: Color,
+    val currentValueColor: Color,
     val weeklyLabel: String,
     val weeklyValueText: String,
     val targetLabel: String,
     val targetValueText: String,
     val transitionFromText: String? = null,
     val transitionToText: String? = null,
+    val transitionFromColor: Color = Color(0xFF4B5563),
+    val transitionToColor: Color = Color(0xFF111827),
     val highlight: PlannerMilestoneHighlight? = null
 )
 
@@ -249,12 +253,24 @@ internal fun buildMilestoneCardUiModels(
             trailingCaption = milestone.finalTargetText,
             currentLabel = "Saat ini",
             currentValueText = milestone.currentText,
+            currentValueContainerColor = numericCurrentMetricContainerColor(milestone),
+            currentValueColor = numericCurrentMetricValueColor(milestone),
             weeklyLabel = "Target Minggu Ini",
             weeklyValueText = milestone.expectedText,
             targetLabel = "Target Akhir",
             targetValueText = milestone.finalTargetText,
-            transitionFromText = if (isNumericMilestoneFeature(milestone.featureName)) null else milestone.currentText,
-            transitionToText = if (isNumericMilestoneFeature(milestone.featureName)) null else milestone.finalTargetText,
+            transitionFromText = if (isNumericMilestoneFeature(milestone.featureName)) {
+                null
+            } else {
+                categoricalMilestoneLeftText(milestone)
+            },
+            transitionToText = if (isNumericMilestoneFeature(milestone.featureName)) {
+                null
+            } else {
+                categoricalMilestoneRightText(milestone)
+            },
+            transitionFromColor = Color(0xFF888888),
+            transitionToColor = categoricalMilestoneRightColor(milestone),
             highlight = buildMilestoneHighlight(milestone)
         )
     }
@@ -345,8 +361,8 @@ internal fun buildWeeklyMilestone(
             },
             statusText = when {
                 reached -> "Tercapai"
-                hasUpdate -> "Dalam pemantauan"
-                else -> "Belum ada update"
+                hasUpdate -> "Pantau"
+                else -> "Belum diupdate"
             },
             statusColor = when {
                 reached -> Color(0xFF059669)
@@ -359,6 +375,7 @@ internal fun buildWeeklyMilestone(
 
     val expectedFraction = currentWeek.toDouble() / totalWeeks.coerceAtLeast(1)
     val expectedValue = baseline + ((target - baseline) * expectedFraction)
+    val expectedText = formatFeatureValue(feature.featureName, expectedValue, heightCm)
     val progressFraction = calculateProgressFraction(
         baseline = baseline,
         target = target,
@@ -366,15 +383,31 @@ internal fun buildWeeklyMilestone(
     )
     val latestCheckIn = latestRelevantPlannerCheckIn(feature.featureName, history)
     val hasUpdate = latestCheckIn != null
-    val reached = isTargetReached(
+    val reached = hasReachedDisplayedNumericTarget(
+        featureName = feature.featureName,
+        baselineText = formatFeatureValue(feature.featureName, baseline, heightCm),
+        currentText = currentText,
+        targetText = finalTargetText
+    ) || isTargetReached(
         featureName = feature.featureName,
         baseline = baseline,
         target = target,
         current = currentValue
     )
-    val onTrack = reached || progressFraction + MILESTONE_TOLERANCE >= expectedFraction.toFloat()
+    val onTrack = reached || hasReachedDisplayedNumericTarget(
+        featureName = feature.featureName,
+        baselineText = formatFeatureValue(feature.featureName, baseline, heightCm),
+        currentText = currentText,
+        targetText = expectedText
+    ) || progressFraction + MILESTONE_TOLERANCE >= expectedFraction.toFloat()
+    val resolvedProgressFraction = displayedNumericProgressFraction(
+        featureName = feature.featureName,
+        baselineText = formatFeatureValue(feature.featureName, baseline, heightCm),
+        currentText = currentText,
+        targetText = finalTargetText
+    ) ?: progressFraction
     val statusText = when {
-        !hasUpdate -> "Belum ada update"
+        !hasUpdate -> "Belum diupdate"
         reached -> "Tercapai"
         onTrack -> "On track"
         else -> "Tertinggal"
@@ -397,7 +430,7 @@ internal fun buildWeeklyMilestone(
         label = displayFeatureLabel(feature),
         baselineText = formatFeatureValue(feature.featureName, baseline, heightCm),
         currentText = currentText,
-        expectedText = formatFeatureValue(feature.featureName, expectedValue, heightCm),
+        expectedText = expectedText,
         finalTargetText = finalTargetText,
         baselineValue = baseline,
         currentValue = currentValue,
@@ -406,7 +439,7 @@ internal fun buildWeeklyMilestone(
         progressFraction = when {
             !hasUpdate -> 0f
             reached -> 1f
-            else -> progressFraction
+            else -> resolvedProgressFraction
         },
         statusText = statusText,
         statusColor = statusColor,
@@ -613,7 +646,7 @@ private fun milestoneBadgeColors(
                 containerColor = Color(0xFFE1F5EE),
                 textColor = Color(0xFF085041)
             )
-            statusText == "Dalam pemantauan" -> MilestoneBadgeColors(
+            statusText == "Pantau" -> MilestoneBadgeColors(
                 containerColor = Color(0xFFFAEEDA),
                 textColor = Color(0xFF633806)
             )
@@ -641,13 +674,92 @@ private fun isNumericMilestoneFeature(featureName: String): Boolean {
     return featureName in setOf("BMI", "moderate_physical_activity_frequency")
 }
 
+private fun numericCurrentMetricContainerColor(
+    milestone: PlannerWeeklyMilestone
+): Color {
+    if (!isNumericMilestoneFeature(milestone.featureName)) {
+        return Color(0xFFFFEFF1)
+    }
+
+    return when {
+        milestone.statusText == "Belum diupdate" -> Color(0xFFF6F6F6)
+        milestone.statusText == "Tertinggal" -> Color(0xFFFAEEDA)
+        meetsNumericWeeklyTarget(milestone) -> Color(0xFFE1F5EE)
+        else -> Color(0xFFFFEFF1)
+    }
+}
+
+private fun numericCurrentMetricValueColor(
+    milestone: PlannerWeeklyMilestone
+): Color {
+    if (!isNumericMilestoneFeature(milestone.featureName)) {
+        return Color(0xFFF24E5A)
+    }
+
+    return when {
+        milestone.statusText == "Belum diupdate" -> Color(0xFF111827)
+        milestone.statusText == "Tertinggal" -> Color(0xFF633806)
+        meetsNumericWeeklyTarget(milestone) -> Color(0xFF0F6E56)
+        else -> Color(0xFFF24E5A)
+    }
+}
+
+private fun meetsNumericWeeklyTarget(
+    milestone: PlannerWeeklyMilestone
+): Boolean {
+    return hasReachedDisplayedNumericTarget(
+        featureName = milestone.featureName,
+        baselineText = milestone.baselineText,
+        currentText = milestone.currentText,
+        targetText = milestone.expectedText
+    )
+}
+
+private fun categoricalMilestoneLeftText(
+    milestone: PlannerWeeklyMilestone
+): String {
+    return when (milestone.featureName) {
+        "smoking_status" -> if (milestone.baselineText.equals("Masih aktif", ignoreCase = true)) {
+            "Masih aktif merokok"
+        } else {
+            milestone.baselineText
+        }
+        else -> milestone.baselineText
+    }
+}
+
+private fun categoricalMilestoneRightText(
+    milestone: PlannerWeeklyMilestone
+): String? {
+    return when (milestone.statusText) {
+        "Belum diupdate" -> null
+        "Pantau" -> "Dalam penanganan"
+        "Tercapai" -> when (milestone.featureName) {
+            "smoking_status" -> "Berhenti merokok"
+            else -> "Terkontrol"
+        }
+        else -> null
+    }
+}
+
+private fun categoricalMilestoneRightColor(
+    milestone: PlannerWeeklyMilestone
+): Color {
+    return when (milestone.statusText) {
+        "Pantau" -> Color(0xFF633806)
+        "Tercapai" -> Color(0xFF085041)
+        else -> Color(0xFF888888)
+    }
+}
+
 private fun buildMilestoneHighlight(
     milestone: PlannerWeeklyMilestone
 ): PlannerMilestoneHighlight? {
     return when (milestone.featureName) {
         "BMI" -> buildNumericMilestoneHighlight(
             milestone = milestone,
-            successMessage = "Kamu sudah melampaui target minggu ini!",
+            exactSuccessMessage = "Kamu sudah mencapai target minggu ini!",
+            overSuccessMessage = "Kamu sudah melampaui target minggu ini!",
             finalSuccessMessage = "Selamat target Berat Badan tercapai! Pertahankan!",
             warningMessage = { difference ->
                 "Turunkan sekitar ${String.format("%.0f", difference)} kg untuk mengejar target minggu ini!"
@@ -655,7 +767,8 @@ private fun buildMilestoneHighlight(
         )
         "moderate_physical_activity_frequency" -> buildNumericMilestoneHighlight(
             milestone = milestone,
-            successMessage = "Aktivitasmu sudah memenuhi target minggu ini!",
+            exactSuccessMessage = "Aktivitasmu sudah mencapai target minggu ini!",
+            overSuccessMessage = "Aktivitasmu sudah melampaui target minggu ini!",
             finalSuccessMessage = "Selamat target Aktivitas Fisik tercapai! Pertahankan!",
             warningMessage = { difference ->
                 "Tambahkan ${difference.toInt()} hari aktivitas untuk memenuhi target!"
@@ -700,47 +813,54 @@ private fun buildMilestoneHighlight(
 
 private fun buildNumericMilestoneHighlight(
     milestone: PlannerWeeklyMilestone,
-    successMessage: String,
+    exactSuccessMessage: String,
+    overSuccessMessage: String,
     finalSuccessMessage: String,
     warningMessage: (Double) -> String
 ): PlannerMilestoneHighlight? {
-    val current = milestone.currentValue ?: return null
-    val expected = milestone.expectedValue ?: return null
-    val baseline = milestone.baselineValue ?: return null
-    val finalTarget = milestone.finalTargetValue ?: return null
-
-    val meetsExpected = when {
-        expected < baseline -> current <= expected
-        expected > baseline -> current >= expected
-        else -> current == expected
-    }
-    val reachedFinalTarget = when {
-        finalTarget < baseline -> current <= finalTarget
-        finalTarget > baseline -> current >= finalTarget
-        else -> current == finalTarget
-    }
+    val weeklyTargetStatus = displayedNumericTargetStatus(
+        featureName = milestone.featureName,
+        baselineText = milestone.baselineText,
+        currentText = milestone.currentText,
+        targetText = milestone.expectedText
+    )
+    val finalTargetStatus = displayedNumericTargetStatus(
+        featureName = milestone.featureName,
+        baselineText = milestone.baselineText,
+        currentText = milestone.currentText,
+        targetText = milestone.finalTargetText
+    )
 
     return when {
-        reachedFinalTarget -> PlannerMilestoneHighlight(
+        finalTargetStatus == NumericTargetStatus.EXACT ||
+            finalTargetStatus == NumericTargetStatus.OVER -> PlannerMilestoneHighlight(
             iconResId = R.drawable.ic_confetti,
             message = finalSuccessMessage,
             containerColor = Color(0xFFE1F5EE),
             textColor = Color(0xFF085041),
             iconColor = Color(0xFF0F6E56)
         )
-        meetsExpected -> PlannerMilestoneHighlight(
+        weeklyTargetStatus == NumericTargetStatus.EXACT -> PlannerMilestoneHighlight(
             iconResId = R.drawable.ic_confetti,
-            message = successMessage,
+            message = exactSuccessMessage,
+            containerColor = Color(0xFFE1F5EE),
+            textColor = Color(0xFF085041),
+            iconColor = Color(0xFF0F6E56)
+        )
+        weeklyTargetStatus == NumericTargetStatus.OVER -> PlannerMilestoneHighlight(
+            iconResId = R.drawable.ic_confetti,
+            message = overSuccessMessage,
             containerColor = Color(0xFFE1F5EE),
             textColor = Color(0xFF085041),
             iconColor = Color(0xFF0F6E56)
         )
         milestone.status == MilestoneStatus.BEHIND -> {
-            val rawDifference = when {
-                expected < baseline -> current - expected
-                expected > baseline -> expected - current
-                else -> 0.0
-            }.coerceAtLeast(0.0)
+            val rawDifference = displayedNumericShortfall(
+                featureName = milestone.featureName,
+                baselineText = milestone.baselineText,
+                currentText = milestone.currentText,
+                targetText = milestone.expectedText
+            )
             if (rawDifference <= 0.0) {
                 null
             } else {
@@ -893,6 +1013,90 @@ private fun bmiToWeight(bmi: Double, heightCm: Int): Double? {
         return null
     }
     return bmi * heightMeters * heightMeters
+}
+
+private fun hasReachedDisplayedNumericTarget(
+    featureName: String,
+    baselineText: String,
+    currentText: String,
+    targetText: String
+): Boolean {
+    return displayedNumericTargetStatus(
+        featureName = featureName,
+        baselineText = baselineText,
+        currentText = currentText,
+        targetText = targetText
+    ) != NumericTargetStatus.BELOW
+}
+
+private enum class NumericTargetStatus {
+    BELOW,
+    EXACT,
+    OVER
+}
+
+private fun displayedNumericTargetStatus(
+    featureName: String,
+    baselineText: String,
+    currentText: String,
+    targetText: String
+): NumericTargetStatus {
+    val baseline = displayedNumericComparableValue(featureName, baselineText) ?: return NumericTargetStatus.BELOW
+    val current = displayedNumericComparableValue(featureName, currentText) ?: return NumericTargetStatus.BELOW
+    val target = displayedNumericComparableValue(featureName, targetText) ?: return NumericTargetStatus.BELOW
+
+    return when {
+        target < baseline && current < target -> NumericTargetStatus.OVER
+        target < baseline && current == target -> NumericTargetStatus.EXACT
+        target < baseline -> NumericTargetStatus.BELOW
+        target > baseline && current > target -> NumericTargetStatus.OVER
+        target > baseline && current == target -> NumericTargetStatus.EXACT
+        target > baseline -> NumericTargetStatus.BELOW
+        current == target -> NumericTargetStatus.EXACT
+        else -> NumericTargetStatus.BELOW
+    }
+}
+
+private fun displayedNumericShortfall(
+    featureName: String,
+    baselineText: String,
+    currentText: String,
+    targetText: String
+): Double {
+    val baseline = displayedNumericComparableValue(featureName, baselineText) ?: return 0.0
+    val current = displayedNumericComparableValue(featureName, currentText) ?: return 0.0
+    val target = displayedNumericComparableValue(featureName, targetText) ?: return 0.0
+
+    return when {
+        target < baseline -> (current - target).coerceAtLeast(0.0)
+        target > baseline -> (target - current).coerceAtLeast(0.0)
+        else -> 0.0
+    }
+}
+
+private fun displayedNumericProgressFraction(
+    featureName: String,
+    baselineText: String,
+    currentText: String,
+    targetText: String
+): Float? {
+    val baseline = displayedNumericComparableValue(featureName, baselineText) ?: return null
+    val current = displayedNumericComparableValue(featureName, currentText) ?: return null
+    val target = displayedNumericComparableValue(featureName, targetText) ?: return null
+    return calculateProgressFraction(baseline, target, current)
+}
+
+private fun displayedNumericComparableValue(
+    featureName: String,
+    text: String
+): Double? {
+    return when (featureName) {
+        "BMI",
+        "moderate_physical_activity_frequency" -> {
+            Regex("-?\\d+").find(text)?.value?.toDoubleOrNull()
+        }
+        else -> null
+    }
 }
 
 private fun categoricalMilestoneFocusText(

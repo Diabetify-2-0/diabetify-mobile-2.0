@@ -244,20 +244,22 @@ private fun PlannerNumericMilestoneCard(
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             PlannerMilestoneCardHeader(milestone)
 
+            Spacer(modifier = Modifier.height(2.dp))
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.spacedBy(3.dp)
             ) {
                 PlannerMilestoneMetricCard(
                     modifier = Modifier.weight(0.94f),
                     label = milestone.currentLabel,
                     value = milestone.currentValueText,
-                    containerColor = Color(0xFFFFEFF1),
-                    valueColor = Color(0xFFF24E5A)
+                    containerColor = milestone.currentValueContainerColor,
+                    valueColor = milestone.currentValueColor
                 )
                 PlannerMilestoneMetricCard(
                     modifier = Modifier.weight(1.2f),
@@ -274,6 +276,8 @@ private fun PlannerNumericMilestoneCard(
                     valueColor = Color(0xFF111827)
                 )
             }
+
+            Spacer(modifier = Modifier.height(9.dp))
 
             PlannerProgressBar(
                 progress = milestone.progressFraction,
@@ -323,23 +327,25 @@ private fun PlannerCategoricalMilestoneCard(
                     text = milestone.transitionFromText.orEmpty(),
                     fontFamily = poppinsFontFamily,
                     fontWeight = FontWeight.Medium,
-                    fontSize = 14.sp,
-                    color = Color(0xFF4B5563)
+                    fontSize = 12.sp,
+                    color = milestone.transitionFromColor
                 )
-                Text(
-                    text = "→",
-                    fontFamily = poppinsFontFamily,
-                    fontWeight = FontWeight.Medium,
-                    fontSize = 16.sp,
-                    color = Color(0xFF6B7280)
-                )
-                Text(
-                    text = milestone.transitionToText.orEmpty(),
-                    fontFamily = poppinsFontFamily,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
-                    color = Color(0xFF111827)
-                )
+                if (!milestone.transitionToText.isNullOrBlank()) {
+                    Text(
+                        text = "→",
+                        fontFamily = poppinsFontFamily,
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 16.sp,
+                        color = milestone.transitionToColor
+                    )
+                    Text(
+                        text = milestone.transitionToText.orEmpty(),
+                        fontFamily = poppinsFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp,
+                        color = milestone.transitionToColor
+                    )
+                }
             }
 
             PlannerProgressBar(
@@ -388,7 +394,7 @@ private fun PlannerMilestoneCardHeader(
                 text = milestone.title,
                 fontFamily = poppinsFontFamily,
                 fontWeight = FontWeight.Bold,
-                fontSize = 16.sp,
+                fontSize = 20.sp,
                 color = Color(0xFF304459)
             )
         }
@@ -468,7 +474,7 @@ private fun PlannerMilestoneHighlightBanner(
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .background(highlight.containerColor)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
+            .padding(horizontal = 10.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
@@ -476,15 +482,16 @@ private fun PlannerMilestoneHighlightBanner(
             painter = painterResource(id = highlight.iconResId),
             contentDescription = null,
             tint = highlight.iconColor,
-            modifier = Modifier.size(20.dp)
+            modifier = Modifier.size(28.dp)
         )
         Text(
             text = highlight.message,
             fontFamily = poppinsFontFamily,
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium,
+            fontSize = 11.sp,
             lineHeight = 18.sp,
-            color = highlight.textColor
+            color = highlight.textColor,
+            textAlign = TextAlign.Justify
         )
     }
 }
