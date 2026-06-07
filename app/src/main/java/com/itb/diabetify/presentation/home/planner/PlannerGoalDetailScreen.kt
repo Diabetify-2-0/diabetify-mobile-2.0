@@ -131,9 +131,6 @@ fun PlannerGoalDetailScreen(
                         onOpenMilestone = {
                             navController.navigate(Route.PlannerMilestoneScreen.createRoute(safeGoalId))
                         },
-                        onOpenAction = {
-                            navController.navigate(Route.PlannerActionScreen.createRoute(safeGoalId))
-                        },
                         onOpenCoach = {
                             navController.navigate(Route.PlannerCoachScreen.createRoute(safeGoalId))
                         },
@@ -447,20 +444,18 @@ private fun PlannerFactorProgressRow(
 @Composable
 private fun PlannerFeatureShortcutGrid(
     onOpenMilestone: () -> Unit,
-    onOpenAction: () -> Unit,
     onOpenCoach: () -> Unit,
     onOpenChatbot: () -> Unit,
     onOpenCheckIn: () -> Unit
 ) {
     val shortcuts = plannerShortcuts()
-    val topRows = shortcuts.take(4).chunked(2)
-    val bottomShortcut = shortcuts.last()
+    val rows = shortcuts.chunked(2)
 
     Column(
         verticalArrangement = Arrangement.spacedBy(18.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        topRows.forEachIndexed { rowIndex, row ->
+        rows.forEachIndexed { rowIndex, row ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
@@ -468,9 +463,9 @@ private fun PlannerFeatureShortcutGrid(
                 row.forEachIndexed { itemIndex, shortcut ->
                     val onClick = when ((rowIndex * 2) + itemIndex) {
                         0 -> onOpenMilestone
-                        1 -> onOpenAction
-                        2 -> onOpenCoach
-                        else -> onOpenChatbot
+                        1 -> onOpenCoach
+                        2 -> onOpenChatbot
+                        else -> onOpenCheckIn
                     }
                     PlannerShortcutCard(
                         shortcut = shortcut,
@@ -479,11 +474,6 @@ private fun PlannerFeatureShortcutGrid(
                 }
             }
         }
-
-        PlannerShortcutCard(
-            shortcut = bottomShortcut,
-            onClick = onOpenCheckIn
-        )
     }
 }
 

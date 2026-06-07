@@ -38,15 +38,6 @@ sealed class Route(
             }
         }
     }
-    object PlannerActionScreen: Route(route = "plannerActionScreen?goalId={goalId}") {
-        fun createRoute(goalId: String? = null): String {
-            return if (goalId.isNullOrBlank()) {
-                "plannerActionScreen"
-            } else {
-                "plannerActionScreen?goalId=$goalId"
-            }
-        }
-    }
     object PlannerCoachScreen: Route(route = "plannerCoachScreen?goalId={goalId}") {
         fun createRoute(goalId: String? = null): String {
             return if (goalId.isNullOrBlank()) {

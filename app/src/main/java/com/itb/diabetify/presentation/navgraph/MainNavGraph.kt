@@ -50,7 +50,6 @@ import com.itb.diabetify.presentation.survey.SurveyScreen
 import com.itb.diabetify.presentation.survey.SurveyViewModel
 import com.itb.diabetify.presentation.home.counterfactual.CounterfactualResultScreen
 import com.itb.diabetify.presentation.home.counterfactual.CounterfactualScreen
-import com.itb.diabetify.presentation.home.planner.PlannerActionScreen
 import com.itb.diabetify.presentation.home.planner.PlannerChatbotScreen
 import com.itb.diabetify.presentation.home.planner.PlannerCheckInScreen
 import com.itb.diabetify.presentation.home.planner.PlannerCoachScreen
@@ -185,26 +184,6 @@ fun MainNavGraph(
         }
     }
 
-    val bottomBarHiddenRoutes = setOf(
-        Route.SurveyScreen.route,
-        Route.SurveySuccessScreen.route,
-        Route.RiskDetailScreen.route,
-        Route.RiskFactorDetailScreen.route,
-        Route.CounterfactualScreen.route,
-        Route.CounterfactualResultScreen.route,
-        Route.PlannerGoalDetailScreen.route,
-        Route.PlannerMilestoneScreen.route,
-        Route.PlannerActionScreen.route,
-        Route.PlannerCoachScreen.route,
-        Route.PlannerCheckInScreen.route,
-        Route.PlannerChatbotScreen.route,
-        Route.EditProfileScreen.route,
-        Route.HealthProfileScreen.route,
-        Route.HealthProfileFromHomePopupScreen.route,
-        Route.HealthProfileFromPlannerScreen.route,
-        Route.GuideDetailScreen.route,
-        Route.TipsDetailScreen.route
-    )
     val shouldShowBottomBar = currentRoute !in listOf(
         Route.SurveyScreen.route,
         Route.SurveySuccessScreen.route,
@@ -347,26 +326,6 @@ fun MainNavGraph(
                     mainNavController.getBackStackEntry(Route.HomeScreen.route)
                 )
                 PlannerMilestoneScreen(
-                    navController = mainNavController,
-                    viewModel = homeViewModel,
-                    goalId = backStackEntry.arguments?.getString("goalId")
-                )
-            }
-
-            composable(
-                route = Route.PlannerActionScreen.route,
-                arguments = listOf(
-                    navArgument("goalId") {
-                        type = NavType.StringType
-                        nullable = true
-                        defaultValue = null
-                    }
-                )
-            ) { backStackEntry ->
-                val homeViewModel: HomeViewModel = hiltViewModel(
-                    mainNavController.getBackStackEntry(Route.HomeScreen.route)
-                )
-                PlannerActionScreen(
                     navController = mainNavController,
                     viewModel = homeViewModel,
                     goalId = backStackEntry.arguments?.getString("goalId")

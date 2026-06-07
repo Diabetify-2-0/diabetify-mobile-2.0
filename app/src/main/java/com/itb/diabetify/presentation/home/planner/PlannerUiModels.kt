@@ -55,16 +55,6 @@ internal data class WeeklyCoachNote(
     val disclaimer: String = "Catatan ini bersifat pendamping perilaku dan bukan pengganti konsultasi tenaga kesehatan."
 )
 
-internal data class GoalCompletionState(
-    val isCompleted: Boolean,
-    val isEligible: Boolean,
-    val title: String,
-    val message: String,
-    val highlights: List<String>
-) {
-    val shouldShow: Boolean = isCompleted || isEligible
-}
-
 internal data class PlannerFeaturePalette(
     val containerColor: Color,
     val accentColor: Color
@@ -142,14 +132,6 @@ internal fun plannerShortcuts(): List<PlannerShortcut> {
             palette = PlannerFeaturePalette(
                 containerColor = Color(0xFFDCFCDE),
                 accentColor = Color(0xFF6EC522)
-            )
-        ),
-        PlannerShortcut(
-            label = "Aksi",
-            iconResId = R.drawable.ic_planner_barbell,
-            palette = PlannerFeaturePalette(
-                containerColor = Color(0xFFF6F2FF),
-                accentColor = Color(0xFF8A3FFC)
             )
         ),
         PlannerShortcut(
@@ -274,42 +256,6 @@ internal fun buildMilestoneCardUiModels(
             highlight = buildMilestoneHighlight(milestone)
         )
     }
-}
-
-internal fun buildGoalCompletionState(
-    goal: PlannerGoal,
-    featureProgress: List<PlannerFeatureProgress>,
-    latestRisk: Double?
-): GoalCompletionState {
-    val riskReached = latestRisk != null &&
-        latestRisk <= goal.targetRiskPercentage + COMPLETION_RISK_BUFFER_PERCENTAGE
-    val featureTargetsReached = featureProgress.isNotEmpty() &&
-        featureProgress.all { it.isTargetReached }
-    val isEligible = riskReached || featureTargetsReached
-
-    val reason = when {
-        riskReached -> "Risiko terbaru sudah berada di sekitar target planner (${formatRisk(latestRisk)} dari target <${goal.targetRiskPercentage}%)."
-        featureTargetsReached -> "Semua faktor yang dipilih sudah mencapai target perubahan pada rencana ini."
-        else -> "Goal masih berjalan dan belum memenuhi target penutupan."
-    }
-    val completedFeatureCount = featureProgress.count { it.isTargetReached }
-    val highlights = buildList {
-        add(reason)
-        if (featureProgress.isNotEmpty()) {
-            add("$completedFeatureCount dari ${featureProgress.size} target faktor sudah tercapai.")
-        }
-        goal.projectedRiskPercentage?.let { projectedRisk ->
-            add("Skenario awal planner memproyeksikan risiko ke ${formatRisk(projectedRisk)}.")
-        }
-    }
-
-    return GoalCompletionState(
-        isCompleted = false,
-        isEligible = isEligible,
-        title = "Progres sudah cukup untuk menutup goal",
-        message = "Anda bisa menandai goal ini selesai. Setelah dikonfirmasi, goal akan dihapus dari planner aktif.",
-        highlights = highlights.distinct().take(3)
-    )
 }
 
 internal fun currentMilestoneWeek(createdAtMillis: Long, totalWeeks: Int): Int {
@@ -1137,5 +1083,4 @@ private fun latestRelevantPlannerCheckIn(
 }
 
 private const val MILESTONE_TOLERANCE = 0.05f
-private const val COMPLETION_RISK_BUFFER_PERCENTAGE = 2.0
 private const val WEEK_MILLIS = 7L * 24L * 60L * 60L * 1000L

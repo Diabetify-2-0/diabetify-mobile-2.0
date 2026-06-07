@@ -497,172 +497,6 @@ private fun PlannerMilestoneHighlightBanner(
 }
 
 @Composable
-fun PlannerActionScreen(
-    navController: NavController,
-    viewModel: HomeViewModel,
-    goalId: String? = null
-) {
-    val activeGoal by viewModel.activePlannerGoal
-    val latestRisk by viewModel.latestPredictionScore
-    val goal = activeGoal?.takeIf { goalId.isNullOrBlank() || it.id == goalId }
-
-    PlannerSectionScaffold(
-        title = "Aksi",
-        onBack = { navController.popBackStack() }
-    ) {
-        if (goal == null) {
-            PlannerEmptyState("Langkah aksi belum tersedia karena tidak ada goal aktif.")
-            return@PlannerSectionScaffold
-        }
-
-        val featureProgress = goal.features.map { feature ->
-            buildFeatureProgress(
-                feature = feature,
-                currentValue = currentFeatureValue(feature.featureName, viewModel),
-                heightCm = viewModel.height.value
-            )
-        }
-        val completionState = buildGoalCompletionState(
-            goal = goal,
-            featureProgress = featureProgress,
-            latestRisk = latestRisk.takeIf { it > 0.0 }
-        )
-
-        PlannerSectionTitle(
-            subtitle = "Gunakan daftar ini sebagai panduan tindakan paling relevan untuk mengejar target risiko Anda."
-        )
-
-        PlannerInfoCard(title = "Ringkasan") {
-            Text(
-                text = goal.summary?.let(::sanitizePlannerText)
-                    ?: "Planner belum memberikan ringkasan tambahan untuk goal ini.",
-                fontFamily = poppinsFontFamily,
-                fontWeight = FontWeight.Medium,
-                fontSize = 13.sp,
-                lineHeight = 20.sp,
-                color = Color(0xFF4B5563)
-            )
-        }
-
-        PlannerInfoCard(title = "Prioritas Faktor") {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                featureProgress.forEach { progress ->
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = progress.label,
-                                fontFamily = poppinsFontFamily,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp,
-                                color = Color(0xFF1F2937)
-                            )
-                            Text(
-                                text = progress.statusText,
-                                fontFamily = poppinsFontFamily,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 11.sp,
-                                color = if (progress.isTargetReached) Color(0xFF6EC522) else Color(0xFF1269FE)
-                            )
-                        }
-                        PlannerProgressBar(
-                            progress = progress.progressFraction,
-                            accentColor = if (progress.isTargetReached) Color(0xFF6EC522) else Color(0xFF1269FE),
-                            trackColor = Color(0xFFE5E7EB)
-                        )
-                        Text(
-                            text = progress.actionText,
-                            fontFamily = poppinsFontFamily,
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 12.sp,
-                            lineHeight = 18.sp,
-                            color = Color(0xFF4B5563)
-                        )
-                    }
-                }
-            }
-        }
-
-        PlannerInfoCard(title = "Checklist Aksi") {
-            if (goal.actionSteps.isEmpty()) {
-                Text(
-                    text = "Belum ada langkah aksi spesifik dari planner.",
-                    fontFamily = poppinsFontFamily,
-                    fontWeight = FontWeight.Medium,
-                    fontSize = 13.sp,
-                    color = Color(0xFF6B7280)
-                )
-            } else {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    goal.actionSteps.forEachIndexed { index, item ->
-                        PlannerListItem(
-                            index = index + 1,
-                            text = sanitizePlannerText(item),
-                            accentColor = Color(0xFF8A3FFC)
-                        )
-                    }
-                }
-            }
-        }
-
-        if (completionState.shouldShow) {
-            PlannerInfoCard(title = completionState.title) {
-                Text(
-                    text = completionState.message,
-                    fontFamily = poppinsFontFamily,
-                    fontWeight = FontWeight.Medium,
-                    fontSize = 13.sp,
-                    lineHeight = 20.sp,
-                    color = Color(0xFF4B5563)
-                )
-
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    completionState.highlights.forEachIndexed { index, highlight ->
-                        PlannerListItem(
-                            index = index + 1,
-                            text = highlight,
-                            accentColor = Color(0xFF6EC522)
-                        )
-                    }
-                }
-
-                PrimaryButton(
-                    text = "Tandai Goal Selesai",
-                    onClick = {
-                        navController.popBackStack()
-                        viewModel.completeActivePlannerGoal()
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp)
-                )
-            }
-        }
-
-        PrimaryButton(
-            text = "Perbarui Data Kesehatan",
-            onClick = {
-                navController.navigate(Route.HealthProfileFromPlannerScreen.route)
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(50.dp)
-        )
-    }
-}
-
-@Composable
 fun PlannerCoachScreen(
     navController: NavController,
     viewModel: HomeViewModel,
@@ -704,7 +538,7 @@ fun PlannerCoachScreen(
         )
 
         PlannerSectionTitle(
-            subtitle = "Saran mingguan disusun dari progres faktor, target minggu ini, dan check-in terbaru Anda."
+            subtitle = "Saran mingguan dan checklist aksi disusun dari progres faktor, target minggu ini, dan check-in terbaru Anda."
         )
 
         PlannerInfoCard(title = "Headline") {
@@ -736,6 +570,30 @@ fun PlannerCoachScreen(
                         text = suggestion,
                         accentColor = Color(0xFFFBBF24)
                     )
+                }
+            }
+        }
+
+        PlannerInfoCard(title = "Checklist Aksi") {
+            if (goal.actionSteps.isEmpty()) {
+                Text(
+                    text = "Belum ada langkah aksi spesifik dari planner.",
+                    fontFamily = poppinsFontFamily,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 13.sp,
+                    color = Color(0xFF6B7280)
+                )
+            } else {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    goal.actionSteps.forEachIndexed { index, item ->
+                        PlannerListItem(
+                            index = index + 1,
+                            text = sanitizePlannerText(item),
+                            accentColor = Color(0xFF8A3FFC)
+                        )
+                    }
                 }
             }
         }
@@ -863,7 +721,7 @@ fun PlannerChatbotScreen(
             }
 
             Text(
-                text = "Untuk sementara, gunakan halaman Action, Milestone, dan Check-in untuk memantau rencana Anda secara manual.",
+                text = "Untuk sementara, gunakan halaman Coach, Milestone, dan Check-in untuk memantau rencana Anda secara manual.",
                 fontFamily = poppinsFontFamily,
                 fontWeight = FontWeight.Medium,
                 fontSize = 13.sp,
