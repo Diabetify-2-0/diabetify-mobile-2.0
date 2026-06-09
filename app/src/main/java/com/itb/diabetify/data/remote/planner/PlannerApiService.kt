@@ -4,6 +4,7 @@ import com.itb.diabetify.data.remote.planner.request.PlannerCheckInRequest
 import com.itb.diabetify.data.remote.planner.request.PlannerGoalRequest
 import com.itb.diabetify.data.remote.planner.response.PlannerCheckInHistoryResponse
 import com.itb.diabetify.data.remote.planner.response.PlannerCheckInStateResponse
+import com.itb.diabetify.data.remote.planner.response.PlannerCoachResponse
 import com.itb.diabetify.data.remote.planner.response.PlannerGoalResponse
 import retrofit2.http.Body
 import retrofit2.http.DELETE
@@ -20,6 +21,9 @@ interface PlannerApiService {
 
     @GET("planner/goals/active")
     suspend fun getLatestGoal(): PlannerGoalResponse
+
+    @GET("planner/goals/active/coach")
+    suspend fun getActiveCoach(): PlannerCoachResponse
 
     @DELETE("planner/goals/{goalId}")
     suspend fun deleteGoal(

@@ -32,6 +32,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -64,10 +65,17 @@ fun PlannerGoalDetailScreen(
     goalId: String? = null
 ) {
     val activeGoal by viewModel.activePlannerGoal
+    val activeCoach by viewModel.activePlannerCoach
     val allCheckInHistory by viewModel.allPlannerCheckInHistory
     val latestRisk by viewModel.latestPredictionScore
     val goal = activeGoal?.takeIf { goalId.isNullOrBlank() || it.id == goalId }
     val resolvedLatestRisk = latestRisk.takeIf { it > 0.0 } ?: goal?.currentRiskPercentage
+
+    LaunchedEffect(goal?.id) {
+        if (goal != null) {
+            viewModel.loadActivePlannerCoach()
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -89,7 +97,9 @@ fun PlannerGoalDetailScreen(
         val history = goalId
             ?.let { id -> allCheckInHistory.filter { it.goalId == id } }
             ?: viewModel.plannerCheckInHistory.value
-        val featureModels = buildPlannerFeatureUiModels(goal, viewModel, history)
+        val coach = activeCoach?.takeIf { it.goalId == goal.id }
+        val featureModels = buildPlannerFeatureUiModels(goal, coach?.milestoneProgress)
+            .ifEmpty { buildPlannerFeatureUiModels(goal, viewModel, history) }
         val progressFraction = overallGoalProgress(goal, resolvedLatestRisk)
         val safeGoalId = goal.id
 

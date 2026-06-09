@@ -19,6 +19,7 @@ import com.itb.diabetify.data.remote.counterfactual.response.CounterfactualJobRe
 import com.itb.diabetify.data.remote.counterfactual.response.CounterfactualChangedFeature
 import com.itb.diabetify.data.remote.counterfactual.response.CounterfactualPredictionInfo
 import com.itb.diabetify.data.remote.counterfactual.response.CounterfactualResultPayload
+import com.itb.diabetify.domain.model.planner.PlannerCoach
 import com.itb.diabetify.domain.model.planner.PlannerCheckInEntry
 import com.itb.diabetify.domain.model.planner.PlannerGoal
 import com.itb.diabetify.domain.model.planner.PlannerGoalFeature
@@ -32,6 +33,7 @@ import com.itb.diabetify.domain.usecases.user.UserUseCases
 import com.itb.diabetify.util.handleAsyncCounterfactual
 import com.itb.diabetify.util.DataState
 import com.itb.diabetify.util.PredictionUpdateNotifier
+import com.itb.diabetify.util.PlannerUpdateNotifier
 import com.itb.diabetify.util.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.launchIn
@@ -304,6 +306,15 @@ class HomeViewModel @Inject constructor(
     private val _activePlannerGoal = mutableStateOf<PlannerGoal?>(null)
     val activePlannerGoal: State<PlannerGoal?> = _activePlannerGoal
 
+    private val _activePlannerCoach = mutableStateOf<PlannerCoach?>(null)
+    val activePlannerCoach: State<PlannerCoach?> = _activePlannerCoach
+
+    private val _isLoadingPlannerCoach = mutableStateOf(false)
+    val isLoadingPlannerCoach: State<Boolean> = _isLoadingPlannerCoach
+
+    private val _plannerCoachError = mutableStateOf<String?>(null)
+    val plannerCoachError: State<String?> = _plannerCoachError
+
     private val _plannerCheckInHistory = mutableStateOf<List<PlannerCheckInEntry>>(emptyList())
     val plannerCheckInHistory: State<List<PlannerCheckInEntry>> = _plannerCheckInHistory
 
@@ -311,6 +322,7 @@ class HomeViewModel @Inject constructor(
     val allPlannerCheckInHistory: State<List<PlannerCheckInEntry>> = _allPlannerCheckInHistory
 
     private var allPlannerCheckInHistoryCache: List<PlannerCheckInEntry> = emptyList()
+    private var loadedPlannerCoachGoalID: String? = null
 
     // Loading state tracking
     private var isUserDataLoaded = false
@@ -318,18 +330,34 @@ class HomeViewModel @Inject constructor(
     private var isActivityDataLoaded = false
     private var isProfileDataLoaded = false
     private var isCollectingLatestPrediction = false
-    private val predictionUpdateListener = {
+    private val predictionUpdateListener: () -> Unit = {
         _successMessage.value = "Prediksi risiko telah diperbaharui"
         loadLatestPredictionData()
+        loadProfileData()
+        invalidatePlannerCoachCache()
+        activePlannerGoal.value?.let {
+            loadActivePlannerCoach(forceRefresh = true)
+        }
     }
     private val predictionUpdatingListener: (Boolean) -> Unit = { isUpdating ->
         _isPredictionRefreshing.value = isUpdating
+    }
+    private val plannerUpdateListener: () -> Unit = {
+        invalidatePlannerCoachCache()
+        loadProfileData()
+        refreshPlannerGoal()
+        activePlannerGoal.value?.let { goal ->
+            refreshPlannerCheckIns(goal.id)
+            refreshPlannerCheckInHistoryForGoal(goal.id)
+            loadActivePlannerCoach(forceRefresh = true)
+        }
     }
 
     // Initialization
     init {
         PredictionUpdateNotifier.addListener(predictionUpdateListener)
         PredictionUpdateNotifier.addUpdatingListener(predictionUpdatingListener)
+        PlannerUpdateNotifier.addListener(plannerUpdateListener)
         _loadingMessage.value = "Memuat data..."
         loadUserData()
         loadLatestPredictionData()
@@ -573,6 +601,7 @@ class HomeViewModel @Inject constructor(
     override fun onCleared() {
         PredictionUpdateNotifier.removeListener(predictionUpdateListener)
         PredictionUpdateNotifier.removeUpdatingListener(predictionUpdatingListener)
+        PlannerUpdateNotifier.removeListener(plannerUpdateListener)
         super.onCleared()
     }
 
@@ -831,6 +860,11 @@ class HomeViewModel @Inject constructor(
     private fun collectActivePlannerGoal() {
         plannerGoalUseCases.getActivePlannerGoal()
             .onEach { goal ->
+                if (_activePlannerGoal.value?.id != goal?.id) {
+                    _activePlannerCoach.value = null
+                    _plannerCoachError.value = null
+                    invalidatePlannerCoachCache()
+                }
                 _activePlannerGoal.value = goal
                 filterPlannerCheckInHistory()
                 goal?.let { refreshPlannerCheckIns(it.id) }
@@ -841,9 +875,23 @@ class HomeViewModel @Inject constructor(
     private fun collectPlannerCheckInHistory() {
         plannerGoalUseCases.getPlannerCheckInHistory()
             .onEach { history ->
+                val previousHistory = allPlannerCheckInHistoryCache
                 allPlannerCheckInHistoryCache = history
                 _allPlannerCheckInHistory.value = history
                 filterPlannerCheckInHistory()
+                val goalId = activePlannerGoal.value?.id
+                if (goalId != null) {
+                    val previousGoalHistory = previousHistory
+                        .filter { it.goalId == goalId }
+                        .sortedByDescending { it.createdAtMillis }
+                    val currentGoalHistory = history
+                        .filter { it.goalId == goalId }
+                        .sortedByDescending { it.createdAtMillis }
+                    if (previousGoalHistory != currentGoalHistory) {
+                        invalidatePlannerCoachCache()
+                        loadActivePlannerCoach(forceRefresh = true)
+                    }
+                }
             }
             .launchIn(viewModelScope)
     }
@@ -879,6 +927,37 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             plannerGoalUseCases.refreshPlannerCheckInHistory(goalId)
         }
+    }
+
+    fun loadActivePlannerCoach(forceRefresh: Boolean = false) {
+        val goal = activePlannerGoal.value ?: return
+        if (!forceRefresh && loadedPlannerCoachGoalID == goal.id && _activePlannerCoach.value != null) {
+            return
+        }
+
+        viewModelScope.launch {
+            _isLoadingPlannerCoach.value = true
+            _plannerCoachError.value = null
+            runCatching {
+                plannerGoalUseCases.getActivePlannerCoach()
+            }.onSuccess { coach ->
+                if (coach != null) {
+                    _activePlannerCoach.value = coach
+                    loadedPlannerCoachGoalID = coach.goalId
+                } else {
+                    _activePlannerCoach.value = null
+                    loadedPlannerCoachGoalID = null
+                    _plannerCoachError.value = "Coach belum tersedia untuk goal aktif ini"
+                }
+            }.onFailure { throwable ->
+                _plannerCoachError.value = throwable.message ?: "Gagal memuat coach planner"
+            }
+            _isLoadingPlannerCoach.value = false
+        }
+    }
+
+    private fun invalidatePlannerCoachCache() {
+        loadedPlannerCoachGoalID = null
     }
 
     fun toggleCounterfactualOption(key: String) {
@@ -1188,10 +1267,49 @@ class HomeViewModel @Inject constructor(
             projectedRiskPercentage = projectedRisk,
             sourceJobId = _counterfactualJobResultMeta.value?.jobId,
             createdAtMillis = System.currentTimeMillis(),
-            summary = result.prescriptivePlan?.summary ?: result.message,
-            actionSteps = result.prescriptivePlan?.actionSteps.orEmpty(),
+            summary = buildPlannerGoalSummary(
+                changedFeatures = changedFeatures,
+                targetRiskPercentage = counterfactualSubmittedTarget.value.targetHighRiskPercentage,
+                durationWeeks = durationWeeks
+            ),
+            actionSteps = buildPlannerGoalActionSteps(changedFeatures),
             features = goalFeatures
         )
+    }
+
+    private fun buildPlannerGoalSummary(
+        changedFeatures: List<CounterfactualChangedFeature>,
+        targetRiskPercentage: Int,
+        durationWeeks: Int
+    ): String {
+        val topFeature = changedFeatures.firstOrNull()?.featureName?.let(::plannerFeatureLabel)
+        return if (topFeature != null) {
+            "Fokus pada $topFeature untuk membantu menurunkan risiko ke bawah $targetRiskPercentage% dalam $durationWeeks minggu."
+        } else {
+            "Fokus pada perubahan bertahap yang menjaga risiko tetap di bawah $targetRiskPercentage% dalam $durationWeeks minggu."
+        }
+    }
+
+    private fun buildPlannerGoalActionSteps(
+        changedFeatures: List<CounterfactualChangedFeature>
+    ): List<String> {
+        if (changedFeatures.isEmpty()) {
+            return listOf(
+                "Pantau kondisi kesehatan secara berkala dan pertahankan kebiasaan yang sudah membantu menurunkan risiko.",
+                "Gunakan check-in rutin untuk mengevaluasi progres dan hambatan yang muncul."
+            )
+        }
+
+        val featureSteps = changedFeatures.map { feature ->
+            plannerActionLabel(feature)
+        }
+
+        return (
+            featureSteps + listOf(
+                "Lakukan perubahan secara bertahap dan konsisten sesuai kemampuan saat ini.",
+                "Gunakan check-in rutin untuk mengevaluasi progres dan hambatan yang muncul."
+            )
+        ).distinct()
     }
 
     private fun buildPlannerGoalFeature(

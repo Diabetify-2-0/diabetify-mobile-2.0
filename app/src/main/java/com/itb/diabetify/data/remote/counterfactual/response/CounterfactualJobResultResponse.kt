@@ -31,8 +31,6 @@ data class CounterfactualResultPayload(
     val message: String? = null,
     @SerializedName("planner_input")
     val plannerInput: CounterfactualPlannerInput? = null,
-    @SerializedName("prescriptive_plan")
-    val prescriptivePlan: CounterfactualPrescriptivePlan? = null,
     @SerializedName("reason_code")
     val reasonCode: String? = null,
     @SerializedName("runtime_ms")
@@ -118,33 +116,4 @@ data class CounterfactualChangedFeature(
     val direction: String? = null,
     @SerializedName("feature_name")
     val featureName: String
-)
-
-data class CounterfactualPrescriptivePlan(
-    @SerializedName("action_steps")
-    val actionSteps: List<String> = emptyList(),
-    @SerializedName("clinical_scope")
-    val clinicalScope: String? = null,
-    @SerializedName("contraindication_flags")
-    val contraindicationFlags: List<String> = emptyList(),
-    @SerializedName("disclaimer")
-    val disclaimer: String? = null,
-    @SerializedName("generation_mode")
-    val generationMode: String? = null,
-    @SerializedName("goals")
-    val goals: List<String> = emptyList(),
-    @SerializedName("human_review_required")
-    val humanReviewRequired: Boolean? = null,
-    @SerializedName("missing_context")
-    val missingContext: List<String> = emptyList(),
-    @SerializedName("monitoring_plan")
-    val monitoringPlan: List<String> = emptyList(),
-    @SerializedName("policy_version")
-    val policyVersion: String? = null,
-    @SerializedName("provider")
-    val provider: String? = null,
-    @SerializedName("safety_notes")
-    val safetyNotes: List<String> = emptyList(),
-    @SerializedName("summary")
-    val summary: String? = null
 )

@@ -55,5 +55,5 @@ data class CounterfactualTarget(
 
 data class CounterfactualGeneration(
     @SerializedName("total_cfs")
-    val totalCfs: Int = 3
+    val totalCfs: Int = 1
 )

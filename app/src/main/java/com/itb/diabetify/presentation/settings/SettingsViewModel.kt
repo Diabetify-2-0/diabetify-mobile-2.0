@@ -17,6 +17,7 @@ import com.itb.diabetify.domain.usecases.user.UserUseCases
 import com.itb.diabetify.domain.usecases.notification.NotificationUseCases
 import com.itb.diabetify.presentation.common.FieldState
 import com.itb.diabetify.util.DataState
+import com.itb.diabetify.util.PlannerUpdateNotifier
 import com.itb.diabetify.util.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.launchIn
@@ -695,6 +696,7 @@ class SettingsViewModel @Inject constructor(
                         updatedCholesterol = updatedCholesterol,
                         updatedSmoking = updatedSmoking
                     )
+                    PlannerUpdateNotifier.notifyPlannerUpdated()
                     _successMessage.value = "Profil kesehatan berhasil diperbaharui"
                     _isEditingHealthProfile.value = false
                     onSuccess?.invoke()
@@ -800,6 +802,7 @@ class SettingsViewModel @Inject constructor(
                 createdAtMillis = timestampMillis
             )
         )
+        PlannerUpdateNotifier.notifyPlannerUpdated()
     }
 
     fun determineHypertensionFromBloodPressure(): Boolean {

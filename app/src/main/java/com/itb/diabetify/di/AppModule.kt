@@ -8,6 +8,7 @@ import com.itb.diabetify.data.manager.ConnectivityManagerImpl
 import com.itb.diabetify.data.manager.CounterfactualJobManagerImpl
 import com.itb.diabetify.data.manager.LocalUserManagerImpl
 import com.itb.diabetify.data.manager.PlannerCheckInManagerImpl
+import com.itb.diabetify.data.manager.PlannerCoachManagerImpl
 import com.itb.diabetify.data.manager.PlannerGoalManagerImpl
 import com.itb.diabetify.data.manager.PredictionJobManagerImpl
 import com.itb.diabetify.data.manager.PredictionManagerImpl
@@ -34,6 +35,7 @@ import com.itb.diabetify.domain.manager.ConnectivityManager
 import com.itb.diabetify.domain.manager.CounterfactualJobManager
 import com.itb.diabetify.domain.manager.LocalUserManager
 import com.itb.diabetify.domain.manager.PlannerCheckInManager
+import com.itb.diabetify.domain.manager.PlannerCoachManager
 import com.itb.diabetify.domain.manager.PlannerGoalManager
 import com.itb.diabetify.domain.manager.PredictionJobManager
 import com.itb.diabetify.domain.manager.TokenManager
@@ -87,6 +89,7 @@ import com.itb.diabetify.domain.usecases.planner.ClearPlannerCheckInsUseCase
 import com.itb.diabetify.domain.usecases.planner.CompletePlannerGoalUseCase
 import com.itb.diabetify.domain.usecases.planner.GetPlannerCheckInsUseCase
 import com.itb.diabetify.domain.usecases.planner.GetPlannerCheckInHistoryUseCase
+import com.itb.diabetify.domain.usecases.planner.GetActivePlannerCoachUseCase
 import com.itb.diabetify.domain.usecases.planner.GetActivePlannerGoalUseCase
 import com.itb.diabetify.domain.usecases.planner.MarkPlannerCheckInUseCase
 import com.itb.diabetify.domain.usecases.planner.PlannerGoalUseCases
@@ -376,13 +379,23 @@ object AppModule {
 
     @Provides
     @Singleton
+    fun providesPlannerCoachManager(
+        plannerApiService: PlannerApiService
+    ): PlannerCoachManager {
+        return PlannerCoachManagerImpl(plannerApiService)
+    }
+
+    @Provides
+    @Singleton
     fun providesPlannerGoalUseCases(
         plannerGoalManager: PlannerGoalManager,
-        plannerCheckInManager: PlannerCheckInManager
+        plannerCheckInManager: PlannerCheckInManager,
+        plannerCoachManager: PlannerCoachManager
     ): PlannerGoalUseCases {
         return PlannerGoalUseCases(
             savePlannerGoal = SavePlannerGoalUseCase(plannerGoalManager),
             getActivePlannerGoal = GetActivePlannerGoalUseCase(plannerGoalManager),
+            getActivePlannerCoach = GetActivePlannerCoachUseCase(plannerCoachManager),
             refreshPlannerGoal = RefreshPlannerGoalUseCase(plannerGoalManager),
             completePlannerGoal = CompletePlannerGoalUseCase(plannerGoalManager),
             clearPlannerGoal = ClearPlannerGoalUseCase(plannerGoalManager),

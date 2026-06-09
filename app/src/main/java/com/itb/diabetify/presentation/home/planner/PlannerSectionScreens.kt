@@ -23,6 +23,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,8 +55,15 @@ fun PlannerMilestoneScreen(
     goalId: String? = null
 ) {
     val activeGoal by viewModel.activePlannerGoal
+    val activeCoach by viewModel.activePlannerCoach
     val allCheckInHistory by viewModel.allPlannerCheckInHistory
     val goal = activeGoal?.takeIf { goalId.isNullOrBlank() || it.id == goalId }
+
+    LaunchedEffect(goal?.id) {
+        if (goal != null) {
+            viewModel.loadActivePlannerCoach()
+        }
+    }
 
     PlannerSectionScaffold(
         title = "Milestone",
@@ -66,21 +74,26 @@ fun PlannerMilestoneScreen(
             return@PlannerSectionScaffold
         }
 
-        val currentWeek = currentMilestoneWeek(goal.createdAtMillis, goal.durationWeeks)
+        val coach = activeCoach?.takeIf { it.goalId == goal.id }
+        val backendMilestoneProgress = coach?.milestoneProgress
+        val currentWeek = backendMilestoneProgress?.progressWeek
+            ?: currentMilestoneWeek(goal.createdAtMillis, goal.durationWeeks)
         val history = goalId
             ?.let { id -> allCheckInHistory.filter { it.goalId == id } }
             ?: viewModel.plannerCheckInHistory.value
-        val milestones = goal.features.mapNotNull { feature ->
-            buildWeeklyMilestone(
-                feature = feature,
-                currentValue = currentFeatureValue(feature.featureName, viewModel),
-                currentWeek = currentWeek,
-                totalWeeks = goal.durationWeeks,
-                heightCm = viewModel.height.value,
-                history = history
-            )
+        val milestoneCards = buildMilestoneCardUiModels(backendMilestoneProgress).ifEmpty {
+            val milestones = goal.features.mapNotNull { feature ->
+                buildWeeklyMilestone(
+                    feature = feature,
+                    currentValue = currentFeatureValue(feature.featureName, viewModel),
+                    currentWeek = currentWeek,
+                    totalWeeks = goal.durationWeeks,
+                    heightCm = viewModel.height.value,
+                    history = history
+                )
+            }
+            buildMilestoneCardUiModels(milestones)
         }
-        val milestoneCards = buildMilestoneCardUiModels(milestones)
 
         PlannerMilestoneHeaderCard(
             currentWeek = currentWeek,
@@ -563,9 +576,18 @@ fun PlannerCoachScreen(
     goalId: String? = null
 ) {
     val activeGoal by viewModel.activePlannerGoal
+    val activeCoach by viewModel.activePlannerCoach
+    val isLoadingCoach by viewModel.isLoadingPlannerCoach
+    val plannerCoachError by viewModel.plannerCoachError
     val latestRisk by viewModel.latestPredictionScore
     val allCheckInHistory by viewModel.allPlannerCheckInHistory
     val goal = activeGoal?.takeIf { goalId.isNullOrBlank() || it.id == goalId }
+
+    LaunchedEffect(goal?.id) {
+        if (goal != null) {
+            viewModel.loadActivePlannerCoach()
+        }
+    }
 
     PlannerSectionScaffold(
         title = "Coach",
@@ -596,14 +618,33 @@ fun PlannerCoachScreen(
             history = history,
             latestRisk = latestRisk.takeIf { it > 0.0 }
         )
+        val coach = activeCoach?.takeIf { it.goalId == goal.id }
 
         PlannerSectionTitle(
             subtitle = "Saran mingguan dan checklist aksi disusun dari progres faktor, target minggu ini, dan check-in terbaru Anda."
         )
 
+        if (plannerCoachError != null && coach == null) {
+            PlannerInfoCard(title = "Koneksi Coach") {
+                Text(
+                    text = plannerCoachError.orEmpty(),
+                    fontFamily = poppinsFontFamily,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 13.sp,
+                    lineHeight = 20.sp,
+                    color = Color(0xFF6B7280)
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                PrimaryButton(
+                    text = "Coba Lagi",
+                    onClick = { viewModel.loadActivePlannerCoach(forceRefresh = true) }
+                )
+            }
+        }
+
         PlannerInfoCard(title = "Headline") {
             Text(
-                text = coachNote.headline,
+                text = coach?.headline ?: coachNote.headline,
                 fontFamily = poppinsFontFamily,
                 fontWeight = FontWeight.Bold,
                 fontSize = 16.sp,
@@ -611,7 +652,7 @@ fun PlannerCoachScreen(
                 color = colorResource(id = R.color.primary)
             )
             Text(
-                text = coachNote.message,
+                text = coach?.summary ?: coachNote.message,
                 fontFamily = poppinsFontFamily,
                 fontWeight = FontWeight.Medium,
                 fontSize = 13.sp,
@@ -624,7 +665,8 @@ fun PlannerCoachScreen(
             Column(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                coachNote.suggestions.forEachIndexed { index, suggestion ->
+                val focusItems = coach?.focusThisWeek?.takeIf { it.isNotEmpty() } ?: coachNote.suggestions
+                focusItems.forEachIndexed { index, suggestion ->
                     PlannerListItem(
                         index = index + 1,
                         text = suggestion,
@@ -635,7 +677,8 @@ fun PlannerCoachScreen(
         }
 
         PlannerInfoCard(title = "Checklist Aksi") {
-            if (goal.actionSteps.isEmpty()) {
+            val actionItems = coach?.actionSteps?.takeIf { it.isNotEmpty() } ?: goal.actionSteps
+            if (actionItems.isEmpty()) {
                 Text(
                     text = "Belum ada langkah aksi spesifik dari planner.",
                     fontFamily = poppinsFontFamily,
@@ -647,11 +690,39 @@ fun PlannerCoachScreen(
                 Column(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    goal.actionSteps.forEachIndexed { index, item ->
+                    actionItems.forEachIndexed { index, item ->
                         PlannerListItem(
                             index = index + 1,
                             text = sanitizePlannerText(item),
                             accentColor = Color(0xFF8A3FFC)
+                        )
+                    }
+                }
+            }
+        }
+
+        if (isLoadingCoach && coach == null) {
+            PlannerInfoCard(title = "Memuat Coach") {
+                Text(
+                    text = "Menyusun panduan mingguan Anda...",
+                    fontFamily = poppinsFontFamily,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 13.sp,
+                    color = Color(0xFF6B7280)
+                )
+            }
+        }
+
+        coach?.monitoringPoints?.takeIf { it.isNotEmpty() }?.let { monitoringPoints ->
+            PlannerInfoCard(title = "Yang Dipantau") {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    monitoringPoints.forEachIndexed { index, item ->
+                        PlannerListItem(
+                            index = index + 1,
+                            text = item,
+                            accentColor = Color(0xFF08B4BD)
                         )
                     }
                 }
@@ -670,7 +741,7 @@ fun PlannerCoachScreen(
                     modifier = Modifier.padding(top = 2.dp)
                 )
                 Text(
-                    text = coachNote.disclaimer,
+                    text = coach?.warnings?.takeIf { it.isNotEmpty() }?.joinToString(" ") ?: coachNote.disclaimer,
                     fontFamily = poppinsFontFamily,
                     fontWeight = FontWeight.Medium,
                     fontSize = 12.sp,
@@ -1131,6 +1202,7 @@ private fun PlannerCheckInEntry.toWeightTimelineUi(
 ): PlannerCheckInTimelineUiItem {
     val currentWeight = parseWeightKg(valueText)
     val previousWeight = previousWeightEntry?.valueText?.let(::parseWeightKg)
+    val neutralValueColor = Color(0xFF666666)
 
     val delta = if (currentWeight != null && previousWeight != null) {
         currentWeight - previousWeight
@@ -1161,10 +1233,12 @@ private fun PlannerCheckInEntry.toWeightTimelineUi(
         iconResId = R.drawable.ic_weight,
         iconBackgroundColor = when {
             isStable -> stableBackground
+            previousWeightEntry == null -> Color(0xFFF2F5F9)
             isDecreasing -> Color(0xFFEAF8EF)
             else -> Color(0xFFFFF1F1)
         },
         valueColor = when {
+            previousWeightEntry == null -> neutralValueColor
             isStable -> stableColor
             isDecreasing -> positiveColor
             else -> negativeColor
@@ -1192,7 +1266,7 @@ private fun PlannerCheckInEntry.toActivityTimelineUi(
     val hasImproved = delta != null && delta > 0
     val positiveColor = Color(0xFF0F766E)
     val positiveBackground = Color(0xFFE8F7F2)
-    val neutralColor = Color(0xFF5D6A85)
+    val neutralColor = Color(0xFF666666)
     val neutralBackground = Color(0xFFF2F5F9)
 
     return PlannerCheckInTimelineUiItem(
@@ -1222,6 +1296,8 @@ private fun PlannerCheckInEntry.toStatusTimelineUi(
 ): PlannerCheckInTimelineUiItem {
     val isControlled = parseControlledStatus(valueText)
     val previousControlled = previousEntry?.valueText?.let(::parseControlledStatus)
+    val neutralValueColor = Color(0xFF666666)
+    val neutralBackground = Color(0xFFF2F5F9)
     val deltaChip = when {
         isControlled == null || previousControlled == null -> null
         isControlled == previousControlled -> null
@@ -1238,8 +1314,20 @@ private fun PlannerCheckInEntry.toStatusTimelineUi(
         timeText = timeText,
         deltaChip = deltaChip,
         iconResId = iconResId,
-        iconBackgroundColor = if (isControlled == true) positiveBackground else negativeBackground,
-        valueColor = if (isControlled == true) positiveColor else negativeColor,
+        iconBackgroundColor = if (previousEntry == null) {
+            neutralBackground
+        } else if (isControlled == true) {
+            positiveBackground
+        } else {
+            negativeBackground
+        },
+        valueColor = if (previousEntry == null) {
+            neutralValueColor
+        } else if (isControlled == true) {
+            positiveColor
+        } else {
+            negativeColor
+        },
         deltaBackgroundColor = if (isImproving) positiveBackground else negativeBackground,
         deltaTextColor = if (isImproving) positiveColor else negativeColor
     )
@@ -1251,6 +1339,8 @@ private fun PlannerCheckInEntry.toSmokingTimelineUi(
 ): PlannerCheckInTimelineUiItem {
     val isStopped = parseSmokingStoppedStatus(valueText)
     val previousStopped = previousEntry?.valueText?.let(::parseSmokingStoppedStatus)
+    val neutralValueColor = Color(0xFF666666)
+    val neutralBackground = Color(0xFFF2F5F9)
     val deltaChip = when {
         isStopped == null || previousStopped == null -> null
         isStopped == previousStopped -> null
@@ -1271,8 +1361,20 @@ private fun PlannerCheckInEntry.toSmokingTimelineUi(
         timeText = timeText,
         deltaChip = deltaChip,
         iconResId = R.drawable.ic_smoking,
-        iconBackgroundColor = if (isStopped == true) positiveBackground else negativeBackground,
-        valueColor = if (isStopped == true) positiveColor else negativeColor,
+        iconBackgroundColor = if (previousEntry == null) {
+            neutralBackground
+        } else if (isStopped == true) {
+            positiveBackground
+        } else {
+            negativeBackground
+        },
+        valueColor = if (previousEntry == null) {
+            neutralValueColor
+        } else if (isStopped == true) {
+            positiveColor
+        } else {
+            negativeColor
+        },
         deltaBackgroundColor = if (isImproving) positiveBackground else negativeBackground,
         deltaTextColor = if (isImproving) positiveColor else negativeColor
     )

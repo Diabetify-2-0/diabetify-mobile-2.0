@@ -3,6 +3,7 @@ package com.itb.diabetify.domain.usecases.planner
 data class PlannerGoalUseCases(
     val savePlannerGoal: SavePlannerGoalUseCase,
     val getActivePlannerGoal: GetActivePlannerGoalUseCase,
+    val getActivePlannerCoach: GetActivePlannerCoachUseCase,
     val refreshPlannerGoal: RefreshPlannerGoalUseCase,
     val completePlannerGoal: CompletePlannerGoalUseCase,
     val clearPlannerGoal: ClearPlannerGoalUseCase,

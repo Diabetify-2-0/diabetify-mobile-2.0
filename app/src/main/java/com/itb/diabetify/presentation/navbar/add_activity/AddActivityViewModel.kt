@@ -18,6 +18,7 @@ import com.itb.diabetify.domain.model.planner.PlannerCheckInEntry
 import com.itb.diabetify.domain.model.planner.PlannerGoalStatus
 import com.itb.diabetify.presentation.common.FieldState
 import com.itb.diabetify.util.DataState
+import com.itb.diabetify.util.PlannerUpdateNotifier
 import com.itb.diabetify.util.handleAsyncPrediction
 import com.itb.diabetify.util.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -860,6 +861,7 @@ class AddActivityViewModel @Inject constructor(
                     createdAtMillis = System.currentTimeMillis()
                 )
             )
+            PlannerUpdateNotifier.notifyPlannerUpdated()
         }
     }
 
