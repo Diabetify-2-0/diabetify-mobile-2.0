@@ -808,62 +808,6 @@ fun PlannerCheckInScreen(
 }
 
 @Composable
-@Suppress("UNUSED_PARAMETER")
-fun PlannerChatbotScreen(
-    navController: NavController,
-    viewModel: HomeViewModel,
-    goalId: String? = null
-) {
-    PlannerSectionScaffold(
-        title = "Chatbot",
-        onBack = { navController.popBackStack() }
-    ) {
-        PlannerSectionTitle(
-            subtitle = "Ruang ini disiapkan untuk percakapan pendamping goal planner secara lebih personal."
-        )
-
-        PlannerInfoCard(title = "Segera Hadir") {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(18.dp))
-                    .background(Color(0xFFD9FBFB))
-                    .padding(vertical = 18.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Icon(
-                        painter = androidx.compose.ui.res.painterResource(id = R.drawable.ic_planner_message_chatbot),
-                        contentDescription = "Chatbot planner",
-                        tint = Color(0xFF08B4BD),
-                        modifier = Modifier.size(30.dp)
-                    )
-                    Text(
-                        text = "Chatbot planner akan ditempatkan di halaman ini.",
-                        fontFamily = poppinsFontFamily,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp,
-                        color = Color(0xFF0F172A)
-                    )
-                }
-            }
-
-            Text(
-                text = "Untuk sementara, gunakan halaman Coach, Milestone, dan Check-in untuk memantau rencana Anda secara manual.",
-                fontFamily = poppinsFontFamily,
-                fontWeight = FontWeight.Medium,
-                fontSize = 13.sp,
-                lineHeight = 20.sp,
-                color = Color(0xFF4B5563)
-            )
-        }
-    }
-}
-
-@Composable
 private fun PlannerProgressBar(
     progress: Float,
     accentColor: Color,

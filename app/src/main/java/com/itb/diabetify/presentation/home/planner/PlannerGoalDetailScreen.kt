@@ -145,7 +145,7 @@ fun PlannerGoalDetailScreen(
                             navController.navigate(Route.PlannerCoachScreen.createRoute(safeGoalId))
                         },
                         onOpenChatbot = {
-                            navController.navigate(Route.PlannerChatbotScreen.createRoute(safeGoalId))
+                            navController.navigate(Route.ChatbotScreen.route)
                         },
                         onOpenCheckIn = {
                             navController.navigate(Route.PlannerCheckInScreen.createRoute(safeGoalId))

@@ -56,15 +56,6 @@ sealed class Route(
             }
         }
     }
-    object PlannerChatbotScreen: Route(route = "plannerChatbotScreen?goalId={goalId}") {
-        fun createRoute(goalId: String? = null): String {
-            return if (goalId.isNullOrBlank()) {
-                "plannerChatbotScreen"
-            } else {
-                "plannerChatbotScreen?goalId=$goalId"
-            }
-        }
-    }
     object ChatbotScreen: Route(route = "chatbotScreen")
     object HistoryScreen: Route(route = "historyScreen")
     object GuideScreen: Route(route = "guideScreen")
