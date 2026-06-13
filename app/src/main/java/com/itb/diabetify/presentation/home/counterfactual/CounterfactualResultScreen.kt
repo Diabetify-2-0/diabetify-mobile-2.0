@@ -37,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -49,6 +50,7 @@ import androidx.navigation.NavController
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import com.itb.diabetify.R
 import com.itb.diabetify.data.remote.counterfactual.response.CounterfactualChangedFeature
+import com.itb.diabetify.data.remote.counterfactual.response.CounterfactualJobResultData
 import com.itb.diabetify.data.remote.counterfactual.response.CounterfactualResultPayload
 import com.itb.diabetify.domain.model.planner.PlannerGoalStatus
 import com.itb.diabetify.presentation.common.CustomizableButton
@@ -96,9 +98,60 @@ fun CounterfactualResultScreen(
         }
     }
 
+    CounterfactualResultContent(
+        result = result,
+        resultMeta = resultMeta,
+        selectedDurationWeeks = plannerGoalDurationWeeks,
+        isSaved = isCurrentResultSaved,
+        hasDifferentActiveGoal = hasDifferentActiveGoal,
+        successMessage = successMessage,
+        showReplaceGoalDialog = showReplaceGoalDialog,
+        displayFeatures = result?.let {
+            buildDisplayFeatureChanges(
+                rawFeatures = it.plannerInput?.changedFeatures.orEmpty(),
+                viewModel = viewModel
+            )
+        }.orEmpty(),
+        onShowReplaceGoalDialogChange = { showReplaceGoalDialog = it },
+        onDismissSuccess = viewModel::onSuccessShown,
+        onBackToHome = navigateBackToHome,
+        onBackToPlannerSetup = navigateBackToPlannerSetup,
+        onDurationSelected = viewModel::updatePlannerGoalDurationWeeks,
+        onSave = {
+            if (hasDifferentActiveGoal) {
+                showReplaceGoalDialog = true
+            } else {
+                viewModel.saveCounterfactualAsGoal(durationWeeks = plannerGoalDurationWeeks)
+            }
+        },
+        onConfirmReplaceGoal = {
+            showReplaceGoalDialog = false
+            viewModel.saveCounterfactualAsGoal(replaceActiveGoal = true)
+        }
+    )
+}
+
+@Composable
+internal fun CounterfactualResultContent(
+    result: CounterfactualResultPayload?,
+    resultMeta: CounterfactualJobResultData?,
+    selectedDurationWeeks: Int,
+    isSaved: Boolean,
+    hasDifferentActiveGoal: Boolean,
+    successMessage: String?,
+    showReplaceGoalDialog: Boolean,
+    displayFeatures: List<CounterfactualDisplayFeature>,
+    onShowReplaceGoalDialogChange: (Boolean) -> Unit,
+    onDismissSuccess: () -> Unit,
+    onBackToHome: () -> Unit,
+    onBackToPlannerSetup: () -> Unit,
+    onDurationSelected: (Int) -> Unit,
+    onSave: () -> Unit,
+    onConfirmReplaceGoal: () -> Unit,
+) {
     if (showReplaceGoalDialog) {
         AlertDialog(
-            onDismissRequest = { showReplaceGoalDialog = false },
+            onDismissRequest = { onShowReplaceGoalDialogChange(false) },
             title = {
                 Text(
                     text = "Ganti Goal Aktif?",
@@ -117,12 +170,7 @@ fun CounterfactualResultScreen(
                 )
             },
             confirmButton = {
-                TextButton(
-                    onClick = {
-                        showReplaceGoalDialog = false
-                        viewModel.saveCounterfactualAsGoal(replaceActiveGoal = true)
-                    }
-                ) {
+                TextButton(onClick = onConfirmReplaceGoal) {
                     Text(
                         text = "Ganti Goal",
                         fontFamily = poppinsFontFamily,
@@ -132,9 +180,7 @@ fun CounterfactualResultScreen(
                 }
             },
             dismissButton = {
-                TextButton(
-                    onClick = { showReplaceGoalDialog = false }
-                ) {
+                TextButton(onClick = { onShowReplaceGoalDialogChange(false) }) {
                     Text(
                         text = "Batal",
                         fontFamily = poppinsFontFamily,
@@ -150,62 +196,55 @@ fun CounterfactualResultScreen(
         when {
             result == null || resultMeta == null -> {
                 CounterfactualFullStateScreen(
+                    modifier = Modifier.testTag("CounterfactualResultState_NoScenario"),
                     backgroundResId = R.drawable.bg_no_scenario_state,
                     iconResId = R.drawable.ic_no_scenario_state,
                     title = "Skenario realistis belum ditemukan untuk target dan batasan faktor ini",
                     buttonLabel = "Pilih Target Baru",
                     buttonContainerColor = Color.White,
                     buttonContentColor = Color.Black,
-                    onButtonClick = navigateBackToPlannerSetup
+                    onButtonClick = onBackToPlannerSetup
                 )
             }
 
-            result?.reasonCode == "TARGET_ALREADY_SATISFIED" -> {
+            result.reasonCode == "TARGET_ALREADY_SATISFIED" -> {
                 CounterfactualFullStateScreen(
+                    modifier = Modifier.testTag("CounterfactualResultState_TargetSatisfied"),
                     backgroundResId = R.drawable.bg_already_satisfied_state,
                     iconResId = R.drawable.ic_already_satisfied_state,
                     title = "Kondisi Anda saat ini sudah memenuhi target risiko yang dipilih",
                     buttonLabel = "Pilih Target Baru",
                     buttonContainerColor = Color(0xFFD9ECE7),
                     buttonContentColor = Color(0xFF0F5A55),
-                    onButtonClick = navigateBackToPlannerSetup
+                    onButtonClick = onBackToPlannerSetup
                 )
             }
 
-            result?.status == "FEASIBLE" && !result?.candidates.isNullOrEmpty() -> {
-                val safeResult = result!!
-                val displayFeatures = buildDisplayFeatureChanges(
-                    rawFeatures = safeResult.plannerInput?.changedFeatures.orEmpty(),
-                    viewModel = viewModel
-                )
+            result.status == "FEASIBLE" && result.candidates.isNotEmpty() -> {
                 FeasibleCounterfactualResultScreen(
-                    result = safeResult,
+                    modifier = Modifier.testTag("CounterfactualResultState_Feasible"),
+                    result = result,
                     displayFeatures = displayFeatures,
-                    selectedDurationWeeks = plannerGoalDurationWeeks,
-                    isSaved = isCurrentResultSaved,
+                    selectedDurationWeeks = selectedDurationWeeks,
+                    isSaved = isSaved,
                     hasDifferentActiveGoal = hasDifferentActiveGoal,
-                    onBack = navigateBackToHome,
-                    onDurationSelected = viewModel::updatePlannerGoalDurationWeeks,
-                    onSave = {
-                        if (hasDifferentActiveGoal) {
-                            showReplaceGoalDialog = true
-                        } else {
-                            viewModel.saveCounterfactualAsGoal(durationWeeks = plannerGoalDurationWeeks)
-                        }
-                    },
-                    onTryAnother = navigateBackToPlannerSetup
+                    onBack = onBackToHome,
+                    onDurationSelected = onDurationSelected,
+                    onSave = onSave,
+                    onTryAnother = onBackToPlannerSetup
                 )
             }
 
             else -> {
                 CounterfactualFullStateScreen(
+                    modifier = Modifier.testTag("CounterfactualResultState_Fallback"),
                     backgroundResId = R.drawable.bg_no_scenario_state,
                     iconResId = R.drawable.ic_no_scenario_state,
                     title = "Skenario realistis belum ditemukan untuk target dan batasan faktor ini",
                     buttonLabel = "Pilih Target Baru",
                     buttonContainerColor = Color.White,
                     buttonContentColor = Color.Black,
-                    onButtonClick = navigateBackToPlannerSetup
+                    onButtonClick = onBackToPlannerSetup
                 )
             }
         }
@@ -213,7 +252,7 @@ fun CounterfactualResultScreen(
         SuccessNotification(
             showSuccess = successMessage != null,
             successMessage = successMessage,
-            onDismiss = { viewModel.onSuccessShown() },
+            onDismiss = onDismissSuccess,
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .zIndex(1000f)
@@ -223,6 +262,7 @@ fun CounterfactualResultScreen(
 
 @Composable
 private fun FeasibleCounterfactualResultScreen(
+    modifier: Modifier = Modifier,
     result: CounterfactualResultPayload,
     displayFeatures: List<CounterfactualDisplayFeature>,
     selectedDurationWeeks: Int,
@@ -236,7 +276,7 @@ private fun FeasibleCounterfactualResultScreen(
     val scrollState = rememberScrollState()
 
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxSize()
             .background(Color.White)
     ) {
@@ -315,6 +355,7 @@ private fun FeasibleCounterfactualResultScreen(
 
 @Composable
 private fun CounterfactualFullStateScreen(
+    modifier: Modifier = Modifier,
     backgroundResId: Int,
     iconResId: Int,
     title: String,
@@ -324,7 +365,7 @@ private fun CounterfactualFullStateScreen(
     onButtonClick: () -> Unit
 ) {
     Box(
-        modifier = Modifier.fillMaxSize()
+        modifier = modifier.fillMaxSize()
     ) {
         Image(
             modifier = Modifier
@@ -692,6 +733,7 @@ private fun SaveGoalCard(
                 onClick = onSave,
                 enabled = !isSaved,
                 modifier = Modifier
+                    .testTag("CounterfactualSaveGoalButton")
                     .fillMaxWidth()
                     .height(50.dp)
             )
@@ -700,6 +742,7 @@ private fun SaveGoalCard(
                 text = "Cari Skenario Lain",
                 onClick = onTryAnother,
                 modifier = Modifier
+                    .testTag("CounterfactualTryAnotherButton")
                     .fillMaxWidth()
                     .height(50.dp),
                 backgroundColor = Color.White,
@@ -764,7 +807,7 @@ private fun PlannerDurationOption(
 
 private fun plannerDurationOptions(): List<Int> = listOf(4, 8, 12, 24)
 
-private data class CounterfactualDisplayFeature(
+internal data class CounterfactualDisplayFeature(
     val featureName: String,
     val label: String,
     val baselineNumeric: Double,

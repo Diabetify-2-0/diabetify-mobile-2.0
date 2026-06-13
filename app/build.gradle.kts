@@ -119,6 +119,7 @@ dependencies {
     implementation("io.coil-kt:coil-svg:2.7.0")
     ksp("com.google.dagger:hilt-android-compiler:2.51.1")
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
     androidTestImplementation("androidx.test:rules:1.6.1")

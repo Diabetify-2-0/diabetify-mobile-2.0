@@ -8,18 +8,24 @@ import com.itb.diabetify.data.manager.ConnectivityManagerImpl
 import com.itb.diabetify.data.manager.CounterfactualJobManagerImpl
 import com.itb.diabetify.data.manager.LocalUserManagerImpl
 import com.itb.diabetify.data.manager.NotificationManagerImpl
+import com.itb.diabetify.data.manager.PlannerCheckInManagerImpl
+import com.itb.diabetify.data.manager.PlannerCoachManagerImpl
+import com.itb.diabetify.data.manager.PlannerGoalManagerImpl
 import com.itb.diabetify.data.manager.PredictionJobManagerImpl
 import com.itb.diabetify.data.manager.PredictionManagerImpl
 import com.itb.diabetify.data.manager.ProfileManagerImpl
 import com.itb.diabetify.data.manager.TokenManagerImpl
 import com.itb.diabetify.data.manager.UserManagerImpl
 import com.itb.diabetify.data.remote.activity.ActivityApiService
+import com.itb.diabetify.data.remote.chatbot.ChatbotApiService
 import com.itb.diabetify.data.remote.counterfactual.CounterfactualApiService
 import com.itb.diabetify.data.remote.interceptor.AuthInterceptor
+import com.itb.diabetify.data.remote.planner.PlannerApiService
 import com.itb.diabetify.data.remote.prediction.PredictionApiService
 import com.itb.diabetify.data.remote.profile.ProfileApiService
 import com.itb.diabetify.data.remote.user.UserApiService
 import com.itb.diabetify.data.repository.ActivityRepositoryImpl
+import com.itb.diabetify.data.repository.ChatbotRepositoryImpl
 import com.itb.diabetify.data.repository.CounterfactualRepositoryImpl
 import com.itb.diabetify.data.repository.PredictionRepositoryImpl
 import com.itb.diabetify.data.repository.ProfileRepositoryImpl
@@ -30,12 +36,16 @@ import com.itb.diabetify.domain.manager.ConnectivityManager
 import com.itb.diabetify.domain.manager.CounterfactualJobManager
 import com.itb.diabetify.domain.manager.LocalUserManager
 import com.itb.diabetify.domain.manager.NotificationManager
+import com.itb.diabetify.domain.manager.PlannerCheckInManager
+import com.itb.diabetify.domain.manager.PlannerCoachManager
+import com.itb.diabetify.domain.manager.PlannerGoalManager
 import com.itb.diabetify.domain.manager.PredictionJobManager
 import com.itb.diabetify.domain.manager.PredictionManager
 import com.itb.diabetify.domain.manager.ProfileManager
 import com.itb.diabetify.domain.manager.TokenManager
 import com.itb.diabetify.domain.manager.UserManager
 import com.itb.diabetify.domain.repository.ActivityRepository
+import com.itb.diabetify.domain.repository.ChatbotRepository
 import com.itb.diabetify.domain.repository.CounterfactualRepository
 import com.itb.diabetify.domain.repository.PredictionRepository
 import com.itb.diabetify.domain.repository.ProfileRepository
@@ -62,11 +72,32 @@ import com.itb.diabetify.domain.usecases.counterfactual.CounterfactualUseCases
 import com.itb.diabetify.domain.usecases.counterfactual.GetCounterfactualJobResultUseCase
 import com.itb.diabetify.domain.usecases.counterfactual.RunCounterfactualAsyncUseCase
 import com.itb.diabetify.domain.usecases.counterfactual.StartCounterfactualJobUseCase
+import com.itb.diabetify.domain.usecases.chatbot.ChatbotUseCases
+import com.itb.diabetify.domain.usecases.chatbot.GetXaiProfileUseCase
+import com.itb.diabetify.domain.usecases.chatbot.LoadChatHistoryUseCase
+import com.itb.diabetify.domain.usecases.chatbot.LoadRecommendationsUseCase
+import com.itb.diabetify.domain.usecases.chatbot.RefreshRecommendationsUseCase
+import com.itb.diabetify.domain.usecases.chatbot.SendChatMessageStreamUseCase
+import com.itb.diabetify.domain.usecases.chatbot.SendChatMessageUseCase
 import com.itb.diabetify.domain.usecases.notification.CancelNotificationUseCase
 import com.itb.diabetify.domain.usecases.notification.GetNotificationPreferencesUseCase
 import com.itb.diabetify.domain.usecases.notification.NotificationUseCases
 import com.itb.diabetify.domain.usecases.notification.ScheduleNotificationUseCase
 import com.itb.diabetify.domain.usecases.notification.SetNotificationPreferencesUseCase
+import com.itb.diabetify.domain.usecases.planner.ClearPlannerCheckInsUseCase
+import com.itb.diabetify.domain.usecases.planner.ClearPlannerGoalUseCase
+import com.itb.diabetify.domain.usecases.planner.CompletePlannerGoalUseCase
+import com.itb.diabetify.domain.usecases.planner.GetActivePlannerCoachUseCase
+import com.itb.diabetify.domain.usecases.planner.GetActivePlannerGoalUseCase
+import com.itb.diabetify.domain.usecases.planner.GetPlannerCheckInHistoryUseCase
+import com.itb.diabetify.domain.usecases.planner.GetPlannerCheckInsUseCase
+import com.itb.diabetify.domain.usecases.planner.MarkPlannerCheckInUseCase
+import com.itb.diabetify.domain.usecases.planner.PlannerGoalUseCases
+import com.itb.diabetify.domain.usecases.planner.RecordPlannerCheckInUseCase
+import com.itb.diabetify.domain.usecases.planner.RefreshPlannerCheckInHistoryUseCase
+import com.itb.diabetify.domain.usecases.planner.RefreshPlannerCheckInsUseCase
+import com.itb.diabetify.domain.usecases.planner.RefreshPlannerGoalUseCase
+import com.itb.diabetify.domain.usecases.planner.SavePlannerGoalUseCase
 import com.itb.diabetify.domain.usecases.prediction.ExplainPredictionUseCase
 import com.itb.diabetify.domain.usecases.prediction.GetLatestPredictionRepositoryUseCase
 import com.itb.diabetify.domain.usecases.prediction.GetLatestPredictionUseCase
@@ -270,8 +301,71 @@ object TestAppModule {
 
     @Provides
     @Singleton
+    fun providesPlannerApiService(okHttpClient: OkHttpClient): PlannerApiService {
+        return Retrofit.Builder()
+            .baseUrl(BASE_URL)
+            .client(okHttpClient)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+            .create(PlannerApiService::class.java)
+    }
+
+    @Provides
+    @Singleton
     fun providesPredictionManager(): PredictionManager {
         return PredictionManagerImpl()
+    }
+
+    @Provides
+    @Singleton
+    fun providesPlannerGoalManager(
+        @ApplicationContext context: Context,
+        gson: Gson,
+        plannerApiService: PlannerApiService
+    ): PlannerGoalManager {
+        return PlannerGoalManagerImpl(context, gson, plannerApiService)
+    }
+
+    @Provides
+    @Singleton
+    fun providesPlannerCheckInManager(
+        @ApplicationContext context: Context,
+        gson: Gson,
+        plannerApiService: PlannerApiService
+    ): PlannerCheckInManager {
+        return PlannerCheckInManagerImpl(context, gson, plannerApiService)
+    }
+
+    @Provides
+    @Singleton
+    fun providesPlannerCoachManager(
+        plannerApiService: PlannerApiService
+    ): PlannerCoachManager {
+        return PlannerCoachManagerImpl(plannerApiService)
+    }
+
+    @Provides
+    @Singleton
+    fun providesPlannerGoalUseCases(
+        plannerGoalManager: PlannerGoalManager,
+        plannerCheckInManager: PlannerCheckInManager,
+        plannerCoachManager: PlannerCoachManager
+    ): PlannerGoalUseCases {
+        return PlannerGoalUseCases(
+            savePlannerGoal = SavePlannerGoalUseCase(plannerGoalManager),
+            getActivePlannerGoal = GetActivePlannerGoalUseCase(plannerGoalManager),
+            getActivePlannerCoach = GetActivePlannerCoachUseCase(plannerCoachManager),
+            refreshPlannerGoal = RefreshPlannerGoalUseCase(plannerGoalManager),
+            completePlannerGoal = CompletePlannerGoalUseCase(plannerGoalManager),
+            clearPlannerGoal = ClearPlannerGoalUseCase(plannerGoalManager),
+            markPlannerCheckIn = MarkPlannerCheckInUseCase(plannerCheckInManager),
+            getPlannerCheckIns = GetPlannerCheckInsUseCase(plannerCheckInManager),
+            clearPlannerCheckIns = ClearPlannerCheckInsUseCase(plannerCheckInManager),
+            refreshPlannerCheckIns = RefreshPlannerCheckInsUseCase(plannerCheckInManager),
+            refreshPlannerCheckInHistory = RefreshPlannerCheckInHistoryUseCase(plannerCheckInManager),
+            recordPlannerCheckIn = RecordPlannerCheckInUseCase(plannerCheckInManager),
+            getPlannerCheckInHistory = GetPlannerCheckInHistoryUseCase(plannerCheckInManager)
+        )
     }
 
     @Provides
@@ -398,6 +492,46 @@ object TestAppModule {
         return ConnectivityUseCases(
             observeConnectivity = ObserveConnectivityUseCase(connectivityManager),
             checkConnectivity = CheckConnectivityUseCase(connectivityManager)
+        )
+    }
+
+    @Provides
+    @Singleton
+    fun providesChatbotApiService(okHttpClient: OkHttpClient): ChatbotApiService {
+        return Retrofit.Builder()
+            .baseUrl(BASE_URL)
+            .client(okHttpClient)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+            .create(ChatbotApiService::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun providesChatbotRepository(
+        chatbotApiService: ChatbotApiService,
+        okHttpClient: OkHttpClient,
+        gson: Gson,
+    ): ChatbotRepository {
+        return ChatbotRepositoryImpl(
+            chatbotApiService = chatbotApiService,
+            okHttpClient = okHttpClient,
+            gson = gson,
+        )
+    }
+
+    @Provides
+    @Singleton
+    fun providesChatbotUseCases(
+        repository: ChatbotRepository,
+    ): ChatbotUseCases {
+        return ChatbotUseCases(
+            sendChatMessage = SendChatMessageUseCase(repository),
+            sendChatMessageStream = SendChatMessageStreamUseCase(repository),
+            loadChatHistory = LoadChatHistoryUseCase(repository),
+            loadRecommendations = LoadRecommendationsUseCase(repository),
+            refreshRecommendations = RefreshRecommendationsUseCase(repository),
+            getXaiProfile = GetXaiProfileUseCase(repository),
         )
     }
 }

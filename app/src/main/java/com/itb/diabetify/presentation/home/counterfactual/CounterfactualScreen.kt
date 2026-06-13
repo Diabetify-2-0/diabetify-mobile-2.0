@@ -46,6 +46,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -71,7 +72,6 @@ fun CounterfactualScreen(
     navController: NavController,
     viewModel: HomeViewModel
 ) {
-    val scrollState = rememberScrollState()
     val options by viewModel.counterfactualOptions
     val riskTargetInput by viewModel.counterfactualRiskTargetInput
     val errorMessage = viewModel.errorMessage.value
@@ -88,8 +88,71 @@ fun CounterfactualScreen(
         }
     }
 
+    CounterfactualScreenContent(
+        options = options,
+        riskTargetInput = riskTargetInput,
+        latestRisk = latestRisk,
+        weightText = "${viewModel.weight.value} kg",
+        physicalActivityText = "${viewModel.physicalActivityAverage.value} hari/minggu",
+        hypertensionText = if (viewModel.isHypertension.value) "Ya" else "Tidak",
+        cholesterolText = if (viewModel.isCholesterol.value) "Ya" else "Tidak",
+        smokingStatusText = smokingStatusLabel(viewModel.smokingStatus.value),
+        baselineAgeText = "${viewModel.baselineAge.value} tahun",
+        bloodlineText = if (viewModel.isBloodline.value) "Ada" else "Tidak ada",
+        macrosomicText = macrosomicLabel(viewModel.macrosomicBaby.value),
+        brinkmanIndexText = if (viewModel.smokingStatus.value == "1" || viewModel.smokingStatus.value == "2") {
+            brinkmanIndexLabel(viewModel.brinkmanScore.value)
+        } else {
+            null
+        },
+        optionCurrentValues = options.associate { option ->
+            option.key to currentValueForOption(viewModel, option.key)
+        },
+        errorMessage = errorMessage,
+        successMessage = successMessage,
+        loadingMessage = loadingMessage,
+        isLoading = isLoading,
+        onBack = { navController.popBackStack() },
+        onToggleOption = viewModel::toggleCounterfactualOption,
+        onTargetChange = { value -> viewModel.updateCounterfactualRiskTargetInput(value.toString()) },
+        onRun = viewModel::runCounterfactualAnalysis,
+        onDismissError = viewModel::onErrorShown,
+        onDismissSuccess = viewModel::onSuccessShown,
+    )
+}
+
+@Composable
+internal fun CounterfactualScreenContent(
+    options: List<HomeViewModel.CounterfactualOption>,
+    riskTargetInput: String,
+    latestRisk: Double,
+    weightText: String,
+    physicalActivityText: String,
+    hypertensionText: String,
+    cholesterolText: String,
+    smokingStatusText: String,
+    baselineAgeText: String,
+    bloodlineText: String,
+    macrosomicText: String,
+    brinkmanIndexText: String?,
+    optionCurrentValues: Map<String, String>,
+    errorMessage: String?,
+    successMessage: String?,
+    loadingMessage: String?,
+    isLoading: Boolean,
+    onBack: () -> Unit,
+    onToggleOption: (String) -> Unit,
+    onTargetChange: (Int) -> Unit,
+    onRun: () -> Unit,
+    onDismissError: () -> Unit,
+    onDismissSuccess: () -> Unit,
+) {
+    val scrollState = rememberScrollState()
+
     Box(
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier
+            .fillMaxSize()
+            .testTag("CounterfactualScreenRoot")
     ) {
         Column(
             modifier = Modifier
@@ -103,7 +166,7 @@ fun CounterfactualScreen(
             ) {
                 IconButton(
                     modifier = Modifier.align(Alignment.CenterStart),
-                    onClick = { navController.popBackStack() }
+                    onClick = onBack
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
@@ -147,12 +210,12 @@ fun CounterfactualScreen(
                             SummaryMetricCard(
                                 modifier = Modifier.weight(1f),
                                 label = "Berat Badan",
-                                value = "${viewModel.weight.value} kg"
+                                value = weightText
                             )
                             SummaryMetricCard(
                                 modifier = Modifier.weight(1f),
                                 label = "Aktivitas",
-                                value = "${viewModel.physicalActivityAverage.value} hari/minggu"
+                                value = physicalActivityText
                             )
                         }
 
@@ -163,19 +226,19 @@ fun CounterfactualScreen(
                             SummaryMetricCard(
                                 modifier = Modifier.weight(1f),
                                 label = "Hipertensi",
-                                value = if (viewModel.isHypertension.value) "Ya" else "Tidak"
+                                value = hypertensionText
                             )
                             SummaryMetricCard(
                                 modifier = Modifier.weight(1f),
                                 label = "Kolesterol",
-                                value = if (viewModel.isCholesterol.value) "Ya" else "Tidak"
+                                value = cholesterolText
                             )
                         }
 
                         SummaryMetricCard(
                             modifier = Modifier.fillMaxWidth(),
                             label = "Status Merokok",
-                            value = smokingStatusLabel(viewModel.smokingStatus.value)
+                            value = smokingStatusText
                         )
                     }
                 }
@@ -195,21 +258,21 @@ fun CounterfactualScreen(
 
                         ImmutableInfoCard(
                             title = "Usia",
-                            value = "${viewModel.baselineAge.value} tahun"
+                            value = baselineAgeText
                         )
                         ImmutableInfoCard(
                             title = "Riwayat keluarga diabetes",
-                            value = if (viewModel.isBloodline.value) "Ada" else "Tidak ada"
+                            value = bloodlineText
                         )
                         ImmutableInfoCard(
                             title = "Riwayat bayi makrosomia",
-                            value = macrosomicLabel(viewModel.macrosomicBaby.value)
+                            value = macrosomicText
                         )
 
-                        if (viewModel.smokingStatus.value == "1" || viewModel.smokingStatus.value == "2") {
+                        brinkmanIndexText?.let {
                             ImmutableInfoCard(
                                 title = "Brinkman Index",
-                                value = brinkmanIndexLabel(viewModel.brinkmanScore.value)
+                                value = it
                             )
                         }
                     }
@@ -231,8 +294,8 @@ fun CounterfactualScreen(
                         options.forEach { option ->
                             CounterfactualOptionCard(
                                 option = option,
-                                currentValue = currentValueForOption(viewModel, option.key),
-                                onToggle = { viewModel.toggleCounterfactualOption(option.key) }
+                                currentValue = optionCurrentValues[option.key].orEmpty(),
+                                onToggle = { onToggleOption(option.key) }
                             )
                         }
                     }
@@ -246,9 +309,7 @@ fun CounterfactualScreen(
                         RiskTargetThresholdSelector(
                             currentRiskPercentage = latestRisk,
                             targetInput = riskTargetInput,
-                            onTargetChange = { value ->
-                                viewModel.updateCounterfactualRiskTargetInput(value.toString())
-                            }
+                            onTargetChange = onTargetChange
                         )
                     }
                 }
@@ -258,14 +319,14 @@ fun CounterfactualScreen(
 
             CounterfactualActionBar(
                 isLoading = isLoading,
-                onRun = { viewModel.runCounterfactualAnalysis() }
+                onRun = onRun
             )
         }
 
         ErrorNotification(
             showError = errorMessage != null,
             errorMessage = errorMessage,
-            onDismiss = { viewModel.onErrorShown() },
+            onDismiss = onDismissError,
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .zIndex(1000f)
@@ -274,7 +335,7 @@ fun CounterfactualScreen(
         SuccessNotification(
             showSuccess = successMessage != null,
             successMessage = successMessage,
-            onDismiss = { viewModel.onSuccessShown() },
+            onDismiss = onDismissSuccess,
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .zIndex(1000f)
@@ -318,6 +379,7 @@ private fun CounterfactualActionBar(
                 enabled = !isLoading,
                 isLoading = isLoading,
                 modifier = Modifier
+                    .testTag("CounterfactualRunButton")
                     .fillMaxWidth()
                     .height(50.dp)
             )
@@ -461,6 +523,7 @@ private fun RiskTargetThresholdSelector(
             ) {
                 Text(
                     text = "<$targetPercentage%",
+                    modifier = Modifier.testTag("CounterfactualTargetPercentage"),
                     fontFamily = poppinsFontFamily,
                     fontWeight = FontWeight.Bold,
                     fontSize = 34.sp,
@@ -470,6 +533,7 @@ private fun RiskTargetThresholdSelector(
                 )
                 Text(
                     text = targetCategory,
+                    modifier = Modifier.testTag("CounterfactualTargetCategory"),
                     fontFamily = poppinsFontFamily,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 20.sp,
@@ -493,6 +557,7 @@ private fun RiskTargetThresholdSelector(
                 } else {
                     "Target ini masih lebih tinggi dari risiko Anda saat ini. Geser terus ke kiri untuk merencanakan target kesehatan yang lebih baik."
                 },
+                modifier = Modifier.testTag("CounterfactualTargetHelperText"),
                 fontFamily = poppinsFontFamily,
                 fontWeight = FontWeight.Medium,
                 fontSize = 11.sp,
@@ -773,6 +838,7 @@ private fun CounterfactualOptionCard(
 
     Card(
         modifier = Modifier
+            .testTag("CounterfactualOption_${option.key}")
             .fillMaxWidth()
             .clickable(onClick = onToggle)
             .border(
