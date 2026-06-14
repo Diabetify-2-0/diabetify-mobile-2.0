@@ -19,10 +19,10 @@ import com.itb.diabetify.data.remote.counterfactual.response.CounterfactualJobRe
 import com.itb.diabetify.data.remote.counterfactual.response.CounterfactualChangedFeature
 import com.itb.diabetify.data.remote.counterfactual.response.CounterfactualPredictionInfo
 import com.itb.diabetify.data.remote.counterfactual.response.CounterfactualResultPayload
-import com.itb.diabetify.domain.model.planner.PlannerCoach
 import com.itb.diabetify.domain.model.planner.PlannerCheckInEntry
 import com.itb.diabetify.domain.model.planner.PlannerGoal
 import com.itb.diabetify.domain.model.planner.PlannerGoalFeature
+import com.itb.diabetify.domain.model.planner.PlannerMilestoneProgress
 import com.itb.diabetify.domain.repository.PredictionRepository
 import com.itb.diabetify.domain.usecases.counterfactual.CounterfactualUseCases
 import com.itb.diabetify.domain.usecases.activity.ActivityUseCases
@@ -306,14 +306,8 @@ class HomeViewModel @Inject constructor(
     private val _activePlannerGoal = mutableStateOf<PlannerGoal?>(null)
     val activePlannerGoal: State<PlannerGoal?> = _activePlannerGoal
 
-    private val _activePlannerCoach = mutableStateOf<PlannerCoach?>(null)
-    val activePlannerCoach: State<PlannerCoach?> = _activePlannerCoach
-
-    private val _isLoadingPlannerCoach = mutableStateOf(false)
-    val isLoadingPlannerCoach: State<Boolean> = _isLoadingPlannerCoach
-
-    private val _plannerCoachError = mutableStateOf<String?>(null)
-    val plannerCoachError: State<String?> = _plannerCoachError
+    private val _activePlannerMilestoneProgress = mutableStateOf<PlannerMilestoneProgress?>(null)
+    val activePlannerMilestoneProgress: State<PlannerMilestoneProgress?> = _activePlannerMilestoneProgress
 
     private val _plannerCheckInHistory = mutableStateOf<List<PlannerCheckInEntry>>(emptyList())
     val plannerCheckInHistory: State<List<PlannerCheckInEntry>> = _plannerCheckInHistory
@@ -322,7 +316,7 @@ class HomeViewModel @Inject constructor(
     val allPlannerCheckInHistory: State<List<PlannerCheckInEntry>> = _allPlannerCheckInHistory
 
     private var allPlannerCheckInHistoryCache: List<PlannerCheckInEntry> = emptyList()
-    private var loadedPlannerCoachGoalID: String? = null
+    private var loadedPlannerMilestoneGoalID: String? = null
 
     // Loading state tracking
     private var isUserDataLoaded = false
@@ -334,22 +328,22 @@ class HomeViewModel @Inject constructor(
         _successMessage.value = "Prediksi risiko telah diperbaharui"
         loadLatestPredictionData()
         loadProfileData()
-        invalidatePlannerCoachCache()
+        invalidatePlannerMilestoneCache()
         activePlannerGoal.value?.let {
-            loadActivePlannerCoach(forceRefresh = true)
+            loadActivePlannerMilestones(forceRefresh = true)
         }
     }
     private val predictionUpdatingListener: (Boolean) -> Unit = { isUpdating ->
         _isPredictionRefreshing.value = isUpdating
     }
     private val plannerUpdateListener: () -> Unit = {
-        invalidatePlannerCoachCache()
+        invalidatePlannerMilestoneCache()
         loadProfileData()
         refreshPlannerGoal()
         activePlannerGoal.value?.let { goal ->
             refreshPlannerCheckIns(goal.id)
             refreshPlannerCheckInHistoryForGoal(goal.id)
-            loadActivePlannerCoach(forceRefresh = true)
+            loadActivePlannerMilestones(forceRefresh = true)
         }
     }
 
@@ -861,13 +855,15 @@ class HomeViewModel @Inject constructor(
         plannerGoalUseCases.getActivePlannerGoal()
             .onEach { goal ->
                 if (_activePlannerGoal.value?.id != goal?.id) {
-                    _activePlannerCoach.value = null
-                    _plannerCoachError.value = null
-                    invalidatePlannerCoachCache()
+                    _activePlannerMilestoneProgress.value = null
+                    invalidatePlannerMilestoneCache()
                 }
                 _activePlannerGoal.value = goal
                 filterPlannerCheckInHistory()
-                goal?.let { refreshPlannerCheckIns(it.id) }
+                goal?.let {
+                    refreshPlannerCheckIns(it.id)
+                    loadActivePlannerMilestones(forceRefresh = true)
+                }
             }
             .launchIn(viewModelScope)
     }
@@ -888,8 +884,8 @@ class HomeViewModel @Inject constructor(
                         .filter { it.goalId == goalId }
                         .sortedByDescending { it.createdAtMillis }
                     if (previousGoalHistory != currentGoalHistory) {
-                        invalidatePlannerCoachCache()
-                        loadActivePlannerCoach(forceRefresh = true)
+                        invalidatePlannerMilestoneCache()
+                        loadActivePlannerMilestones(forceRefresh = true)
                     }
                 }
             }
@@ -929,35 +925,27 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    fun loadActivePlannerCoach(forceRefresh: Boolean = false) {
+    fun loadActivePlannerMilestones(forceRefresh: Boolean = false) {
         val goal = activePlannerGoal.value ?: return
-        if (!forceRefresh && loadedPlannerCoachGoalID == goal.id && _activePlannerCoach.value != null) {
+        if (!forceRefresh && loadedPlannerMilestoneGoalID == goal.id && _activePlannerMilestoneProgress.value != null) {
             return
         }
 
         viewModelScope.launch {
-            _isLoadingPlannerCoach.value = true
-            _plannerCoachError.value = null
             runCatching {
-                plannerGoalUseCases.getActivePlannerCoach()
-            }.onSuccess { coach ->
-                if (coach != null) {
-                    _activePlannerCoach.value = coach
-                    loadedPlannerCoachGoalID = coach.goalId
-                } else {
-                    _activePlannerCoach.value = null
-                    loadedPlannerCoachGoalID = null
-                    _plannerCoachError.value = "Coach belum tersedia untuk goal aktif ini"
-                }
-            }.onFailure { throwable ->
-                _plannerCoachError.value = throwable.message ?: "Gagal memuat coach planner"
+                plannerGoalUseCases.getActivePlannerMilestones()
+            }.onSuccess { milestoneProgress ->
+                _activePlannerMilestoneProgress.value = milestoneProgress
+                loadedPlannerMilestoneGoalID = if (milestoneProgress == null) null else goal.id
+            }.onFailure {
+                _activePlannerMilestoneProgress.value = null
+                loadedPlannerMilestoneGoalID = null
             }
-            _isLoadingPlannerCoach.value = false
         }
     }
 
-    private fun invalidatePlannerCoachCache() {
-        loadedPlannerCoachGoalID = null
+    private fun invalidatePlannerMilestoneCache() {
+        loadedPlannerMilestoneGoalID = null
     }
 
     fun toggleCounterfactualOption(key: String) {

@@ -3,9 +3,8 @@ package com.itb.diabetify.data.remote.planner.response
 import com.google.gson.annotations.SerializedName
 import com.itb.diabetify.data.remote.planner.request.PlannerCheckInRequest
 import com.itb.diabetify.data.remote.planner.request.PlannerGoalRequest
-import com.itb.diabetify.domain.model.planner.PlannerCoach
-import com.itb.diabetify.domain.model.planner.PlannerCoachMilestoneItem
-import com.itb.diabetify.domain.model.planner.PlannerCoachMilestoneProgress
+import com.itb.diabetify.domain.model.planner.PlannerMilestoneItem
+import com.itb.diabetify.domain.model.planner.PlannerMilestoneProgress
 
 data class PlannerGoalResponse(
     @SerializedName("data")
@@ -34,72 +33,16 @@ data class PlannerCheckInStateResponse(
     val status: String?
 )
 
-data class PlannerCoachPayload(
-    @SerializedName("goal_id")
-    val goalId: String,
-    @SerializedName("headline")
-    val headline: String,
-    @SerializedName("summary")
-    val summary: String,
-    @SerializedName("focus_this_week")
-    val focusThisWeek: List<String> = emptyList(),
-    @SerializedName("action_steps")
-    val actionSteps: List<String> = emptyList(),
-    @SerializedName("monitoring_points")
-    val monitoringPoints: List<String> = emptyList(),
-    @SerializedName("warnings")
-    val warnings: List<String> = emptyList(),
-    @SerializedName("milestone_progress")
-    val milestoneProgress: PlannerCoachMilestoneProgressPayload? = null,
-    @SerializedName("generated_by")
-    val generatedBy: String,
-    @SerializedName("fallback_used")
-    val fallbackUsed: Boolean,
-    @SerializedName("generated_at")
-    val generatedAt: String,
-    @SerializedName("progress_week")
-    val progressWeek: Int,
-    @SerializedName("duration_weeks")
-    val durationWeeks: Int,
-    @SerializedName("check_in_count")
-    val checkInCount: Int,
-    @SerializedName("source_job_id")
-    val sourceJobId: String?,
-    @SerializedName("projected_risk_note")
-    val projectedRiskNote: String?,
-) {
-    fun toDomain(): PlannerCoach {
-        return PlannerCoach(
-            goalId = goalId,
-            headline = headline,
-            summary = summary,
-            focusThisWeek = focusThisWeek,
-            actionSteps = actionSteps,
-            monitoringPoints = monitoringPoints,
-            warnings = warnings,
-            milestoneProgress = milestoneProgress?.toDomain(),
-            generatedBy = generatedBy,
-            fallbackUsed = fallbackUsed,
-            generatedAt = generatedAt,
-            progressWeek = progressWeek,
-            durationWeeks = durationWeeks,
-            checkInCount = checkInCount,
-            sourceJobId = sourceJobId,
-            projectedRiskNote = projectedRiskNote,
-        )
-    }
-}
-
-data class PlannerCoachMilestoneProgressPayload(
+data class PlannerMilestoneProgressPayload(
     @SerializedName("progress_week")
     val progressWeek: Int,
     @SerializedName("duration_weeks")
     val durationWeeks: Int,
     @SerializedName("items")
-    val items: List<PlannerCoachMilestoneItemPayload> = emptyList(),
+    val items: List<PlannerMilestoneItemPayload> = emptyList(),
 ) {
-    fun toDomain(): PlannerCoachMilestoneProgress {
-        return PlannerCoachMilestoneProgress(
+    fun toDomain(): PlannerMilestoneProgress {
+        return PlannerMilestoneProgress(
             progressWeek = progressWeek,
             durationWeeks = durationWeeks,
             items = items.map { it.toDomain() },
@@ -107,7 +50,7 @@ data class PlannerCoachMilestoneProgressPayload(
     }
 }
 
-data class PlannerCoachMilestoneItemPayload(
+data class PlannerMilestoneItemPayload(
     @SerializedName("feature_name")
     val featureName: String,
     @SerializedName("label")
@@ -137,8 +80,8 @@ data class PlannerCoachMilestoneItemPayload(
     @SerializedName("latest_check_in_value")
     val latestCheckInValue: String? = null,
 ) {
-    fun toDomain(): PlannerCoachMilestoneItem {
-        return PlannerCoachMilestoneItem(
+    fun toDomain(): PlannerMilestoneItem {
+        return PlannerMilestoneItem(
             featureName = featureName,
             label = label,
             status = status,
@@ -157,9 +100,9 @@ data class PlannerCoachMilestoneItemPayload(
     }
 }
 
-data class PlannerCoachResponse(
+data class PlannerMilestoneProgressResponse(
     @SerializedName("data")
-    val data: PlannerCoachPayload?,
+    val data: PlannerMilestoneProgressPayload?,
     @SerializedName("message")
     val message: String?,
     @SerializedName("status")

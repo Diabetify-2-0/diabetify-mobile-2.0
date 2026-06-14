@@ -51,7 +51,6 @@ import com.itb.diabetify.presentation.survey.SurveyViewModel
 import com.itb.diabetify.presentation.home.counterfactual.CounterfactualResultScreen
 import com.itb.diabetify.presentation.home.counterfactual.CounterfactualScreen
 import com.itb.diabetify.presentation.home.planner.PlannerCheckInScreen
-import com.itb.diabetify.presentation.home.planner.PlannerCoachScreen
 import com.itb.diabetify.presentation.home.planner.PlannerGoalDetailScreen
 import com.itb.diabetify.presentation.home.planner.PlannerMilestoneScreen
 import com.itb.diabetify.presentation.chatbot.ChatbotScreen
@@ -325,26 +324,6 @@ fun MainNavGraph(
                     mainNavController.getBackStackEntry(Route.HomeScreen.route)
                 )
                 PlannerMilestoneScreen(
-                    navController = mainNavController,
-                    viewModel = homeViewModel,
-                    goalId = backStackEntry.arguments?.getString("goalId")
-                )
-            }
-
-            composable(
-                route = Route.PlannerCoachScreen.route,
-                arguments = listOf(
-                    navArgument("goalId") {
-                        type = NavType.StringType
-                        nullable = true
-                        defaultValue = null
-                    }
-                )
-            ) { backStackEntry ->
-                val homeViewModel: HomeViewModel = hiltViewModel(
-                    mainNavController.getBackStackEntry(Route.HomeScreen.route)
-                )
-                PlannerCoachScreen(
                     navController = mainNavController,
                     viewModel = homeViewModel,
                     goalId = backStackEntry.arguments?.getString("goalId")

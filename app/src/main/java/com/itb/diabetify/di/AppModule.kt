@@ -8,7 +8,7 @@ import com.itb.diabetify.data.manager.ConnectivityManagerImpl
 import com.itb.diabetify.data.manager.CounterfactualJobManagerImpl
 import com.itb.diabetify.data.manager.LocalUserManagerImpl
 import com.itb.diabetify.data.manager.PlannerCheckInManagerImpl
-import com.itb.diabetify.data.manager.PlannerCoachManagerImpl
+import com.itb.diabetify.data.manager.PlannerMilestoneManagerImpl
 import com.itb.diabetify.data.manager.PlannerGoalManagerImpl
 import com.itb.diabetify.data.manager.PredictionJobManagerImpl
 import com.itb.diabetify.data.manager.PredictionManagerImpl
@@ -35,7 +35,7 @@ import com.itb.diabetify.domain.manager.ConnectivityManager
 import com.itb.diabetify.domain.manager.CounterfactualJobManager
 import com.itb.diabetify.domain.manager.LocalUserManager
 import com.itb.diabetify.domain.manager.PlannerCheckInManager
-import com.itb.diabetify.domain.manager.PlannerCoachManager
+import com.itb.diabetify.domain.manager.PlannerMilestoneManager
 import com.itb.diabetify.domain.manager.PlannerGoalManager
 import com.itb.diabetify.domain.manager.PredictionJobManager
 import com.itb.diabetify.domain.manager.TokenManager
@@ -89,7 +89,7 @@ import com.itb.diabetify.domain.usecases.planner.ClearPlannerCheckInsUseCase
 import com.itb.diabetify.domain.usecases.planner.CompletePlannerGoalUseCase
 import com.itb.diabetify.domain.usecases.planner.GetPlannerCheckInsUseCase
 import com.itb.diabetify.domain.usecases.planner.GetPlannerCheckInHistoryUseCase
-import com.itb.diabetify.domain.usecases.planner.GetActivePlannerCoachUseCase
+import com.itb.diabetify.domain.usecases.planner.GetActivePlannerMilestonesUseCase
 import com.itb.diabetify.domain.usecases.planner.GetActivePlannerGoalUseCase
 import com.itb.diabetify.domain.usecases.planner.MarkPlannerCheckInUseCase
 import com.itb.diabetify.domain.usecases.planner.PlannerGoalUseCases
@@ -379,10 +379,10 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun providesPlannerCoachManager(
+    fun providesPlannerMilestoneManager(
         plannerApiService: PlannerApiService
-    ): PlannerCoachManager {
-        return PlannerCoachManagerImpl(plannerApiService)
+    ): PlannerMilestoneManager {
+        return PlannerMilestoneManagerImpl(plannerApiService)
     }
 
     @Provides
@@ -390,12 +390,12 @@ object AppModule {
     fun providesPlannerGoalUseCases(
         plannerGoalManager: PlannerGoalManager,
         plannerCheckInManager: PlannerCheckInManager,
-        plannerCoachManager: PlannerCoachManager
+        plannerMilestoneManager: PlannerMilestoneManager
     ): PlannerGoalUseCases {
         return PlannerGoalUseCases(
             savePlannerGoal = SavePlannerGoalUseCase(plannerGoalManager),
             getActivePlannerGoal = GetActivePlannerGoalUseCase(plannerGoalManager),
-            getActivePlannerCoach = GetActivePlannerCoachUseCase(plannerCoachManager),
+            getActivePlannerMilestones = GetActivePlannerMilestonesUseCase(plannerMilestoneManager),
             refreshPlannerGoal = RefreshPlannerGoalUseCase(plannerGoalManager),
             completePlannerGoal = CompletePlannerGoalUseCase(plannerGoalManager),
             clearPlannerGoal = ClearPlannerGoalUseCase(plannerGoalManager),

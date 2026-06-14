@@ -4,10 +4,10 @@ import androidx.annotation.DrawableRes
 import androidx.compose.ui.graphics.Color
 import com.itb.diabetify.R
 import com.itb.diabetify.domain.model.planner.PlannerCheckInEntry
-import com.itb.diabetify.domain.model.planner.PlannerCoachMilestoneItem
-import com.itb.diabetify.domain.model.planner.PlannerCoachMilestoneProgress
 import com.itb.diabetify.domain.model.planner.PlannerGoal
 import com.itb.diabetify.domain.model.planner.PlannerGoalFeature
+import com.itb.diabetify.domain.model.planner.PlannerMilestoneItem
+import com.itb.diabetify.domain.model.planner.PlannerMilestoneProgress
 import com.itb.diabetify.presentation.home.HomeViewModel
 import kotlin.math.abs
 import kotlin.math.ceil
@@ -137,14 +137,6 @@ internal fun plannerShortcuts(): List<PlannerShortcut> {
             )
         ),
         PlannerShortcut(
-            label = "Coach",
-            iconResId = R.drawable.ic_planner_school,
-            palette = PlannerFeaturePalette(
-                containerColor = Color(0xFFFFFAE5),
-                accentColor = Color(0xFFFBBF24)
-            )
-        ),
-        PlannerShortcut(
             label = "Chatbot",
             iconResId = R.drawable.ic_planner_message_chatbot,
             palette = PlannerFeaturePalette(
@@ -205,7 +197,7 @@ internal fun buildPlannerFeatureUiModels(
 
 internal fun buildPlannerFeatureUiModels(
     goal: PlannerGoal,
-    milestoneProgress: PlannerCoachMilestoneProgress?
+    milestoneProgress: PlannerMilestoneProgress?
 ): List<PlannerFeatureUiModel> {
     if (milestoneProgress == null || milestoneProgress.items.isEmpty()) {
         return emptyList()
@@ -214,6 +206,16 @@ internal fun buildPlannerFeatureUiModels(
     val featuresByName = goal.features.associateBy { it.featureName }
     return milestoneProgress.items.map { item ->
         val feature = featuresByName[item.featureName]
+        val finalTargetReached = if (isNumericMilestoneFeature(item.featureName)) {
+            hasReachedDisplayedNumericTarget(
+                featureName = item.featureName,
+                baselineText = item.baselineText,
+                currentText = item.currentText,
+                targetText = item.targetText
+            )
+        } else {
+            item.status == "ACHIEVED"
+        }
         val progress = PlannerFeatureProgress(
             featureName = item.featureName,
             label = item.label,
@@ -223,7 +225,7 @@ internal fun buildPlannerFeatureUiModels(
             actionText = feature?.actionLabel?.let(::sanitizePlannerText) ?: "",
             progressFraction = item.progressFraction.coerceIn(0f, 1f),
             statusText = plannerFeatureStatusText(item),
-            isTargetReached = item.status == "ACHIEVED",
+            isTargetReached = finalTargetReached,
             hasRelevantUpdate = !item.latestCheckInLabel.isNullOrBlank()
         )
         PlannerFeatureUiModel(
@@ -296,7 +298,7 @@ internal fun buildMilestoneCardUiModels(
 }
 
 internal fun buildMilestoneCardUiModels(
-    milestoneProgress: PlannerCoachMilestoneProgress?
+    milestoneProgress: PlannerMilestoneProgress?
 ): List<PlannerMilestoneCardUiModel> {
     if (milestoneProgress == null || milestoneProgress.items.isEmpty()) {
         return emptyList()
@@ -608,7 +610,7 @@ private fun plannerFeatureTrailingText(progress: PlannerFeatureProgress): String
     }
 }
 
-private fun plannerFeatureStatusText(item: PlannerCoachMilestoneItem): String {
+private fun plannerFeatureStatusText(item: PlannerMilestoneItem): String {
     return when {
         item.featureName in setOf("is_hypertension", "is_cholesterol", "smoking_status") &&
             item.status == "ACHIEVED" -> "Target tercapai"
@@ -828,7 +830,7 @@ private fun buildMilestoneHighlight(
     }
 }
 
-private fun PlannerCoachMilestoneItem.toWeeklyMilestone(): PlannerWeeklyMilestone {
+private fun PlannerMilestoneItem.toWeeklyMilestone(): PlannerWeeklyMilestone {
     val normalizedStatus = normalizedPlannerMilestoneStatus(this)
     return PlannerWeeklyMilestone(
         featureName = featureName,
@@ -848,7 +850,7 @@ private fun PlannerCoachMilestoneItem.toWeeklyMilestone(): PlannerWeeklyMileston
     )
 }
 
-private fun normalizedPlannerMilestoneStatus(item: PlannerCoachMilestoneItem): MilestoneStatus {
+private fun normalizedPlannerMilestoneStatus(item: PlannerMilestoneItem): MilestoneStatus {
     val rawStatus = when (item.status) {
         "ACHIEVED" -> MilestoneStatus.ACHIEVED
         "ON_TRACK" -> MilestoneStatus.ON_TRACK
@@ -886,7 +888,7 @@ private fun normalizedPlannerMilestoneStatus(item: PlannerCoachMilestoneItem): M
 }
 
 private fun plannerMilestoneStatusText(
-    item: PlannerCoachMilestoneItem,
+    item: PlannerMilestoneItem,
     status: MilestoneStatus
 ): String {
     if (status != MilestoneStatus.MONITOR) {
@@ -905,7 +907,7 @@ private fun plannerMilestoneStatusText(
 }
 
 private fun plannerMilestoneStatusColor(
-    item: PlannerCoachMilestoneItem,
+    item: PlannerMilestoneItem,
     status: MilestoneStatus
 ): Color {
     return when (status) {

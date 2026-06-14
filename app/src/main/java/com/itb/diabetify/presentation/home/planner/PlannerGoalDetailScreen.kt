@@ -65,7 +65,7 @@ fun PlannerGoalDetailScreen(
     goalId: String? = null
 ) {
     val activeGoal by viewModel.activePlannerGoal
-    val activeCoach by viewModel.activePlannerCoach
+    val activeMilestoneProgress by viewModel.activePlannerMilestoneProgress
     val allCheckInHistory by viewModel.allPlannerCheckInHistory
     val latestRisk by viewModel.latestPredictionScore
     val goal = activeGoal?.takeIf { goalId.isNullOrBlank() || it.id == goalId }
@@ -73,7 +73,7 @@ fun PlannerGoalDetailScreen(
 
     LaunchedEffect(goal?.id) {
         if (goal != null) {
-            viewModel.loadActivePlannerCoach()
+            viewModel.loadActivePlannerMilestones()
         }
     }
 
@@ -97,8 +97,7 @@ fun PlannerGoalDetailScreen(
         val history = goalId
             ?.let { id -> allCheckInHistory.filter { it.goalId == id } }
             ?: viewModel.plannerCheckInHistory.value
-        val coach = activeCoach?.takeIf { it.goalId == goal.id }
-        val featureModels = buildPlannerFeatureUiModels(goal, coach?.milestoneProgress)
+        val featureModels = buildPlannerFeatureUiModels(goal, activeMilestoneProgress)
             .ifEmpty { buildPlannerFeatureUiModels(goal, viewModel, history) }
         val progressFraction = overallGoalProgress(goal, resolvedLatestRisk)
         val safeGoalId = goal.id
@@ -140,9 +139,6 @@ fun PlannerGoalDetailScreen(
                     PlannerFeatureShortcutGrid(
                         onOpenMilestone = {
                             navController.navigate(Route.PlannerMilestoneScreen.createRoute(safeGoalId))
-                        },
-                        onOpenCoach = {
-                            navController.navigate(Route.PlannerCoachScreen.createRoute(safeGoalId))
                         },
                         onOpenChatbot = {
                             navController.navigate(Route.ChatbotScreen.route)
@@ -454,7 +450,6 @@ private fun PlannerFactorProgressRow(
 @Composable
 private fun PlannerFeatureShortcutGrid(
     onOpenMilestone: () -> Unit,
-    onOpenCoach: () -> Unit,
     onOpenChatbot: () -> Unit,
     onOpenCheckIn: () -> Unit
 ) {
@@ -473,8 +468,7 @@ private fun PlannerFeatureShortcutGrid(
                 row.forEachIndexed { itemIndex, shortcut ->
                     val onClick = when ((rowIndex * 2) + itemIndex) {
                         0 -> onOpenMilestone
-                        1 -> onOpenCoach
-                        2 -> onOpenChatbot
+                        1 -> onOpenChatbot
                         else -> onOpenCheckIn
                     }
                     PlannerShortcutCard(

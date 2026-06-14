@@ -55,13 +55,13 @@ fun PlannerMilestoneScreen(
     goalId: String? = null
 ) {
     val activeGoal by viewModel.activePlannerGoal
-    val activeCoach by viewModel.activePlannerCoach
+    val activeMilestoneProgress by viewModel.activePlannerMilestoneProgress
     val allCheckInHistory by viewModel.allPlannerCheckInHistory
     val goal = activeGoal?.takeIf { goalId.isNullOrBlank() || it.id == goalId }
 
     LaunchedEffect(goal?.id) {
         if (goal != null) {
-            viewModel.loadActivePlannerCoach()
+            viewModel.loadActivePlannerMilestones()
         }
     }
 
@@ -74,8 +74,7 @@ fun PlannerMilestoneScreen(
             return@PlannerSectionScaffold
         }
 
-        val coach = activeCoach?.takeIf { it.goalId == goal.id }
-        val backendMilestoneProgress = coach?.milestoneProgress
+        val backendMilestoneProgress = activeMilestoneProgress
         val currentWeek = backendMilestoneProgress?.progressWeek
             ?: currentMilestoneWeek(goal.createdAtMillis, goal.durationWeeks)
         val history = goalId
@@ -566,190 +565,6 @@ private fun PlannerMilestoneHighlightBanner(
             color = highlight.textColor,
             textAlign = TextAlign.Justify
         )
-    }
-}
-
-@Composable
-fun PlannerCoachScreen(
-    navController: NavController,
-    viewModel: HomeViewModel,
-    goalId: String? = null
-) {
-    val activeGoal by viewModel.activePlannerGoal
-    val activeCoach by viewModel.activePlannerCoach
-    val isLoadingCoach by viewModel.isLoadingPlannerCoach
-    val plannerCoachError by viewModel.plannerCoachError
-    val latestRisk by viewModel.latestPredictionScore
-    val allCheckInHistory by viewModel.allPlannerCheckInHistory
-    val goal = activeGoal?.takeIf { goalId.isNullOrBlank() || it.id == goalId }
-
-    LaunchedEffect(goal?.id) {
-        if (goal != null) {
-            viewModel.loadActivePlannerCoach()
-        }
-    }
-
-    PlannerSectionScaffold(
-        title = "Coach",
-        onBack = { navController.popBackStack() }
-    ) {
-        if (goal == null) {
-            PlannerEmptyState("Catatan coach belum tersedia karena tidak ada goal aktif.")
-            return@PlannerSectionScaffold
-        }
-
-        val history = goalId
-            ?.let { id -> allCheckInHistory.filter { it.goalId == id }.sortedByDescending { it.createdAtMillis } }
-            ?: viewModel.plannerCheckInHistory.value
-        val currentWeek = currentMilestoneWeek(goal.createdAtMillis, goal.durationWeeks)
-        val milestones = goal.features.mapNotNull { feature ->
-            buildWeeklyMilestone(
-                feature = feature,
-                currentValue = currentFeatureValue(feature.featureName, viewModel),
-                currentWeek = currentWeek,
-                totalWeeks = goal.durationWeeks,
-                heightCm = viewModel.height.value,
-                history = history
-            )
-        }
-        val coachNote = buildWeeklyCoachNote(
-            goal = goal,
-            milestones = milestones,
-            history = history,
-            latestRisk = latestRisk.takeIf { it > 0.0 }
-        )
-        val coach = activeCoach?.takeIf { it.goalId == goal.id }
-
-        PlannerSectionTitle(
-            subtitle = "Saran mingguan dan checklist aksi disusun dari progres faktor, target minggu ini, dan check-in terbaru Anda."
-        )
-
-        if (plannerCoachError != null && coach == null) {
-            PlannerInfoCard(title = "Koneksi Coach") {
-                Text(
-                    text = plannerCoachError.orEmpty(),
-                    fontFamily = poppinsFontFamily,
-                    fontWeight = FontWeight.Medium,
-                    fontSize = 13.sp,
-                    lineHeight = 20.sp,
-                    color = Color(0xFF6B7280)
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                PrimaryButton(
-                    text = "Coba Lagi",
-                    onClick = { viewModel.loadActivePlannerCoach(forceRefresh = true) }
-                )
-            }
-        }
-
-        PlannerInfoCard(title = "Headline") {
-            Text(
-                text = coach?.headline ?: coachNote.headline,
-                fontFamily = poppinsFontFamily,
-                fontWeight = FontWeight.Bold,
-                fontSize = 16.sp,
-                lineHeight = 22.sp,
-                color = colorResource(id = R.color.primary)
-            )
-            Text(
-                text = coach?.summary ?: coachNote.message,
-                fontFamily = poppinsFontFamily,
-                fontWeight = FontWeight.Medium,
-                fontSize = 13.sp,
-                lineHeight = 20.sp,
-                color = Color(0xFF4B5563)
-            )
-        }
-
-        PlannerInfoCard(title = "Fokus Minggu Ini") {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                val focusItems = coach?.focusThisWeek?.takeIf { it.isNotEmpty() } ?: coachNote.suggestions
-                focusItems.forEachIndexed { index, suggestion ->
-                    PlannerListItem(
-                        index = index + 1,
-                        text = suggestion,
-                        accentColor = Color(0xFFFBBF24)
-                    )
-                }
-            }
-        }
-
-        PlannerInfoCard(title = "Checklist Aksi") {
-            val actionItems = coach?.actionSteps?.takeIf { it.isNotEmpty() } ?: goal.actionSteps
-            if (actionItems.isEmpty()) {
-                Text(
-                    text = "Belum ada langkah aksi spesifik dari planner.",
-                    fontFamily = poppinsFontFamily,
-                    fontWeight = FontWeight.Medium,
-                    fontSize = 13.sp,
-                    color = Color(0xFF6B7280)
-                )
-            } else {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    actionItems.forEachIndexed { index, item ->
-                        PlannerListItem(
-                            index = index + 1,
-                            text = sanitizePlannerText(item),
-                            accentColor = Color(0xFF8A3FFC)
-                        )
-                    }
-                }
-            }
-        }
-
-        if (isLoadingCoach && coach == null) {
-            PlannerInfoCard(title = "Memuat Coach") {
-                Text(
-                    text = "Menyusun panduan mingguan Anda...",
-                    fontFamily = poppinsFontFamily,
-                    fontWeight = FontWeight.Medium,
-                    fontSize = 13.sp,
-                    color = Color(0xFF6B7280)
-                )
-            }
-        }
-
-        coach?.monitoringPoints?.takeIf { it.isNotEmpty() }?.let { monitoringPoints ->
-            PlannerInfoCard(title = "Yang Dipantau") {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    monitoringPoints.forEachIndexed { index, item ->
-                        PlannerListItem(
-                            index = index + 1,
-                            text = item,
-                            accentColor = Color(0xFF08B4BD)
-                        )
-                    }
-                }
-            }
-        }
-
-        PlannerInfoCard(title = "Catatan Penting") {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.Top
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.Info,
-                    contentDescription = null,
-                    tint = Color(0xFFFBBF24),
-                    modifier = Modifier.padding(top = 2.dp)
-                )
-                Text(
-                    text = coach?.warnings?.takeIf { it.isNotEmpty() }?.joinToString(" ") ?: coachNote.disclaimer,
-                    fontFamily = poppinsFontFamily,
-                    fontWeight = FontWeight.Medium,
-                    fontSize = 12.sp,
-                    lineHeight = 18.sp,
-                    color = Color(0xFF6B7280)
-                )
-            }
-        }
     }
 }
 
