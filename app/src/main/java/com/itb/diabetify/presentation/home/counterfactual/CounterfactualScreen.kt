@@ -66,6 +66,7 @@ import com.itb.diabetify.presentation.home.HomeViewModel
 import com.itb.diabetify.presentation.home.components.HomeCard
 import com.itb.diabetify.presentation.navgraph.Route
 import com.itb.diabetify.ui.theme.poppinsFontFamily
+import kotlin.math.floor
 
 @Composable
 fun CounterfactualScreen(
@@ -502,9 +503,20 @@ private fun RiskTargetThresholdSelector(
     targetInput: String,
     onTargetChange: (Int) -> Unit
 ) {
-    val targetPercentage = targetInput.toIntOrNull()?.coerceIn(1, 100) ?: 45
+    val maxRiskPercentage = counterfactualSliderUpperBound(currentRiskPercentage)
+    val defaultTargetPercentage = 45.coerceAtMost(maxRiskPercentage)
+    val targetPercentage = targetInput.toIntOrNull()?.coerceIn(1, maxRiskPercentage)
+        ?: defaultTargetPercentage
     val targetCategory = riskCategoryText(targetPercentage.toDouble())
     val targetColor = riskCategoryColor(targetPercentage.toDouble())
+
+    LaunchedEffect(maxRiskPercentage, targetInput) {
+        val normalizedTarget = targetInput.toIntOrNull()?.coerceIn(1, maxRiskPercentage)
+            ?: defaultTargetPercentage
+        if (targetInput != normalizedTarget.toString()) {
+            onTargetChange(normalizedTarget)
+        }
+    }
 
     val isTargetAlreadySatisfied = currentRiskPercentage <= targetPercentage
     val shouldSearchCounterfactual = currentRiskPercentage > targetPercentage
@@ -545,6 +557,7 @@ private fun RiskTargetThresholdSelector(
 
             RiskTargetGradientSlider(
                 value = targetPercentage,
+                maxRiskPercentage = maxRiskPercentage,
                 onValueChange = onTargetChange,
                 modifier = Modifier.offset(y = (-8).dp)
             )
@@ -577,18 +590,15 @@ private fun RiskTargetThresholdSelector(
 @OptIn(ExperimentalMaterial3Api::class)
 private fun RiskTargetGradientSlider(
     value: Int,
+    maxRiskPercentage: Int,
     onValueChange: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val thumbSize = 24.dp
     val scaleLabelWidth = 42.dp
-    val scaleLabels = listOf(
-        RiskScaleMarker(value = 1, label = "1%", color = Color(0xFF8BC34A)),
-        RiskScaleMarker(value = 35, label = "35%", color = Color(0xFFFFC107)),
-        RiskScaleMarker(value = 55, label = "55%", color = Color(0xFFFA821F)),
-        RiskScaleMarker(value = 70, label = "70%", color = Color(0xFFF44336)),
-        RiskScaleMarker(value = 100, label = "100%", color = Color(0xFFF44336))
-    )
+    val scaleLabels = remember(maxRiskPercentage) {
+        buildRiskScaleLabels(maxRiskPercentage)
+    }
 
     BoxWithConstraints(
         modifier = modifier
@@ -600,9 +610,9 @@ private fun RiskTargetGradientSlider(
 
         Slider(
             value = value.toFloat(),
-            onValueChange = { onValueChange(it.toInt().coerceIn(1, 100)) },
-            valueRange = 1f..100f,
-            steps = 98,
+            onValueChange = { onValueChange(it.toInt().coerceIn(1, maxRiskPercentage)) },
+            valueRange = 1f..maxRiskPercentage.toFloat(),
+            steps = (maxRiskPercentage - 2).coerceAtLeast(0),
             thumb = {
                 Box(
                     modifier = Modifier
@@ -617,7 +627,7 @@ private fun RiskTargetGradientSlider(
                         .fillMaxWidth()
                         .height(16.dp)
                         .clip(RoundedCornerShape(999.dp))
-                        .background(riskGradientBrush())
+                        .background(riskGradientBrush(maxRiskPercentage))
                 )
             },
             modifier = Modifier.fillMaxWidth()
@@ -634,6 +644,7 @@ private fun RiskTargetGradientSlider(
                         x = riskScaleLabelOffset(
                             travelWidth = travelWidth,
                             value = marker.value,
+                            maxValue = maxRiskPercentage,
                             labelWidth = scaleLabelWidth,
                             thumbSize = thumbSize,
                             containerWidth = maxWidth
@@ -665,6 +676,7 @@ private fun RiskTargetScaleLabel(
 private fun riskMarkerOffset(
     travelWidth: Dp,
     value: Int,
+    maxValue: Int,
     markerWidth: Dp,
     thumbSize: Dp,
     containerWidth: Dp
@@ -672,6 +684,7 @@ private fun riskMarkerOffset(
     return riskPositionOffset(
         travelWidth = travelWidth,
         value = value,
+        maxValue = maxValue,
         itemWidth = markerWidth,
         thumbSize = thumbSize,
         containerWidth = containerWidth
@@ -681,6 +694,7 @@ private fun riskMarkerOffset(
 private fun riskScaleLabelOffset(
     travelWidth: Dp,
     value: Int,
+    maxValue: Int,
     labelWidth: Dp,
     thumbSize: Dp,
     containerWidth: Dp
@@ -688,6 +702,7 @@ private fun riskScaleLabelOffset(
     return riskPositionOffset(
         travelWidth = travelWidth,
         value = value,
+        maxValue = maxValue,
         itemWidth = labelWidth,
         thumbSize = thumbSize,
         containerWidth = containerWidth
@@ -697,11 +712,15 @@ private fun riskScaleLabelOffset(
 private fun riskPositionOffset(
     travelWidth: Dp,
     value: Int,
+    maxValue: Int,
     itemWidth: Dp,
     thumbSize: Dp,
     containerWidth: Dp
 ): Dp {
-    val positionFraction = ((value - 1) / 99f).coerceIn(0f, 1f)
+    val safeMaxValue = maxValue.coerceAtLeast(1)
+    val denominator = (safeMaxValue - 1).coerceAtLeast(1)
+    val boundedValue = value.coerceIn(1, safeMaxValue)
+    val positionFraction = ((boundedValue - 1).toFloat() / denominator.toFloat()).coerceIn(0f, 1f)
     val centerPosition = (thumbSize / 2) + (positionFraction * travelWidth)
     return (centerPosition - (itemWidth / 2)).coerceIn(0.dp, containerWidth - itemWidth)
 }
@@ -712,16 +731,97 @@ private data class RiskScaleMarker(
     val color: Color
 )
 
-private fun riskGradientBrush(): Brush {
-    return Brush.horizontalGradient(
-        colorStops = arrayOf(
-            0.0f to Color(0xFF8BC34A),
-            0.35f to Color(0xFFFFC107),
-            0.55f to Color(0xFFFA821F),
-            0.70f to Color(0xFFF44336),
-            1.0f to Color(0xFFF44336)
-        )
+private fun buildRiskScaleLabels(maxRiskPercentage: Int): List<RiskScaleMarker> {
+    val safeMaxRiskPercentage = maxRiskPercentage.coerceIn(1, 100)
+    val fixedMarkers = listOf(
+        RiskScaleMarker(value = 1, label = "1%", color = Color(0xFF8BC34A)),
+        RiskScaleMarker(value = 35, label = "35%", color = Color(0xFFFFC107)),
+        RiskScaleMarker(value = 55, label = "55%", color = Color(0xFFFA821F)),
+        RiskScaleMarker(value = 70, label = "70%", color = Color(0xFFF44336))
     )
+    val endpointMarker = RiskScaleMarker(
+        value = safeMaxRiskPercentage,
+        label = "${safeMaxRiskPercentage}%",
+        color = riskCategoryColor(safeMaxRiskPercentage.toDouble())
+    )
+
+    val minFractionGap = 0.12f
+    val selectedMarkers = mutableListOf(fixedMarkers.first())
+    val intermediateMarkers = fixedMarkers
+        .drop(1)
+        .filter { it.value < safeMaxRiskPercentage }
+
+    intermediateMarkers.forEach { marker ->
+        val previousFraction = riskValueFraction(selectedMarkers.last().value, safeMaxRiskPercentage)
+        val markerFraction = riskValueFraction(marker.value, safeMaxRiskPercentage)
+        val endpointFraction = riskValueFraction(endpointMarker.value, safeMaxRiskPercentage)
+        val isFarEnoughFromPrevious = markerFraction - previousFraction >= minFractionGap
+        val isFarEnoughFromEndpoint = endpointFraction - markerFraction >= minFractionGap
+
+        if (isFarEnoughFromPrevious && isFarEnoughFromEndpoint) {
+            selectedMarkers += marker
+        }
+    }
+
+    if (selectedMarkers.last().value != endpointMarker.value) {
+        selectedMarkers += endpointMarker
+    } else {
+        selectedMarkers[selectedMarkers.lastIndex] = endpointMarker
+    }
+
+    return selectedMarkers
+}
+
+private fun riskGradientBrush(maxRiskPercentage: Int): Brush {
+    val safeMaxRiskPercentage = maxRiskPercentage.coerceIn(1, 100)
+    val baseStops = listOf(
+        1 to Color(0xFF8BC34A),
+        35 to Color(0xFFFFC107),
+        55 to Color(0xFFFA821F),
+        70 to Color(0xFFF44336),
+        100 to Color(0xFFF44336)
+    )
+    val denominator = (safeMaxRiskPercentage - 1).coerceAtLeast(1).toFloat()
+    val colorStops = mutableListOf<Pair<Float, Color>>()
+
+    baseStops
+        .filter { (value, _) -> value <= safeMaxRiskPercentage }
+        .forEach { (value, color) ->
+            val fraction = if (safeMaxRiskPercentage == 1) {
+                0f
+            } else {
+                ((value - 1).toFloat() / denominator).coerceIn(0f, 1f)
+            }
+            if (colorStops.isEmpty() || fraction > colorStops.last().first) {
+                colorStops += fraction to color
+            }
+        }
+
+    val endpointColor = riskCategoryColor(safeMaxRiskPercentage.toDouble())
+    if (colorStops.isEmpty()) {
+        colorStops += 0f to endpointColor
+    }
+    if (colorStops.last().first < 1f) {
+        colorStops += 1f to endpointColor
+    } else {
+        colorStops[colorStops.lastIndex] = 1f to endpointColor
+    }
+
+    return Brush.horizontalGradient(colorStops = colorStops.toTypedArray())
+}
+
+private fun counterfactualSliderUpperBound(currentRiskPercentage: Double): Int {
+    if (!currentRiskPercentage.isFinite()) {
+        return 100
+    }
+    return floor(currentRiskPercentage).toInt().coerceIn(1, 100)
+}
+
+private fun riskValueFraction(value: Int, maxValue: Int): Float {
+    val safeMaxValue = maxValue.coerceAtLeast(1)
+    val denominator = (safeMaxValue - 1).coerceAtLeast(1)
+    val boundedValue = value.coerceIn(1, safeMaxValue)
+    return ((boundedValue - 1).toFloat() / denominator.toFloat()).coerceIn(0f, 1f)
 }
 
 private fun riskCategoryText(riskPercentage: Double): String {
