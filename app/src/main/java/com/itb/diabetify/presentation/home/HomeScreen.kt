@@ -47,6 +47,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -278,7 +279,10 @@ fun HomeScreen(
                 }
 
                 Column(
-                    modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 10.dp)
+                        .testTag("HomeCounterfactualSection"),
                 ) {
                     HomeCard(
                         title = "Rencana Penurunan Risiko"
@@ -333,6 +337,7 @@ fun HomeScreen(
                                 enabled = !isLatestPredictionLoading,
                                 isLoading = isLatestPredictionLoading,
                                 modifier = Modifier
+                                    .testTag("HomeCounterfactualActionButton")
                                     .fillMaxWidth()
                                     .padding(top = 8.dp)
                                     .height(50.dp)

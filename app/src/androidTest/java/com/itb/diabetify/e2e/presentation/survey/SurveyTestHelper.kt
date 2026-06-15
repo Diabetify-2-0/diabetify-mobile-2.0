@@ -11,6 +11,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.printToLog
@@ -151,18 +152,23 @@ class SurveyTestHelper(
 
     private fun answerNumericQuestion(value: String) {
         try {
-            composeTestRule.onNodeWithText("Masukkan nilai")
-                .performClick()
-                .performTextInput(value)
+            val input = composeTestRule.onNodeWithText("Masukkan nilai")
+            input.performClick()
+            input.performTextClearance()
+            input.performTextInput(value)
             composeTestRule.waitForIdle()
         } catch (_: AssertionError) {
             try {
-                composeTestRule.onNode(hasTextExactly("") and hasSetTextAction())
-                    .performClick()
-                    .performTextInput(value)
+                val emptyInput = composeTestRule.onNode(hasTextExactly("") and hasSetTextAction())
+                emptyInput.performClick()
+                emptyInput.performTextClearance()
+                emptyInput.performTextInput(value)
                 composeTestRule.waitForIdle()
             } catch (_: AssertionError) {
-                composeTestRule.onRoot().performTextInput(value)
+                val fallbackInput = composeTestRule.onAllNodes(hasSetTextAction())[0]
+                fallbackInput.performClick()
+                fallbackInput.performTextClearance()
+                fallbackInput.performTextInput(value)
                 composeTestRule.waitForIdle()
             }
         }
@@ -442,6 +448,52 @@ class SurveyTestHelper(
 
         composeTestRule.onNodeWithText("aktivitas fisik", substring = true).assertIsDisplayed()
         answerNumericQuestion("3")
+        clickNextButton()
+
+        Thread.sleep(1000)
+        composeTestRule.waitForIdle()
+    }
+
+    fun fillSurveyForFeasibleCounterfactualProfile() {
+        Thread.sleep(2000)
+        composeTestRule.waitForIdle()
+
+        answerNumericQuestion("90")
+        clickNextButton()
+
+        answerNumericQuestion("180")
+        clickNextButton()
+
+        skipPregnancyQuestionIfPresent()
+
+        composeTestRule.onNodeWithText("Tidak Pernah").performClick()
+        composeTestRule.waitForIdle()
+        clickNextButton()
+
+        composeTestRule.onNodeWithText("mengetahui nilai tekanan darah", substring = true)
+            .assertIsDisplayed()
+        composeTestRule.onNodeWithText("Tidak").performClick()
+        composeTestRule.waitForIdle()
+        clickNextButton()
+
+        composeTestRule.onNodeWithText("tekanan darah tinggi", substring = true)
+            .assertIsDisplayed()
+        composeTestRule.onNodeWithText("Ya").performClick()
+        composeTestRule.waitForIdle()
+        clickNextButton()
+
+        composeTestRule.onNodeWithText("kolesterol tinggi", substring = true).assertIsDisplayed()
+        composeTestRule.onNodeWithText("Ya").performClick()
+        composeTestRule.waitForIdle()
+        clickNextButton()
+
+        composeTestRule.onNodeWithText("ayah atau ibu", substring = true).assertIsDisplayed()
+        composeTestRule.onNodeWithText("Ya").performClick()
+        composeTestRule.waitForIdle()
+        clickNextButton()
+
+        composeTestRule.onNodeWithText("aktivitas fisik", substring = true).assertIsDisplayed()
+        answerNumericQuestion("0")
         clickNextButton()
 
         Thread.sleep(1000)

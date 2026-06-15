@@ -630,7 +630,9 @@ private fun RiskTargetGradientSlider(
                         .background(riskGradientBrush(maxRiskPercentage))
                 )
             },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("CounterfactualTargetSlider")
         )
 
         scaleLabels.forEach { marker ->
