@@ -3,16 +3,12 @@ package com.itb.diabetify.data.remote.counterfactual.request
 import com.google.gson.annotations.SerializedName
 
 data class CounterfactualRequest(
-    @SerializedName("model_version")
-    val modelVersion: String = "xgb_v3",
     @SerializedName("instance")
     val instance: CounterfactualInstance,
     @SerializedName("constraints")
     val constraints: CounterfactualConstraints,
     @SerializedName("target")
-    val target: CounterfactualTarget = CounterfactualTarget(),
-    @SerializedName("generation")
-    val generation: CounterfactualGeneration = CounterfactualGeneration()
+    val target: CounterfactualTarget = CounterfactualTarget()
 )
 
 data class CounterfactualInstance(
@@ -51,9 +47,4 @@ data class CounterfactualTarget(
     val targetClass: String = "low_risk",
     @SerializedName("min_target_probability")
     val minTargetProbability: Double = 0.5
-)
-
-data class CounterfactualGeneration(
-    @SerializedName("total_cfs")
-    val totalCfs: Int = 1
 )

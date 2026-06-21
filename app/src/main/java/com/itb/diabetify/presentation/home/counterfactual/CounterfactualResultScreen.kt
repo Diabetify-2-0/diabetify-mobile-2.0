@@ -108,7 +108,7 @@ fun CounterfactualResultScreen(
         showReplaceGoalDialog = showReplaceGoalDialog,
         displayFeatures = result?.let {
             buildDisplayFeatureChanges(
-                rawFeatures = it.plannerInput?.changedFeatures.orEmpty(),
+                rawFeatures = it.candidate?.changedFeatures.orEmpty(),
                 viewModel = viewModel
             )
         }.orEmpty(),
@@ -220,7 +220,7 @@ internal fun CounterfactualResultContent(
                 )
             }
 
-            result.status == "FEASIBLE" && result.candidates.isNotEmpty() -> {
+            result.status == "FEASIBLE" && result.candidate != null -> {
                 FeasibleCounterfactualResultScreen(
                     modifier = Modifier.testTag("CounterfactualResultState_Feasible"),
                     result = result,
@@ -422,8 +422,8 @@ private fun CounterfactualFullStateScreen(
 
 @Composable
 private fun FeasibleHeroCard(result: CounterfactualResultPayload) {
-    val currentRisk = result.inputPrediction?.probabilityLowRisk?.let(::toHighRiskPercentage)
-    val projectedRisk = result.candidates.firstOrNull()?.prediction?.probabilityLowRisk?.let(::toHighRiskPercentage)
+    val currentRisk = result.input?.probabilityLowRisk?.let(::toHighRiskPercentage)
+    val projectedRisk = result.candidate?.candidatePrediction?.probabilityLowRisk?.let(::toHighRiskPercentage)
     val reduction = if (currentRisk != null && projectedRisk != null) {
         (currentRisk - projectedRisk).coerceAtLeast(0.0)
     } else {

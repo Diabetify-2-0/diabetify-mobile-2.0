@@ -23,14 +23,12 @@ data class CounterfactualJobResultData(
 )
 
 data class CounterfactualResultPayload(
-    @SerializedName("candidates")
-    val candidates: List<CounterfactualCandidate> = emptyList(),
-    @SerializedName("input_prediction")
-    val inputPrediction: CounterfactualPredictionInfo? = null,
+    @SerializedName("candidate")
+    val candidate: CounterfactualCandidate? = null,
+    @SerializedName("input")
+    val input: CounterfactualInput? = null,
     @SerializedName("message")
     val message: String? = null,
-    @SerializedName("planner_input")
-    val plannerInput: CounterfactualPlannerInput? = null,
     @SerializedName("reason_code")
     val reasonCode: String? = null,
     @SerializedName("runtime_ms")
@@ -41,24 +39,30 @@ data class CounterfactualResultPayload(
     val validation: CounterfactualValidationSummary? = null
 )
 
+data class CounterfactualInput(
+    @SerializedName("class")
+    val className: String? = null,
+    @SerializedName("probability_low_risk")
+    val probabilityLowRisk: Double? = null,
+    @SerializedName("mutable_allowed")
+    val mutableAllowed: List<String> = emptyList(),
+    @SerializedName("immutable_features")
+    val immutableFeatures: List<String> = emptyList()
+)
+
 data class CounterfactualCandidate(
     @SerializedName("candidate_id")
     val candidateId: String,
-    @SerializedName("metrics")
-    val metrics: CounterfactualCandidateMetrics? = null,
-    @SerializedName("prediction")
-    val prediction: CounterfactualPredictionInfo? = null
-)
-
-data class CounterfactualCandidateMetrics(
-    @SerializedName("changed_feature_count")
-    val changedFeatureCount: Int? = null,
-    @SerializedName("constraint_violations")
-    val constraintViolations: Int? = null,
-    @SerializedName("distance_l1")
-    val distanceL1: Double? = null,
+    @SerializedName("features")
+    val features: Map<String, Any?> = emptyMap(),
+    @SerializedName("candidate_prediction")
+    val candidatePrediction: CounterfactualPredictionInfo? = null,
     @SerializedName("lof_score")
-    val lofScore: Double? = null
+    val lofScore: Double? = null,
+    @SerializedName("changed_features")
+    val changedFeatures: List<CounterfactualChangedFeature> = emptyList(),
+    @SerializedName("validation")
+    val validation: CounterfactualValidationSummary? = null
 )
 
 data class CounterfactualPredictionInfo(
@@ -68,39 +72,11 @@ data class CounterfactualPredictionInfo(
     val probabilityLowRisk: Double? = null
 )
 
-data class CounterfactualPlannerInput(
-    @SerializedName("candidate_metrics")
-    val candidateMetrics: CounterfactualCandidateMetrics? = null,
-    @SerializedName("candidate_prediction")
-    val candidatePrediction: CounterfactualPlannerPrediction? = null,
-    @SerializedName("changed_features")
-    val changedFeatures: List<CounterfactualChangedFeature> = emptyList(),
-    @SerializedName("immutable_features")
-    val immutableFeatures: List<String> = emptyList(),
-    @SerializedName("input_prediction")
-    val inputPrediction: CounterfactualPlannerPrediction? = null,
-    @SerializedName("must_not_change")
-    val mustNotChange: List<String> = emptyList(),
-    @SerializedName("mutable_allowed")
-    val mutableAllowed: List<String> = emptyList(),
-    @SerializedName("recommended_candidate_id")
-    val recommendedCandidateId: String? = null,
-    @SerializedName("target_deltas")
-    val targetDeltas: Map<String, Double> = emptyMap()
-)
-
-data class CounterfactualPlannerPrediction(
-    @SerializedName("class")
-    val className: String? = null,
-    @SerializedName("probability_low_risk")
-    val probabilityLowRisk: Double? = null
-)
-
 data class CounterfactualValidationSummary(
     @SerializedName("immutable_violation")
     val immutableViolation: Boolean? = null,
-    @SerializedName("mutable_compliance")
-    val mutableCompliance: Boolean? = null,
+    @SerializedName("mutable_violation")
+    val mutableViolation: Boolean? = null,
     @SerializedName("medical_rules_passed")
     val medicalRulesPassed: Boolean? = null
 )

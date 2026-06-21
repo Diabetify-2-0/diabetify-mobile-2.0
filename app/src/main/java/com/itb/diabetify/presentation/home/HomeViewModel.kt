@@ -11,12 +11,12 @@ import androidx.lifecycle.viewModelScope
 import com.itb.diabetify.R
 import com.itb.diabetify.data.remote.counterfactual.request.CounterfactualConstraints
 import com.itb.diabetify.data.remote.counterfactual.request.CounterfactualFeatureSet
-import com.itb.diabetify.data.remote.counterfactual.request.CounterfactualGeneration
 import com.itb.diabetify.data.remote.counterfactual.request.CounterfactualInstance
 import com.itb.diabetify.data.remote.counterfactual.request.CounterfactualRequest
 import com.itb.diabetify.data.remote.counterfactual.request.CounterfactualTarget
 import com.itb.diabetify.data.remote.counterfactual.response.CounterfactualJobResultData
 import com.itb.diabetify.data.remote.counterfactual.response.CounterfactualChangedFeature
+import com.itb.diabetify.data.remote.counterfactual.response.CounterfactualInput
 import com.itb.diabetify.data.remote.counterfactual.response.CounterfactualPredictionInfo
 import com.itb.diabetify.data.remote.counterfactual.response.CounterfactualResultPayload
 import com.itb.diabetify.domain.model.planner.PlannerCheckInEntry
@@ -1057,9 +1057,6 @@ class HomeViewModel @Inject constructor(
             target = CounterfactualTarget(
                 targetClass = "low_risk",
                 minTargetProbability = selectedTarget.minLowRiskProbability
-            ),
-            generation = CounterfactualGeneration(
-                totalCfs = 3
             )
         )
     }
@@ -1077,8 +1074,8 @@ class HomeViewModel @Inject constructor(
         val localJobId = "local-target-satisfied-${System.currentTimeMillis()}"
 
         _counterfactualResult.value = CounterfactualResultPayload(
-            candidates = emptyList(),
-            inputPrediction = CounterfactualPredictionInfo(
+            candidate = null,
+            input = CounterfactualInput(
                 className = if (lowRiskProbability >= 0.5) "low_risk" else "high_risk",
                 probabilityLowRisk = lowRiskProbability
             ),
@@ -1185,7 +1182,7 @@ class HomeViewModel @Inject constructor(
         durationWeeks: Int = plannerGoalDurationWeeks.value
     ) {
         val result = counterfactualResult.value
-        if (result == null || result.status != "FEASIBLE" || result.candidates.isEmpty()) {
+        if (result == null || result.status != "FEASIBLE" || result.candidate == null) {
             _errorMessage.value = "Belum ada rencana feasible yang bisa disimpan sebagai goal"
             return
         }
@@ -1239,11 +1236,11 @@ class HomeViewModel @Inject constructor(
         result: CounterfactualResultPayload,
         durationWeeks: Int
     ): PlannerGoal {
-        val currentRisk = result.inputPrediction?.probabilityLowRisk?.let(::toHighRiskPercentage)
-        val projectedRisk = result.candidates.firstOrNull()?.prediction?.probabilityLowRisk?.let(
+        val currentRisk = result.input?.probabilityLowRisk?.let(::toHighRiskPercentage)
+        val projectedRisk = result.candidate?.candidatePrediction?.probabilityLowRisk?.let(
             ::toHighRiskPercentage
         )
-        val changedFeatures = result.plannerInput?.changedFeatures.orEmpty()
+        val changedFeatures = result.candidate?.changedFeatures.orEmpty()
         val goalFeatures = changedFeatures.mapNotNull(::buildPlannerGoalFeature)
 
         return PlannerGoal(
