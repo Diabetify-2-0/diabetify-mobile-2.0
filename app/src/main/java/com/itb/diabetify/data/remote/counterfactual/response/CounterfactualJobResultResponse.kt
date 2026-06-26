@@ -45,9 +45,7 @@ data class CounterfactualInput(
     @SerializedName("probability_low_risk")
     val probabilityLowRisk: Double? = null,
     @SerializedName("mutable_allowed")
-    val mutableAllowed: List<String> = emptyList(),
-    @SerializedName("immutable_features")
-    val immutableFeatures: List<String> = emptyList()
+    val mutableAllowed: List<String> = emptyList()
 )
 
 data class CounterfactualCandidate(
