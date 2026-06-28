@@ -5,27 +5,26 @@ import android.os.SystemClock
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.compose.ui.test.onAllNodesWithText
-import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
-import androidx.compose.ui.test.performTouchInput
-import androidx.compose.ui.test.swipeLeft
 import androidx.test.ext.junit.rules.ActivityScenarioRule
 import com.itb.diabetify.MainActivity
-import com.itb.diabetify.e2e.presentation.survey.SurveyTestHelper
+import com.itb.diabetify.util.Constants
 import kotlin.math.max
+import java.net.HttpURLConnection
+import java.net.URL
 
 class CounterfactualE2ETestHelper(
     private val composeTestRule: AndroidComposeTestRule<ActivityScenarioRule<MainActivity>, MainActivity>
 ) {
-    private val surveyTestHelper = SurveyTestHelper(composeTestRule)
 
     companion object {
         private const val APP_START_MAX_ATTEMPTS = 20
@@ -36,12 +35,44 @@ class CounterfactualE2ETestHelper(
         private const val COUNTERFACTUAL_TIMEOUT_MS = 30000L
         private const val LATENCY_TARGET_MS = 5000L
         private const val MAX_TARGET_PERCENTAGE = 44
+        private const val FEASIBLE_TARGET_PERCENTAGE = 50
+        private const val STRICT_INFEASIBLE_TARGET_PERCENTAGE = 1
     }
 
     data class CounterfactualRunResult(
         val stateTag: String,
-        val latencyMs: Long
+        val latencyMs: Long,
+        val targetPercentage: Int
     )
+
+    fun verifyCounterfactualHealthReady(): String {
+        val healthUrl = URL(URL(Constants.BASE_URL), "health/ready")
+        val connection = healthUrl.openConnection() as HttpURLConnection
+        connection.requestMethod = "GET"
+        connection.connectTimeout = 5000
+        connection.readTimeout = 5000
+
+        try {
+            val responseCode = connection.responseCode
+            val body = if (responseCode in 200..299) {
+                connection.inputStream.bufferedReader().use { reader -> reader.readText() }
+            } else {
+                connection.errorStream?.bufferedReader()?.use { reader -> reader.readText() }.orEmpty()
+            }
+            check(responseCode == 200) {
+                "Backend readiness failed with HTTP $responseCode: $body"
+            }
+            check(body.contains("\"status\":\"success\"") || body.contains("\"status\": \"success\"")) {
+                "Backend readiness response did not report success: $body"
+            }
+            check(body.contains("counterfactual")) {
+                "Backend readiness response did not include counterfactual check: $body"
+            }
+            return "ready url=$healthUrl"
+        } finally {
+            connection.disconnect()
+        }
+    }
 
     @SuppressLint("CheckResult")
     fun startAppAndNavigateToHome() {
@@ -56,39 +87,39 @@ class CounterfactualE2ETestHelper(
                 }
 
                 isLoginVisible() -> {
-                    fillLoginForm(email = "testmale@example.com", password = "bewebewe")
+                    fillLoginForm(email = "christian.justin23@gmail.com", password = "bewebewe")
                     clickLoginButton()
-                    Thread.sleep(1500L)
+                    waitForHomeScreenAfterLogin()
+                    waitForHomeContentToLoad()
+                    return
                 }
 
                 isSurveyVisible() -> {
-                    completeSurveyBootstrapForCounterfactual()
+                    error(
+                        "Counterfactual E2E must start from Login -> Home -> Counterfactual. " +
+                            "Survey is visible, which means the test account is missing required profile/prediction setup."
+                    )
                 }
 
                 hasDisplayedText("Kenali Risiko") && hasDisplayedText("Mulai") -> {
-                    composeTestRule.onNodeWithText("Mulai").performClick()
-                    composeTestRule.waitForIdle()
+                    error(
+                        "Counterfactual E2E does not resolve onboarding. " +
+                            "Complete onboarding before running this service-backed E2E test."
+                    )
                 }
 
                 hasDisplayedText("Sudah memiliki akun") -> {
-                    composeTestRule.onNodeWithText("Masuk").performClick()
-                    composeTestRule.waitForIdle()
-                }
-
-                hasDisplayedText(">") -> {
-                    try {
-                        composeTestRule.onNodeWithText(">").performClick()
-                    } catch (_: AssertionError) {
-                        composeTestRule.onRoot().performTouchInput { swipeLeft() }
-                    }
-                    composeTestRule.waitForIdle()
+                    error(
+                        "Counterfactual E2E does not navigate through onboarding entry screens. " +
+                            "Start the app in a state where Login or Home is directly reachable."
+                    )
                 }
             }
 
             Thread.sleep(1000L)
         }
 
-        error("Could not reach Home screen for counterfactual E2E after resolving onboarding/login states.")
+        error("Could not reach Home screen for counterfactual E2E. Expected either Login or Home; onboarding, survey, and bootstrap setup are intentionally excluded.")
     }
 
     fun verifyCounterfactualEntryAvailable() {
@@ -116,13 +147,107 @@ class CounterfactualE2ETestHelper(
         composeTestRule.onNodeWithTag("CounterfactualScreenRoot").assertIsDisplayed()
     }
 
-    fun runServiceBackedCounterfactualAndMeasureLatency(): CounterfactualRunResult {
+    fun ensureCounterfactualSetup() {
+        when {
+            hasDisplayedNode("CounterfactualScreenRoot") -> {
+                composeTestRule.onNodeWithTag("CounterfactualScreenRoot").assertIsDisplayed()
+            }
+
+            hasAnyCounterfactualResultState() -> {
+                returnToCounterfactualSetup()
+            }
+
+            else -> {
+                startAppAndNavigateToHome()
+                verifyCounterfactualEntryAvailable()
+                navigateToCounterfactualScreen()
+            }
+        }
+    }
+
+    fun verifyMutableToggle(): String {
+        val key = "BMI"
+        composeTestRule.onNodeWithTag(optionTag(key)).performScrollTo().assertIsDisplayed()
+        val initiallySelected = isOptionSelected(key)
+
+        clickMutableOption(key)
+        waitForOptionSelected(key, !initiallySelected)
+        composeTestRule.onNodeWithTag(optionTag(key)).assert(
+            androidx.compose.ui.test.SemanticsMatcher.expectValue(
+                SemanticsProperties.Selected,
+                !initiallySelected
+            )
+        )
+
+        clickMutableOption(key)
+        waitForOptionSelected(key, initiallySelected)
+        return "BMI toggled ${initiallySelected}->${!initiallySelected}->${initiallySelected}"
+    }
+
+    fun verifyNoMutableValidation(): String {
+        deselectAllMutableOptions()
+        composeTestRule.onNodeWithTag("CounterfactualRunButton").assertIsDisplayed().performClick()
+        composeTestRule.waitUntil(timeoutMillis = 5000L) {
+            hasDisplayedText("Pilih minimal satu faktor")
+        }
+        composeTestRule.onNodeWithTag("CounterfactualScreenRoot").assertIsDisplayed()
+        return "validation message shown when no mutable option is selected"
+    }
+
+    fun selectOnlyMutableOptions(keys: Set<String>): String {
+        val availableKeys = availableMutableOptionKeys()
+        require(keys.all { it in availableKeys }) {
+            "Requested mutable keys $keys, but available keys are $availableKeys"
+        }
+
+        availableKeys.forEach { key ->
+            val shouldBeSelected = key in keys
+            if (isOptionSelected(key) != shouldBeSelected) {
+                clickMutableOption(key)
+                waitForOptionSelected(key, shouldBeSelected)
+            }
+        }
+
+        val selected = availableKeys.filter(::isOptionSelected)
+        check(selected.toSet() == keys) {
+            "Expected selected mutable keys $keys, got $selected"
+        }
+        return "selected=${selected.joinToString(",")}"
+    }
+
+    fun runFeasibleBmiOnly(): CounterfactualRunResult {
+        selectOnlyMutableOptions(setOf("BMI"))
+        return runServiceBackedCounterfactualAndMeasureLatency(targetPercentage = FEASIBLE_TARGET_PERCENTAGE)
+    }
+
+    fun runFeasibleBmiAndActivity(): CounterfactualRunResult {
+        selectOnlyMutableOptions(setOf("BMI", "moderate_physical_activity_frequency"))
+        return runServiceBackedCounterfactualAndMeasureLatency(targetPercentage = FEASIBLE_TARGET_PERCENTAGE)
+    }
+
+    fun runFeasibleFullActionable(): CounterfactualRunResult {
+        selectOnlyMutableOptions(
+            setOf("BMI", "moderate_physical_activity_frequency", "is_hypertension", "is_cholesterol")
+        )
+        return runServiceBackedCounterfactualAndMeasureLatency(targetPercentage = MAX_TARGET_PERCENTAGE)
+    }
+
+    fun runStrictInfeasibleBmiOnly(): CounterfactualRunResult {
+        selectOnlyMutableOptions(setOf("BMI"))
+        return runServiceBackedCounterfactualAndMeasureLatency(
+            targetPercentage = STRICT_INFEASIBLE_TARGET_PERCENTAGE
+        )
+    }
+
+    fun runServiceBackedCounterfactualAndMeasureLatency(
+        targetPercentage: Int? = null
+    ): CounterfactualRunResult {
         val currentRisk = getDisplayedCurrentRiskPercentage()
         require(currentRisk > 1) {
             "Counterfactual E2E requires current risk above 1%, but got $currentRisk%"
         }
 
-        val target = determineFeasibleTargetPercentage(currentRisk)
+        val target = targetPercentage ?: determineFeasibleTargetPercentage(currentRisk)
         setCounterfactualTarget(target = target, currentRisk = currentRisk)
 
         composeTestRule.onNodeWithTag("CounterfactualRunButton").assertIsDisplayed()
@@ -144,7 +269,11 @@ class CounterfactualE2ETestHelper(
         val stateTag = currentCounterfactualResultStateTag()
         Thread.sleep(POST_RESULT_SETTLE_MS)
 
-        return CounterfactualRunResult(stateTag = stateTag, latencyMs = latencyMs)
+        return CounterfactualRunResult(
+            stateTag = stateTag,
+            latencyMs = latencyMs,
+            targetPercentage = target
+        )
     }
 
     fun verifyServiceBackedResultState(result: CounterfactualRunResult) {
@@ -152,6 +281,74 @@ class CounterfactualE2ETestHelper(
         require(result.stateTag == "CounterfactualResultState_Feasible") {
             "Expected a FEASIBLE counterfactual result for the controlled profile, but got ${result.stateTag}."
         }
+    }
+
+    fun verifyPollingReachedTerminal(result: CounterfactualRunResult): String {
+        composeTestRule.onNodeWithTag(result.stateTag).assertIsDisplayed()
+        check(result.latencyMs > 0) { "Polling latency must be positive" }
+        return "terminal=${result.stateTag}, latencyMs=${result.latencyMs}"
+    }
+
+    fun verifyFeasibleResultContent(result: CounterfactualRunResult): String {
+        verifyServiceBackedResultState(result)
+        composeTestRule.onNodeWithTag("CounterfactualFeasibleHero").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Risiko saat ini", substring = true).assertIsDisplayed()
+        composeTestRule.onNodeWithText("Setelah skenario", substring = true).assertIsDisplayed()
+        composeTestRule.onNodeWithText("Visualisasi Perubahan Fitur", substring = true).assertIsDisplayed()
+
+        val changedFeatureTags = listOf(
+            "CounterfactualChangedFeature_BMI",
+            "CounterfactualChangedFeature_moderate_physical_activity_frequency",
+            "CounterfactualChangedFeature_is_hypertension",
+            "CounterfactualChangedFeature_is_cholesterol",
+            "CounterfactualChangedFeature_smoking_status"
+        )
+        check(changedFeatureTags.any(::hasDisplayedNode)) {
+            "No changed feature visualization was displayed"
+        }
+
+        return "feasible result content visible for target=${result.targetPercentage}, latencyMs=${result.latencyMs}"
+    }
+
+    fun saveFeasibleResultAsPlannerGoal(): String {
+        composeTestRule.onNodeWithTag("CounterfactualSaveGoalButton")
+            .performScrollTo()
+            .assertIsDisplayed()
+            .performClick()
+
+        if (hasDisplayedText("Ganti Goal Aktif?")) {
+            composeTestRule.onNodeWithText("Ganti Goal").performClick()
+        }
+
+        composeTestRule.waitUntil(timeoutMillis = 10000L) {
+            hasDisplayedText("Rencana berhasil disimpan") ||
+                hasDisplayedText("Goal Sudah Aktif")
+        }
+        return "planner goal saved or already active"
+    }
+
+    fun verifyInfeasibleResultState(result: CounterfactualRunResult): String {
+        val allowedStates = setOf(
+            "CounterfactualResultState_NoScenario",
+            "CounterfactualResultState_Fallback"
+        )
+        composeTestRule.onNodeWithTag(result.stateTag).assertIsDisplayed()
+        check(result.stateTag in allowedStates) {
+            "Expected infeasible/no-scenario result, got ${result.stateTag}"
+        }
+        return "infeasible terminal=${result.stateTag}, target=${result.targetPercentage}, latencyMs=${result.latencyMs}"
+    }
+
+    fun verifyInfeasibleResultContent(): String {
+        check(
+            hasDisplayedNode("CounterfactualResultState_NoScenario") ||
+                hasDisplayedNode("CounterfactualResultState_Fallback")
+        ) {
+            "No infeasible result state was displayed"
+        }
+        composeTestRule.onNodeWithText("Skenario realistis belum ditemukan", substring = true)
+            .assertIsDisplayed()
+        return "no-scenario message visible"
     }
 
     fun verifyLatencyWithinTarget(latencies: List<Long>) {
@@ -191,6 +388,55 @@ class CounterfactualE2ETestHelper(
         composeTestRule.onNodeWithTag("CounterfactualRunButton").assertIsDisplayed()
     }
 
+    private fun deselectAllMutableOptions() {
+        availableMutableOptionKeys().forEach { key ->
+            if (isOptionSelected(key)) {
+                clickMutableOption(key)
+                waitForOptionSelected(key, false)
+            }
+        }
+    }
+
+    private fun availableMutableOptionKeys(): List<String> {
+        return listOf(
+            "smoking_status",
+            "BMI",
+            "moderate_physical_activity_frequency",
+            "is_hypertension",
+            "is_cholesterol"
+        ).filter { key ->
+            try {
+                composeTestRule.onNodeWithTag(optionTag(key)).performScrollTo().fetchSemanticsNode()
+                true
+            } catch (_: Throwable) {
+                false
+            }
+        }
+    }
+
+    private fun clickMutableOption(key: String) {
+        composeTestRule.onNodeWithTag(optionTag(key))
+            .performScrollTo()
+            .assertIsDisplayed()
+            .performClick()
+        composeTestRule.waitForIdle()
+    }
+
+    private fun waitForOptionSelected(key: String, selected: Boolean) {
+        composeTestRule.waitUntil(timeoutMillis = 5000L) {
+            isOptionSelected(key) == selected
+        }
+    }
+
+    private fun isOptionSelected(key: String): Boolean {
+        val node = composeTestRule.onNodeWithTag(optionTag(key))
+            .performScrollTo()
+            .fetchSemanticsNode()
+        return node.config.getOrNull(SemanticsProperties.Selected) == true
+    }
+
+    private fun optionTag(key: String): String = "CounterfactualOption_$key"
+
     private fun setCounterfactualTarget(target: Int, currentRisk: Int) {
         composeTestRule.onNodeWithTag("CounterfactualTargetSlider")
             .performSemanticsAction(SemanticsActions.SetProgress) { setProgress ->
@@ -200,7 +446,6 @@ class CounterfactualE2ETestHelper(
         composeTestRule.waitUntil(timeoutMillis = 5000L) {
             val displayedTarget = getDisplayedTargetPercentage()
             displayedTarget <= target &&
-                displayedTarget <= MAX_TARGET_PERCENTAGE &&
                 displayedTarget < currentRisk
         }
     }
@@ -295,15 +540,6 @@ class CounterfactualE2ETestHelper(
         }
         composeTestRule.onNodeWithTag("HomeCounterfactualSection").performScrollTo()
         composeTestRule.waitForIdle()
-    }
-
-    private fun completeSurveyBootstrapForCounterfactual() {
-        surveyTestHelper.fillSurveyForFeasibleCounterfactualProfile()
-        surveyTestHelper.submitSurvey()
-        surveyTestHelper.verifySuccessScreen()
-        composeTestRule.onNodeWithText("Beranda").performClick()
-        composeTestRule.waitForIdle()
-        waitForHomeContentToLoad()
     }
 
     private fun fillLoginForm(email: String, password: String) {

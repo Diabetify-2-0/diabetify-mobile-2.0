@@ -9,9 +9,9 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.itb.diabetify.R
 import com.itb.diabetify.data.remote.counterfactual.response.CounterfactualCandidate
+import com.itb.diabetify.data.remote.counterfactual.response.CounterfactualChangedFeature
+import com.itb.diabetify.data.remote.counterfactual.response.CounterfactualInput
 import com.itb.diabetify.data.remote.counterfactual.response.CounterfactualJobResultData
-import com.itb.diabetify.data.remote.counterfactual.response.CounterfactualPlannerInput
-import com.itb.diabetify.data.remote.counterfactual.response.CounterfactualPlannerPrediction
 import com.itb.diabetify.data.remote.counterfactual.response.CounterfactualPredictionInfo
 import com.itb.diabetify.data.remote.counterfactual.response.CounterfactualResultPayload
 import com.itb.diabetify.ui.theme.DiabetifyTheme
@@ -151,31 +151,27 @@ class CounterfactualResultContentTest {
         return CounterfactualResultPayload(
             status = "FEASIBLE",
             reasonCode = "OK",
-            inputPrediction = CounterfactualPredictionInfo(
+            input = CounterfactualInput(
                 className = "high_risk",
                 probabilityLowRisk = 0.32
             ),
-            candidates = listOf(
+            candidate =
                 CounterfactualCandidate(
                     candidateId = "cf_80",
-                    prediction = CounterfactualPredictionInfo(
+                    candidatePrediction = CounterfactualPredictionInfo(
                         className = "low_risk",
                         probabilityLowRisk = 0.70
+                    ),
+                    changedFeatures = listOf(
+                        CounterfactualChangedFeature(
+                            baselineValue = 2.0,
+                            candidateValue = 1.0,
+                            delta = -1.0,
+                            direction = "decrease",
+                            featureName = "smoking_status"
+                        )
                     )
                 )
-            ),
-            plannerInput = CounterfactualPlannerInput(
-                changedFeatures = emptyList(),
-                inputPrediction = CounterfactualPlannerPrediction(
-                    className = "high_risk",
-                    probabilityLowRisk = 0.32
-                ),
-                candidatePrediction = CounterfactualPlannerPrediction(
-                    className = "low_risk",
-                    probabilityLowRisk = 0.70
-                ),
-                recommendedCandidateId = "cf_80"
-            )
         )
     }
 }

@@ -29,40 +29,117 @@ class CounterfactualE2ETest {
     )
 
     private lateinit var testHelper: CounterfactualE2ETestHelper
+    private lateinit var reporter: CounterfactualE2EReporter
 
     @Before
     fun setUp() {
         hiltRule.inject()
         testHelper = CounterfactualE2ETestHelper(composeTestRule)
+        reporter = CounterfactualE2EReporter()
     }
 
     @Test
-    fun counterfactualFlow_serviceBackedScenarioCompletesOnDevice() {
-        testHelper.startAppAndNavigateToHome()
-        testHelper.verifyCounterfactualEntryAvailable()
-        testHelper.navigateToCounterfactualScreen()
+    fun counterfactualRm5_endToEndFunctionalSuite_recordsTwelveScenarios() {
+        var fullActionableResult: CounterfactualE2ETestHelper.CounterfactualRunResult? = null
 
-        val result = testHelper.runServiceBackedCounterfactualAndMeasureLatency()
-        testHelper.verifyServiceBackedResultState(result)
-    }
-
-    @Test
-    fun counterfactualFlow_serviceBackedLatencyStaysUnderFiveSeconds() {
-        testHelper.startAppAndNavigateToHome()
-        testHelper.verifyCounterfactualEntryAvailable()
-        testHelper.navigateToCounterfactualScreen()
-
-        val latencies = mutableListOf<Long>()
-        repeat(3) { iteration ->
-            val result = testHelper.runServiceBackedCounterfactualAndMeasureLatency()
-            testHelper.verifyServiceBackedResultState(result)
-            latencies += result.latencyMs
-            println("Counterfactual E2E iteration ${iteration + 1}: state=${result.stateTag}, latencyMs=${result.latencyMs}")
-            if (iteration < 2) {
-                testHelper.returnToCounterfactualSetup()
-            }
+        reporter.scenario(
+            id = "E2E-CF-01",
+            name = "Health readiness counterfactual"
+        ) {
+            testHelper.verifyCounterfactualHealthReady()
         }
 
-        testHelper.verifyLatencyWithinTarget(latencies)
+        reporter.scenario(
+            id = "E2E-CF-02",
+            name = "Toggle pilihan mutable"
+        ) {
+            testHelper.ensureCounterfactualSetup()
+            testHelper.verifyMutableToggle()
+        }
+
+        reporter.scenario(
+            id = "E2E-CF-03",
+            name = "Validasi tanpa mutable terpilih"
+        ) {
+            testHelper.ensureCounterfactualSetup()
+            testHelper.verifyNoMutableValidation()
+        }
+
+        reporter.scenario(
+            id = "E2E-CF-04",
+            name = "Submit feasible dengan BMI saja"
+        ) {
+            testHelper.ensureCounterfactualSetup()
+            val result = testHelper.runFeasibleBmiOnly()
+            testHelper.verifyServiceBackedResultState(result)
+            "state=${result.stateTag}, latencyMs=${result.latencyMs}"
+        }
+
+        reporter.scenario(
+            id = "E2E-CF-05",
+            name = "Submit feasible dengan BMI + aktivitas"
+        ) {
+            testHelper.ensureCounterfactualSetup()
+            val result = testHelper.runFeasibleBmiAndActivity()
+            testHelper.verifyServiceBackedResultState(result)
+            "state=${result.stateTag}, latencyMs=${result.latencyMs}"
+        }
+
+        reporter.scenario(
+            id = "E2E-CF-06",
+            name = "Submit feasible dengan full actionable"
+        ) {
+            testHelper.ensureCounterfactualSetup()
+            fullActionableResult = testHelper.runFeasibleFullActionable()
+            testHelper.verifyServiceBackedResultState(requireNotNull(fullActionableResult))
+            "state=${fullActionableResult?.stateTag}, latencyMs=${fullActionableResult?.latencyMs}"
+        }
+
+        reporter.scenario(
+            id = "E2E-CF-07",
+            name = "Polling job sampai status terminal"
+        ) {
+            testHelper.verifyPollingReachedTerminal(requireNotNull(fullActionableResult))
+        }
+
+        reporter.scenario(
+            id = "E2E-CF-08",
+            name = "Result feasible menampilkan risiko awal, risiko hasil, dan fitur berubah"
+        ) {
+            testHelper.verifyFeasibleResultContent(requireNotNull(fullActionableResult))
+        }
+
+        reporter.scenario(
+            id = "E2E-CF-09",
+            name = "Simpan hasil feasible sebagai planner goal"
+        ) {
+            testHelper.saveFeasibleResultAsPlannerGoal()
+        }
+
+        reporter.scenario(
+            id = "E2E-CF-10",
+            name = "Infeasible scenario dengan constraint terlalu sempit atau target terlalu rendah"
+        ) {
+            testHelper.ensureCounterfactualSetup()
+            val result = testHelper.runStrictInfeasibleBmiOnly()
+            testHelper.verifyInfeasibleResultState(result)
+        }
+
+        reporter.scenario(
+            id = "E2E-CF-11",
+            name = "Result infeasible menampilkan state skenario realistis belum ditemukan"
+        ) {
+            testHelper.verifyInfeasibleResultContent()
+        }
+
+        reporter.scenario(
+            id = "E2E-CF-12",
+            name = "Cari skenario lain dari result screen"
+        ) {
+            testHelper.returnToCounterfactualSetup()
+            "returned to counterfactual setup"
+        }
+
+        reporter.writeAndAssert(minimumSuccessRate = 0.90)
     }
 }

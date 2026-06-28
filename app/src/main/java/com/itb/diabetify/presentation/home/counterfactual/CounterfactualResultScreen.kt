@@ -431,7 +431,9 @@ private fun FeasibleHeroCard(result: CounterfactualResultPayload) {
     }
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .testTag("CounterfactualFeasibleHero")
+            .fillMaxWidth(),
         shape = RoundedCornerShape(26.dp),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent)
     ) {
@@ -573,6 +575,7 @@ private fun FeatureVisualizationRow(
 ) {
     Column(
         modifier = Modifier
+            .testTag("CounterfactualChangedFeature_${feature.featureName}")
             .fillMaxWidth()
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
