@@ -51,7 +51,6 @@ android {
         manifestPlaceholders["usesCleartextTraffic"] = "false"
         buildConfigField("String", "API_BASE_URL", buildConfigString(normalizedBaseUrl()))
         buildConfigField("String", "CHATBOT_BASE_URL", buildConfigString(normalizedChatbotBaseUrl()))
-        buildConfigField("String", "WEB_CLIENT_ID", buildConfigString(localProperty("WEB_CLIENT_ID")))
     }
 
     buildTypes {

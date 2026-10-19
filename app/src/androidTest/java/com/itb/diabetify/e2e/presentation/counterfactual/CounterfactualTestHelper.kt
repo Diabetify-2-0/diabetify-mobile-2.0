@@ -22,7 +22,7 @@ import kotlin.math.max
 import java.net.HttpURLConnection
 import java.net.URL
 
-class CounterfactualE2ETestHelper(
+class CounterfactualTestHelper(
     private val composeTestRule: AndroidComposeTestRule<ActivityScenarioRule<MainActivity>, MainActivity>
 ) {
 
